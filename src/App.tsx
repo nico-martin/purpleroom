@@ -10,6 +10,7 @@ import DashboardPage from "./pages/DashboardPage";
 import EditionDetailPage from "./pages/EditionDetailPage";
 import EditionFormPage from "./pages/EditionFormPage";
 import SettingsPage from "./pages/SettingsPage";
+import SetupPage from "./pages/SetupPage";
 import TalkDetailPage from "./pages/TalkDetailPage";
 import TalksPage from "./pages/TalksPage";
 import TrashPage from "./pages/TrashPage";
@@ -19,6 +20,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<AuthPage mode="login" />} />
+      <Route path="/setup" element={<SetupPage />} />
       <Route path="/auth/:token" element={<AuthPage mode="verify" />} />
       <Route path="/invite/:token" element={<AuthPage mode="invite" />} />
       <Route element={<AppShell />}>

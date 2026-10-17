@@ -5,14 +5,18 @@ function start_session(): void {
     global $config;
     if (session_status() === PHP_SESSION_ACTIVE) return;
     $directory = dirname(__DIR__) . '/db/sessions';
-    if (!is_dir($directory)) mkdir($directory, 0700, true);
+    if (!is_dir($directory) && !@mkdir($directory, 0700, true) && !is_dir($directory)) fail(503, 'storage_unavailable', 'PHP cannot create its session directory. Check that api/db/ is writable by PHP.');
+    if (!is_writable($directory)) fail(503, 'storage_unavailable', 'PHP cannot write sessions. Check the permissions of api/db/sessions/.');
     ini_set('session.gc_maxlifetime', '15552000');
     ini_set('session.use_strict_mode', '1');
     session_save_path($directory);
     session_name('gr_session');
     // Local HTTP cannot set a Secure cookie. Production always requires HTTPS.
     session_set_cookie_params(['lifetime' => 15552000, 'path' => '/', 'secure' => $config['env'] !== 'dev', 'httponly' => true, 'samesite' => 'Lax']);
-    session_start();
+    if (!@session_start()) {
+        error_log('Green Room: session_start failed. Check session-directory permissions and PHP session settings.');
+        fail(503, 'storage_unavailable', 'PHP could not start a session. Check session-directory permissions and PHP session settings.');
+    }
 }
 function current_user(): ?array {
     start_session();

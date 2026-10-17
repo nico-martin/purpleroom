@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const directory = await mkdtemp(join(tmpdir(), "green-room-test-"));
-const env = { ...process.env, GREEN_ROOM_ENV: "dev", GREEN_ROOM_DB: join(directory, "test.sqlite") };
+const setupKey = randomBytes(32).toString("hex");
+const env = { ...process.env, GREEN_ROOM_ENV: "dev", GREEN_ROOM_DB: join(directory, "test.sqlite"), GREEN_ROOM_SETUP_KEY: setupKey };
 let server;
 let failures = "";
 const origin = "http://127.0.0.1:8018";
@@ -28,10 +30,6 @@ function client() {
   };
 }
 try {
-  cli(["api/db/migrate.php"]);
-  cli(["api/db/migrate.php"]);
-  const seed = cli(["api/db/seed.php", "Test Speaker", "speaker@example.com"]);
-  const token = seed.match(/\/auth\/([a-f0-9]{64})/)[1];
   server = spawn("php", ["-S", "127.0.0.1:8018", "-t", ".", "api/dev-router.php"], { env, stdio: ["ignore", "ignore", "pipe"] });
   server.stderr.on("data", (chunk) => { failures += chunk; });
   for (let attempts = 0; attempts < 50; attempts++) {
@@ -39,6 +37,22 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   const owner = client(); const other = client(); const anonymous = client();
+  const missingSchema = await anonymous("/auth/request", "POST", { email: "speaker@example.com" }, 503);
+  assert.equal(missingSchema.error.code, "setup_required");
+  await anonymous("/setup", "POST", { setup_key: setupKey, name: "Test Speaker", email: "speaker@example.com" }, 403, false);
+  await anonymous("/setup", "POST", { setup_key: "wrong-key", name: "Test Speaker", email: "speaker@example.com" }, 403);
+  await anonymous("/setup", "POST", { setup_key: setupKey, name: "Test Speaker", email: "not-an-email" }, 422);
+  const bootstrap = await owner("/setup", "POST", { setup_key: setupKey, name: "Test Speaker", email: "speaker@example.com" }, 201);
+  assert.equal(bootstrap.user.email, "speaker@example.com");
+  assert.equal((await owner("/me")).user.id, bootstrap.user.id);
+  assert.equal((await owner("/users")).length, 1);
+  await anonymous("/setup", "POST", { setup_key: setupKey, name: "Intruder", email: "intruder@example.com" }, 409);
+  assert.equal((await owner("/users")).length, 1);
+  cli(["api/db/migrate.php"]);
+  cli(["api/db/migrate.php"]);
+  const seed = cli(["api/db/seed.php", "Test Speaker", "speaker@example.com"]);
+  const token = seed.match(/\/auth\/([a-f0-9]{64})/)[1];
+  await owner("/auth/logout", "POST", undefined, 204);
   await anonymous("/me", "GET", undefined, 401);
   await anonymous("/auth/request", "POST", { email: "nobody@example.com" }, 403, false);
   assert.deepEqual(await anonymous("/auth/request", "POST", { email: "nobody@example.com" }), { ok: true });
@@ -108,7 +122,17 @@ try {
   assert.equal((await owner(`/editions/${edition.id}`)).submissions.length, 0);
   await owner("/auth/logout", "POST", undefined, 204);
   await owner("/me", "GET", undefined, 401);
-  console.log("API integration checks passed: authentication, CSRF, validation, CRUD, privacy, ownership, invites, dashboard, calendar, soft delete/restore, and protected files.");
+  server.kill("SIGTERM");
+  await new Promise((resolve) => server.once("exit", resolve));
+  server = spawn("php", ["-S", "127.0.0.1:8018", "-t", ".", "api/dev-router.php"], { env: { ...env, GREEN_ROOM_SETUP_KEY: "" }, stdio: ["ignore", "ignore", "pipe"] });
+  server.stderr.on("data", (chunk) => { failures += chunk; });
+  for (let attempts = 0; attempts < 50; attempts++) {
+    try { if ((await fetch(origin + "/api/health")).ok) break; } catch { /* server starting */ }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  const disabled = await anonymous("/setup", "POST", { setup_key: setupKey, name: "Intruder", email: "intruder@example.com" }, 404);
+  assert.equal(disabled.error.code, "not_found");
+  console.log("API integration checks passed: one-time web setup, disabled setup, missing-schema diagnostics, authentication, CSRF, validation, CRUD, privacy, ownership, invites, dashboard, calendar, soft delete/restore, and protected files.");
 } finally {
   if (server) {
     server.kill("SIGTERM");

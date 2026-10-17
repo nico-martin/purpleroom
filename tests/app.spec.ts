@@ -3,6 +3,13 @@ import { expect, test } from "@playwright/test";
 test("the crew can take a conference from shortlist to stage", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/setup");
+  await page.getByLabel("Setup key", { exact: true }).fill("green-room-browser-test-key-not-for-production");
+  await page.getByLabel("Your name", { exact: true }).fill("Nico");
+  await page.getByLabel("Email address", { exact: true }).fill("ui-test@example.com");
+  await page.getByRole("button", { name: "Create my account", exact: true }).click();
+  await expect(page.getByRole("heading", { name: /Nico\./ })).toBeVisible();
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await page.goto("/talks");
   await expect(page.getByRole("heading", { name: "Welcome to the room." })).toBeVisible();
   await page.getByLabel("Email address").fill("ui-test@example.com");

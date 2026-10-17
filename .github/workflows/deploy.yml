@@ -65,6 +65,17 @@ jobs:
           test ! -d "$bundle/api/db/sessions"
           echo "Frontend assets, PHP backend, and Apache protection files are ready."
 
+      - name: Generate production PHP config from secrets
+        shell: bash
+        env:
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+          APP_MAIL_FROM: ${{ secrets.APP_MAIL_FROM }}
+          APP_SETUP_KEY: ${{ secrets.APP_SETUP_KEY }}
+        run: |
+          set -euo pipefail
+          node scripts/generate-production-config.mjs "$RUNNER_TEMP/green-room-deploy/api/config.local.php"
+          test -s "$RUNNER_TEMP/green-room-deploy/api/config.local.php"
+
       - name: Validate FTP configuration
         shell: bash
         env:
@@ -100,14 +111,18 @@ jobs:
             **/.git*/**
             **/node_modules/**
             **/.DS_Store
-            api/config.local.php
             api/db/db.sqlite*
             api/db/sessions
             api/db/sessions/**
             api/dev-router.php
 
+      - name: Remove generated config from the runner
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/green-room-deploy/api/config.local.php"
+
       - name: Deployment complete
         run: |
           echo "### Production files deployed" >> "$GITHUB_STEP_SUMMARY"
-          echo "Frontend bundles and PHP backend uploaded. Live database, sessions, and local config were excluded." >> "$GITHUB_STEP_SUMMARY"
-          echo 'FTP cannot execute migrations. On first deployment or schema changes, run `php api/db/migrate.php` on the server via SSH.' >> "$GITHUB_STEP_SUMMARY"
+          echo "Frontend bundles, PHP backend, and generated production config uploaded. Live database and sessions were excluded." >> "$GITHUB_STEP_SUMMARY"
+          echo 'First deployment: set APP_SETUP_KEY and visit /setup to initialize the database and first user. Delete APP_SETUP_KEY and redeploy after setup. Existing installations still require CLI migrations when the schema changes.' >> "$GITHUB_STEP_SUMMARY"

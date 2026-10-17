@@ -13,7 +13,8 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "db:migrate": "php api/db/migrate.php",
     "test:api": "node scripts/test-api.mjs",
-    "test:ui": "playwright test"
+    "test:ui": "playwright test",
+    "test:deploy": "node --test scripts/test-production-config.mjs"
   },
   "dependencies": {
     "lucide-react": "latest",
