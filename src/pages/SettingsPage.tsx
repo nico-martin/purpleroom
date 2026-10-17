@@ -9,6 +9,7 @@ import {
   Avatar,
   Button,
   Card,
+  ColorSchemeControl,
   CopyField,
   Field,
   Input,
@@ -49,6 +50,21 @@ export default function SettingsPage({ className = "" }: SettingsPageProps) {
         title="The little details."
         description="Your profile, your calendar, your corner of the room."
       />
+      <section className="mb-9 max-w-5xl">
+        <SectionHeader title="Set the mood" />
+        <Card
+          padded
+          className="flex flex-wrap items-center justify-between gap-5"
+        >
+          <div>
+            <h3 className="text-lg">Light, dark, or let your system decide.</h3>
+            <p className="mt-2 text-sm text-muted">
+              Saved in a cookie for this browser only, not to your account.
+            </p>
+          </div>
+          <ColorSchemeControl />
+        </Card>
+      </section>
       <div className="grid max-w-5xl gap-9 lg:grid-cols-2">
         <section>
           <SectionHeader title="How the crew sees you" />

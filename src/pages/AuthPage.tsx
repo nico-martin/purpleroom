@@ -24,6 +24,7 @@ import {
   Brand,
   Button,
   Card,
+  ColorSchemeControl,
   Field,
   Input,
   LoadingState,
@@ -109,7 +110,10 @@ export default function AuthPage({ mode, className = "" }: AuthPageProps) {
   return (
     <div className={className}>
       <div className="mx-auto flex min-h-screen max-w-screen-xl flex-col px-6 py-8 sm:px-12">
-        <Brand />
+        <div className="flex items-center justify-between gap-4">
+          <Brand />
+          <ColorSchemeControl compact />
+        </div>
         <main className="grid flex-1 items-center gap-12 py-14 lg:grid-cols-2 lg:gap-24">
           <section>
             <Badge tone="positive" className="mb-6">

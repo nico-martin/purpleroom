@@ -70,6 +70,11 @@ test("the crew can take a conference from shortlist to stage", async ({ page }) 
   await page.getByLabel("Your name", { exact: true }).fill("Nico Speaker");
   await page.getByRole("button", { name: "Save profile" }).click();
   await expect(page.getByText("Looking good. Your profile is saved.")).toBeVisible();
+  await page.getByRole("group", { name: "Colour theme" }).getByRole("button", { name: "Dark", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.reload();
+  await expect(page.getByRole("group", { name: "Colour theme" }).getByRole("button", { name: "Dark", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("group", { name: "Colour theme" }).getByRole("button", { name: "System", exact: true }).click();
   await page.emulateMedia({ colorScheme: "dark" });
   await page.screenshot({ path: "test-results/settings-dark-mobile.png", fullPage: true, animations: "disabled" });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

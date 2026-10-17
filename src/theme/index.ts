@@ -24,3 +24,4 @@ export { default as LoadingState } from "./feedback/LoadingState";
 export { default as Modal } from "./overlay/Modal";
 export { default as NavItem } from "./navigation/NavItem";
 export { default as Brand } from "./navigation/Brand";
+export { default as ColorSchemeControl } from "./color-scheme/ColorSchemeControl";

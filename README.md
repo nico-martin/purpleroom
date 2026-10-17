@@ -26,10 +26,16 @@ To customize configuration, copy `api/config.example.php` to `api/config.local.p
 ## UI architecture
 
 - `src/theme/`: reusable, business-logic-free UI primitives, always exported through `src/theme/index.ts`. Includes the design template's buttons, fields, checkboxes, segmented control, tag pills, status chips, deadline badges, avatar stacks, logo tiles, cards, and list rows, plus navigation, dialogs, and feedback components.
-- `src/index.css`: the design system's **named Tailwind colour tokens**, font families, and system dark-mode overrides. Nunito headings stay at 600; Nunito Sans handles body copy; JetBrains Mono handles dates/countdowns. Fonts load from Google Fonts, with local fallbacks.
+- `src/index.css`: the design system's **named Tailwind colour tokens**, font families, and light/dark overrides. Nunito headings stay at 600; Nunito Sans handles body copy; JetBrains Mono handles dates/countdowns. Fonts load from Google Fonts, with local fallbacks.
 - `src/components/`: domain-specific forms, submissions, reviews, and discussions.
 - `src/pages/`: routed views. `src/hooks/`: small fetch/mutation/session hooks.
 - `api/`: PHP front controller, route modules, prepared SQLite queries, native sessions, hashed single-use tokens, and an iCalendar feed.
+
+### Browser appearance preference
+
+Use the theme icon in the header to cycle **System → Light → Dark**, or choose directly in **Settings → Set the mood**. The same control is available on sign-in and setup screens. System is the default and follows OS changes automatically; an explicit choice overrides the OS preference.
+
+The choice is stored only in a host-only `gr_theme` cookie (`Path=/`, `SameSite=Lax`, one-year lifetime, `Secure` on HTTPS). It survives reloads and sign-out on that browser but is not written to your account, database, or local storage. Other browsers keep their own preferences. `public/color-scheme.js` applies the cookie before the app renders to prevent a flash of the wrong theme, and picks up other-tab changes when the window regains focus.
 
 ## Checks
 

@@ -10,6 +10,7 @@ import {
   Button,
   ButtonLink,
   Card,
+  ColorSchemeControl,
   Field,
   Input,
   Notice,
@@ -45,7 +46,10 @@ export default function SetupPage({ className = "" }: SetupPageProps) {
   return (
     <div className={className}>
       <div className="mx-auto max-w-xl px-6 py-10 sm:py-14">
-        <Brand className="mb-12" />
+        <div className="mb-12 flex items-center justify-between gap-4">
+          <Brand />
+          <ColorSchemeControl compact />
+        </div>
         <PageHeader
           eyebrow="Just once, before the crew arrives"
           title="Open the Green Room."

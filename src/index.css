@@ -1,6 +1,8 @@
 @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Nunito:wght@400;600&family=Nunito+Sans:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 @theme {
   --font-sans: "Nunito Sans", sans-serif;
   --font-heading: "Nunito", sans-serif;
@@ -31,6 +33,9 @@
 }
 
 @layer base {
+  :root {
+    color-scheme: light;
+  }
   * {
     border-color: var(--color-border);
   }
@@ -69,29 +74,27 @@
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --color-ground: #18211d;
-    --color-surface: #212d26;
-    --color-ink: #e6ece7;
-    --color-ink-soft: #c5d1c8;
-    --color-muted: #a1b1a6;
-    --color-border: #35463b;
-    --color-divider: #2d3b32;
-    --color-field: #4a6052;
-    --color-green: #75b497;
-    --color-green-deep: #c9e6d6;
-    --color-green-soft: #2b4436;
-    --color-urgent: #4d2c29;
-    --color-urgent-ink: #ffb1a9;
-    --color-soon: #483d25;
-    --color-soon-ink: #f2d09a;
-    --color-info: #2a3c50;
-    --color-info-ink: #a7c8ef;
-    --color-declined: #403533;
-    --color-declined-ink: #d2b4af;
-  }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-ground: #18211d;
+  --color-surface: #212d26;
+  --color-ink: #e6ece7;
+  --color-ink-soft: #c5d1c8;
+  --color-muted: #a1b1a6;
+  --color-border: #35463b;
+  --color-divider: #2d3b32;
+  --color-field: #4a6052;
+  --color-green: #75b497;
+  --color-green-deep: #c9e6d6;
+  --color-green-soft: #2b4436;
+  --color-urgent: #4d2c29;
+  --color-urgent-ink: #ffb1a9;
+  --color-soon: #483d25;
+  --color-soon-ink: #f2d09a;
+  --color-info: #2a3c50;
+  --color-info-ink: #a7c8ef;
+  --color-declined: #403533;
+  --color-declined-ink: #d2b4af;
 }
 
 @keyframes enter {

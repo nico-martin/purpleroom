@@ -19,7 +19,15 @@ import { api } from "../api";
 import useApi from "../hooks/useApi";
 import useMutation from "../hooks/useMutation";
 import type { AppContext } from "../hooks/useSession";
-import { Avatar, Brand, Button, LoadingState, NavItem, Notice } from "../theme";
+import {
+  Avatar,
+  Brand,
+  Button,
+  ColorSchemeControl,
+  LoadingState,
+  NavItem,
+  Notice,
+} from "../theme";
 import type { Me } from "../types";
 import cn from "../utils/classnames";
 
@@ -149,11 +157,12 @@ export default function AppShell({ className = "" }: AppShellProps) {
               Green Room.
             </span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <span className="hidden items-center gap-2 text-xs text-muted md:flex">
               <span className="size-1.5 rounded-full bg-green" />
               Just the crew
             </span>
+            <ColorSchemeControl compact />
             <Button
               variant="ghost"
               className="size-11 p-0"
