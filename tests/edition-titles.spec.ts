@@ -36,25 +36,28 @@ test("edition titles prefill from the selected conference without overwriting cu
   await title.fill("");
   await conference.selectOption("2");
   await expect(title).toHaveValue("JS Friends");
-  await title.fill(`JS Friends London ${year}`);
-  await page.getByLabel("Year", { exact: true }).fill(String(year));
+  await title.fill("JSNation Berlin 26");
+  await expect(page.getByLabel("Year", { exact: true })).toHaveCount(0);
+  await page.getByLabel("First day", { exact: true }).fill(`${year}-05-20`);
+  await page.getByLabel("Last day", { exact: true }).fill(`${year}-05-21`);
   await page.getByLabel("City", { exact: true }).fill("London");
   await page.getByLabel("Country code (e.g. NL)", { exact: true }).fill("GB");
   await page.getByRole("button", { name: "Add edition", exact: true }).click();
-  await expect(page.getByRole("heading", { name: `JS Friends London ${year}`, exact: true })).toBeVisible();
-  expect(submitted).toMatchObject({ conference_id: 2, title: `JS Friends London ${year}`, year, city: "London" });
-  await expect(page.getByText(`JS Friends London ${year} ${year}`, { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "JSNation Berlin 26", exact: true })).toBeVisible();
+  expect(submitted).toMatchObject({ conference_id: 2, title: "JSNation Berlin 26", city: "London" });
+  expect(submitted).not.toHaveProperty("year");
+  await expect(page.getByText(`JSNation Berlin 26 ${year}`, { exact: true })).toHaveCount(0);
 });
 
-test("another edition of the same conference defaults to its name without advancing the year", async ({ page }) => {
+test("another edition defaults to the conference name without a separate year field", async ({ page }) => {
   await page.goto("/editions/new?conference=1");
   await expect(page.getByLabel("Conference", { exact: true })).toHaveValue("1");
   await expect(page.getByLabel("Edition title", { exact: true })).toHaveValue("DevConf");
-  await expect(page.getByLabel("Year", { exact: true })).toHaveValue(String(year));
+  await expect(page.getByLabel("Year", { exact: true })).toHaveCount(0);
   await expect(page.getByLabel("City", { exact: true })).toHaveValue("Berlin");
   await page.getByLabel("Edition title", { exact: true }).fill("DevConf London");
   await page.getByLabel("City", { exact: true }).fill("London");
-  await expect(page.getByLabel("Year", { exact: true })).toHaveValue(String(year));
+  await expect(page.getByLabel("First day", { exact: true })).toHaveValue("");
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
@@ -64,6 +67,7 @@ test("editing a named edition preserves its title when the selected conference c
   await expect(page.getByLabel("Edition title", { exact: true })).toHaveValue("DevConf Berlin");
   await page.getByLabel("Conference", { exact: true }).selectOption("2");
   await expect(page.getByLabel("Edition title", { exact: true })).toHaveValue("DevConf Berlin");
-  await page.getByLabel("Year", { exact: true }).fill(String(year + 1));
+  await page.getByLabel("First day", { exact: true }).fill(`${year + 1}-05-20`);
+  await page.getByLabel("Last day", { exact: true }).fill(`${year + 1}-05-21`);
   await expect(page.getByLabel("Edition title", { exact: true })).toHaveValue("DevConf Berlin");
 });

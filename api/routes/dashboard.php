@@ -8,8 +8,7 @@ route('GET', '/dashboard', function () {
         return ['edition' => $e, 'conference' => conference_summary(conference((int) $e['conference_id'])), 'days_left' => (int) (new DateTimeImmutable($today))->diff(new DateTimeImmutable($e['cfp_closes_on']))->format('%a'), 'submitters' => $submitters, 'my_submissions' => all('SELECT s.*,p.title AS paper_title FROM submissions s JOIN papers p ON p.id=s.paper_id WHERE s.edition_id=? AND p.owner_id=?', [$e['id'], $uid])];
     }, $open);
     $upcoming = array_map(fn($e) => ['edition' => $e, 'conference' => conference_summary(conference((int) $e['conference_id'])), ...people_for((int) $e['id'])], all('SELECT e.* FROM editions e JOIN conferences c ON c.id=e.conference_id WHERE e.deleted_at IS NULL AND c.deleted_at IS NULL AND e.starts_on>=? ORDER BY e.starts_on LIMIT 20', [$today]));
-    $title = "COALESCE(NULLIF(e.title,''),c.name)";
-    $editionLabel = "(CASE WHEN instr($title, CAST(e.year AS TEXT))>0 THEN $title ELSE $title || ' ' || e.year END)";
+    $editionLabel = "COALESCE(NULLIF(e.title,''),c.name)";
     $commentEditionLabel = str_replace('c.name', 'ec.name', $editionLabel);
     $activity = all("SELECT 'conference' AS type, c.created_at AS at, c.created_by AS user_id, 'added ' || c.name AS summary, '/conferences/' || c.id AS link FROM conferences c WHERE c.deleted_at IS NULL
       UNION ALL SELECT 'edition',e.created_at,e.created_by,'added ' || $editionLabel,'/editions/' || e.id FROM editions e JOIN conferences c ON c.id=e.conference_id WHERE e.deleted_at IS NULL AND c.deleted_at IS NULL

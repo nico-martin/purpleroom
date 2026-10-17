@@ -75,7 +75,7 @@ export default function EditionDetailPage({
         />
         <div className="min-w-0 flex-1">
           <p className="mb-1 font-mono text-xs uppercase tracking-widest text-muted">
-            The {data.year} edition
+            Conference edition
           </p>
           <h1 className="text-3xl tracking-tight sm:text-4xl">{name}</h1>
           <div className="mt-3 flex flex-wrap gap-5 text-sm text-muted">

@@ -40,14 +40,14 @@ test("the crew can take a conference from shortlist to stage", async ({ page }) 
   await page.getByRole("link", { name: "New edition" }).click();
   await expect(page.getByLabel("Edition title", { exact: true })).toHaveValue("JSNation");
   const future = (days: number) => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
-  await page.getByLabel("Year", { exact: true }).fill(String(new Date(future(90)).getFullYear()));
+  await expect(page.getByLabel("Year", { exact: true })).toHaveCount(0);
   await page.getByLabel("City", { exact: true }).fill("Amsterdam");
   await page.getByLabel("Country code").fill("NL");
   await page.getByLabel("First day").fill(future(90));
   await page.getByLabel("Last day").fill(future(91));
   await page.getByLabel("CFP closes").fill(future(5));
   await page.getByRole("button", { name: "Add edition", exact: true }).click();
-  await expect(page.getByRole("heading", { name: /JSNation \d{4}/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "JSNation", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Add my talk", exact: true }).click();
   await expect(page.getByLabel("Abstract for this edition (optional)")).toHaveCount(0);
   await expect(page.getByLabel("Submission status").locator('option[value="attended"]')).toHaveCount(0);
@@ -97,7 +97,7 @@ test("the crew can take a conference from shortlist to stage", async ({ page }) 
   await page.getByLabel("Private notes").fill("Remember to bring the accessible demos.");
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page.getByText("Remember to bring the accessible demos.")).toBeVisible();
-  await page.getByRole("link", { name: /JSNation \d{4}/ }).click();
+  await page.getByRole("link", { name: "JSNation", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Call for papers", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   page.on("dialog", (dialog) => dialog.accept());

@@ -10,8 +10,15 @@ function edition(int $id): array {
 function edition_label(array $edition, string $conferenceName): string {
     $title = trim($edition['title'] ?? '');
     if ($title === '') $title = $conferenceName;
-    $year = (string) $edition['year'];
-    return str_contains($title, $year) ? $title : $title . ' ' . $year;
+    return $title;
+}
+function with_edition_legacy_year(array $data, ?array $existing = null): array {
+    $merged = [...($existing ?? []), ...$data];
+    $date = ($merged['starts_on'] ?? null) ?: ($merged['ends_on'] ?? null);
+    // Keep the old NOT NULL column for compatibility, not as an edition's identity.
+    // Dates are authoritative. Undated editions retain legacy metadata or use the current year.
+    $data['year'] = $date ? (int) substr($date, 0, 4) : ($data['year'] ?? $existing['year'] ?? (int) gmdate('Y'));
+    return $data;
 }
 function paper(int $id): array {
     return one('SELECT * FROM papers WHERE id=? AND owner_id=?', [$id, require_login()['id']]) ?? fail(404, 'not_found', 'Talk not found.');
@@ -60,5 +67,4 @@ function validate_edition(array $data): void {
         if (!empty($data[$start]) && !empty($data[$end]) && $data[$end] < $data[$start]) fail(422, 'validation', 'End date must be on or after the start date.', [$end => 'before_start']);
     }
     if (!empty($data['country']) && !preg_match('/^[A-Z]{2}$/', $data['country'])) fail(422, 'validation', 'Use a two-letter country code.', ['country' => 'invalid']);
-    if (isset($data['year']) && ($data['year'] < 1900 || $data['year'] > 2200)) fail(422, 'validation', 'Choose a valid year.', ['year' => 'invalid']);
 }

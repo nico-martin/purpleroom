@@ -26,7 +26,6 @@ interface EditionFormPageProps {
 const empty = {
   conference_id: "",
   title: "",
-  year: String(new Date().getFullYear()),
   city: "",
   country: "",
   online: false,
@@ -66,7 +65,6 @@ export default function EditionFormPage({
             list.find((conference) => conference.id === e.conference_id)
               ?.name ||
             "",
-          year: String(e.year),
           city: e.city ?? "",
           country: e.country ?? "",
           online: !!e.online,
@@ -90,7 +88,6 @@ export default function EditionFormPage({
         if (previous) {
           setForm((current) => ({
             ...current,
-            year: String(Math.max(new Date().getFullYear(), previous.year)),
             city: previous.city ?? "",
             country: previous.country ?? "",
             online: !!previous.online,
@@ -134,7 +131,6 @@ export default function EditionFormPage({
           body: {
             ...form,
             conference_id: Number(form.conference_id),
-            year: Number(form.year),
           },
         }),
       (e) => navigate(`/editions/${e.id}`)
@@ -188,12 +184,11 @@ export default function EditionFormPage({
             {copied && (
               <Notice>
                 We carried over the last edition's location and links as a
-                starting point. Multiple editions can share a year—check the
-                title and dates below.
+                starting point. Give this edition its own title and dates below.
               </Notice>
             )}
             <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="Conference">
+              <Field label="Conference" className="sm:col-span-2">
                 <Select
                   required
                   value={form.conference_id}
@@ -207,10 +202,9 @@ export default function EditionFormPage({
                   ))}
                 </Select>
               </Field>
-              {textField("year", "Year", "number")}
               <Field
                 label="Edition title"
-                hint="Starts with the conference name. Add a city or another detail to distinguish this edition; the year is shown separately."
+                hint="Shown exactly as entered. Include a city or short year if useful, e.g. JSNation Berlin 26."
                 className="sm:col-span-2"
               >
                 <Input
@@ -218,7 +212,7 @@ export default function EditionFormPage({
                   maxLength={500}
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  placeholder="e.g. DevConf Berlin"
+                  placeholder="e.g. JSNation Berlin 26"
                 />
               </Field>
               {textField("city", "City")}

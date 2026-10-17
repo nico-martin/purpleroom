@@ -51,6 +51,9 @@ async function request(path, method = "GET", body, expected = 200) {
 }
 const future = (days) =>
   new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
+const year = new Date().getUTCFullYear() + 1;
+const berlinTitle = `DevConf Berlin ${String(year).slice(-2)}`;
+const londonTitle = `DevConf London ${year}`;
 try {
   const token = randomBytes(32).toString("hex");
   const fixture = JSON.parse(
@@ -62,8 +65,8 @@ try {
     $uid = insert('users', ['name' => 'Existing speaker', 'email' => 'edition-test@example.com', 'cal_token' => bin2hex(random_bytes(32))]);
     $cid = insert('conferences', ['name' => 'DevConf', 'created_by' => $uid]);
     $archive = insert('conferences', ['name' => 'ArchivedConf', 'created_by' => $uid, 'deleted_at' => now()]);
-    $berlin = insert('editions', ['conference_id' => $cid, 'year' => 2027, 'city' => 'Berlin', 'country' => 'DE', 'starts_on' => $argv[2], 'ends_on' => $argv[2], 'cfp_closes_on' => $argv[3], 'notes' => 'Keep this note.', 'created_by' => $uid]);
-    $london = insert('editions', ['conference_id' => $cid, 'year' => 2027, 'city' => 'London', 'country' => 'GB', 'starts_on' => $argv[4], 'ends_on' => $argv[4], 'cfp_closes_on' => $argv[3], 'created_by' => $uid]);
+    $berlin = insert('editions', ['conference_id' => $cid, 'year' => (int)substr($argv[2],0,4), 'city' => 'Berlin', 'country' => 'DE', 'starts_on' => $argv[2], 'ends_on' => $argv[2], 'cfp_closes_on' => $argv[3], 'notes' => 'Keep this note.', 'created_by' => $uid]);
+    $london = insert('editions', ['conference_id' => $cid, 'year' => (int)substr($argv[4],0,4), 'city' => 'London', 'country' => 'GB', 'starts_on' => $argv[4], 'ends_on' => $argv[4], 'cfp_closes_on' => $argv[3], 'created_by' => $uid]);
     insert('editions', ['conference_id' => $archive, 'year' => 2025, 'created_by' => $uid, 'deleted_at' => now()]);
     $paper = insert('papers', ['owner_id' => $uid, 'title' => 'Keep my talk', 'abstract' => 'Private abstract']);
     insert('submissions', ['paper_id' => $paper, 'edition_id' => $berlin, 'status' => 'confirmed']);
@@ -71,7 +74,7 @@ try {
     insert('login_tokens', ['user_id' => $uid, 'token_hash' => hash('sha256', $argv[1]), 'expires_at' => gmdate('Y-m-d\\TH:i:s\\Z', time()+900)]);
     echo json_encode(['conference' => $cid, 'berlin' => $berlin, 'london' => $london, 'editions' => all('SELECT * FROM editions ORDER BY id')]);
   `,
-      [token, future(30), future(5), future(40)]
+      [token, `${year}-05-20`, future(5), `${year}-06-20`]
     )
   );
   assert.ok(
@@ -138,18 +141,18 @@ try {
   );
 
   await request(`/editions/${fixture.berlin}`, "PATCH", {
-    title: "DevConf Berlin",
+    title: berlinTitle,
   });
   await request(`/editions/${fixture.london}`, "PATCH", {
-    title: "DevConf London 2027",
+    title: londonTitle,
   });
   const third = await request(
     "/editions",
     "POST",
     {
       conference_id: fixture.conference,
-      year: 2027,
       title: "DevConf London Autumn",
+      starts_on: `${year}-09-01`,
       city: "London",
       country: "GB",
     },
@@ -157,30 +160,84 @@ try {
   );
   const editions = (await request(`/conferences/${fixture.conference}`))
     .editions;
-  assert.equal(editions.filter((edition) => edition.year === 2027).length, 3);
+  assert.equal(editions.filter((edition) => edition.year === year).length, 3);
+  assert.equal(
+    third.year,
+    year,
+    "Compatibility year must be derived from the first day without being supplied"
+  );
   assert.equal(new Set(editions.map((edition) => edition.id)).size, 3);
   assert.ok(
-    editions.some((edition) => edition.title === "DevConf Berlin") &&
-      editions.some((edition) => edition.title === "DevConf London 2027")
+    editions.some((edition) => edition.title === berlinTitle) &&
+      editions.some((edition) => edition.title === londonTitle)
+  );
+  const earlyActivity = (await request("/dashboard")).recent_activity;
+  assert.ok(
+    earlyActivity.some((activity) => activity.summary.includes(berlinTitle))
+  );
+  assert.ok(
+    earlyActivity.every(
+      (activity) => !activity.summary.includes(`${berlinTitle} ${year}`)
+    ),
+    "Activity must use titles without year suffixes"
   );
   for (const title of ["", "  ", null, [], "x".repeat(501)])
     await request(`/editions/${fixture.berlin}`, "PATCH", { title }, 422);
   await request(
     "/editions",
     "POST",
-    { conference_id: fixture.conference, year: 2027, title: "" },
+    { conference_id: fixture.conference, title: "" },
     422
   );
   const defaulted = await request(
     "/editions",
     "POST",
-    { conference_id: fixture.conference, year: 2027 },
+    { conference_id: fixture.conference },
     201
   );
   assert.equal(
     defaulted.title,
     "DevConf",
     "Older clients may omit title and must get the parent name"
+  );
+  assert.equal(
+    defaulted.year,
+    new Date().getUTCFullYear(),
+    "An undated edition still needs no year input"
+  );
+  const conflicting = await request(
+    "/editions",
+    "POST",
+    {
+      conference_id: fixture.conference,
+      title: "Dates are authoritative",
+      year: 1999,
+      starts_on: `${year}-11-01`,
+    },
+    201
+  );
+  assert.equal(conflicting.year, year);
+  const endOnly = await request(
+    "/editions",
+    "POST",
+    {
+      conference_id: fixture.conference,
+      title: "End-only edition",
+      ends_on: `${year}-12-01`,
+    },
+    201
+  );
+  assert.equal(endOnly.year, year);
+  const legacy = await request(
+    "/editions",
+    "POST",
+    { conference_id: fixture.conference, year: year - 1 },
+    201
+  );
+  assert.equal(
+    legacy.year,
+    year - 1,
+    "Legacy clients may still supply metadata when dates are unknown"
   );
   const other = await request(
     "/conferences",
@@ -212,21 +269,37 @@ try {
   assert.equal(
     dashboard.open_cfps.find((item) => item.edition.id === fixture.berlin)
       .edition.title,
-    "DevConf Berlin"
-  );
-  assert.ok(
-    dashboard.recent_activity.some((activity) =>
-      activity.summary.includes("DevConf Berlin 2027")
-    )
+    berlinTitle
   );
   const me = await request("/me");
   const calendar = await request(new URL(me.cal_url).pathname.slice(4));
-  assert.ok(calendar.includes("CFP closes: DevConf Berlin 2027"));
-  assert.ok(calendar.includes("CFP closes: DevConf London 2027"));
-  assert.ok(!calendar.includes("2027 2027"));
+  assert.ok(calendar.includes(`CFP closes: ${berlinTitle}`));
+  assert.ok(calendar.includes(`CFP closes: ${londonTitle}`));
+  assert.ok(
+    !calendar.includes(`${berlinTitle} ${year}`),
+    "An abbreviated year in the title must not acquire a full-year suffix"
+  );
+  assert.ok(!calendar.includes(`${londonTitle} ${year}`));
   assert.ok(
     calendar.includes(`UID:conf-${fixture.berlin}@green-room.nico.dev`),
     "Calendar UIDs must remain stable"
+  );
+  const rescheduled = await request(`/editions/${fixture.berlin}`, "PATCH", {
+    starts_on: `${year + 1}-05-20`,
+    ends_on: `${year + 1}-05-21`,
+  });
+  assert.equal(rescheduled.year, year + 1);
+  assert.equal(
+    rescheduled.title,
+    berlinTitle,
+    "Changing dates must never rewrite the title"
+  );
+  const ordered = (await request(`/conferences/${fixture.conference}`))
+    .editions;
+  assert.equal(
+    ordered[0].id,
+    fixture.berlin,
+    "Edition ordering must follow actual dates, not the old year metadata"
   );
   await request(`/editions/${third.id}`, "DELETE", undefined, 204);
   assert.equal(

@@ -11,21 +11,26 @@ export function formatDate(
   ).format(new Date(value.length === 10 ? `${value}T12:00:00` : value));
 }
 export function dateRange(edition: Edition): string {
-  const start = formatDate(edition.starts_on, {
+  if (!edition.starts_on)
+    return edition.ends_on
+      ? `Ends ${formatDate(edition.ends_on)}`
+      : "Dates to come";
+  const start = formatDate(edition.starts_on);
+  if (!edition.ends_on || edition.ends_on === edition.starts_on) return start;
+  return new Intl.DateTimeFormat("en-GB", {
     day: "numeric",
     month: "short",
-  });
-  if (!edition.ends_on || edition.ends_on === edition.starts_on) return start;
-  return `${start} – ${formatDate(edition.ends_on, { day: "numeric", month: "short" })}`;
+    year: "numeric",
+  }).formatRange(
+    new Date(`${edition.starts_on}T12:00:00`),
+    new Date(`${edition.ends_on}T12:00:00`)
+  );
 }
 export function editionLabel(
-  edition: Pick<Edition, "title" | "year"> | undefined,
+  edition: Pick<Edition, "title"> | undefined,
   conferenceName = "Conference"
 ): string {
-  const title = edition?.title?.trim() || conferenceName;
-  if (!edition) return title;
-  const year = String(edition.year);
-  return title.includes(year) ? title : `${title} ${year}`;
+  return edition?.title?.trim() || conferenceName;
 }
 export function location(edition: Edition): string {
   return edition.online

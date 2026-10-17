@@ -183,7 +183,7 @@ CREATE TABLE editions (
   conference_id  INTEGER NOT NULL REFERENCES conferences(id) ON DELETE CASCADE,
   -- Migration 002 adds title TEXT NOT NULL DEFAULT '' and backfills it from conference name.
   -- Keep the version-1 schema.sql unchanged; apply numbered migrations afterward.
-  year           INTEGER NOT NULL,
+  year           INTEGER NOT NULL,            -- legacy internal metadata, derived from dates; not a form field or title suffix
   city           TEXT,
   country        TEXT,                        -- ISO 3166-1 alpha-2, e.g. "NL"
   online         INTEGER NOT NULL DEFAULT 0,
@@ -401,7 +401,7 @@ All endpoints are under `/api`, JSON request/response, `Content-Type: applicatio
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/editions?from=&to=&cfp_open=1` | filters optional |
-| POST | `/editions` | `{ conference_id*, title?, year*, city?, country?, online?, starts_on?, ends_on?, website?, cfp_url?, cfp_opens_on?, cfp_closes_on?, notes? }`; omitted title defaults to conference name; explicitly blank title is rejected |
+| POST | `/editions` | `{ conference_id*, title?, city?, country?, online?, starts_on?, ends_on?, website?, cfp_url?, cfp_opens_on?, cfp_closes_on?, notes? }`; omitted title defaults to conference name; explicitly blank title is rejected. Legacy `year?` is optional compatibility metadata; dates take precedence. |
 | GET | `/editions/{id}` | incl. `conference` (with reviews summary), `submissions[]` (public shape), `attendance[]`, `comments[]` |
 | PATCH | `/editions/{id}` | |
 | DELETE | `/editions/{id}` | soft delete |
@@ -488,7 +488,7 @@ On app load call `GET /api/me`; on 401 redirect to `/login` (preserving the inte
 - Header: logo, name, website.
 - Tag summary: each tag with count ("Covers travel · 4"), and "Would submit again: 5 👍 / 1 👎".
 - Reviews list (avatar, tags as chips, text). "Write/edit my review" with tag checkboxes.
-- Editions list (newest first) with a "New edition" button that prefills the previous edition's location/links but does not automatically advance the year. Multiple editions of the same conference may share a year. A separate editable title defaults to the parent conference name and distinguishes e.g. Berlin and London editions.
+- Editions list (newest dates first) with a "New edition" button that prefills the previous edition's location/links. Multiple editions of the same conference may share a year. A separate editable title defaults to the parent conference name and is used verbatim (e.g. "JSNation Berlin 26"), without appending a year. There is no Year input; calendar dates supply that information. Existing titles are not rewritten.
 - Comments.
 
 **Edition detail**

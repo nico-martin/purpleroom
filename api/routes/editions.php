@@ -8,10 +8,11 @@ route('GET', '/editions', function () {
     json_response(array_map(fn($e) => [...$e, 'conference' => conference_summary(conference((int) $e['conference_id']))], all($sql . ' ORDER BY e.starts_on', $params)));
 });
 route('POST', '/editions', function () {
-    $data = fields(body(), EDITION_FIELDS); required($data, ['conference_id', 'year']);
+    $data = fields(body(), EDITION_FIELDS); required($data, ['conference_id']);
     $parent = conference((int) $data['conference_id']);
     if (!array_key_exists('title', $data)) $data['title'] = $parent['name'];
     required($data, ['title']); validate_edition($data);
+    $data = with_edition_legacy_year($data);
     $id = insert('editions', [...$data, 'created_by' => require_login()['id']]); json_response(edition($id), 201);
 });
 route('GET', '/editions/{id}', function ($p) {
@@ -25,8 +26,8 @@ route('PATCH', '/editions/{id}', function ($p) {
         if (!array_key_exists('title', $data) && $e['title'] === conference((int) $e['conference_id'])['name']) $data['title'] = $parent['name'];
     }
     if (array_key_exists('title', $data)) required($data, ['title']);
-    if (array_key_exists('year', $data)) required($data, ['year']);
     validate_edition([...$e, ...$data]);
+    $data = with_edition_legacy_year($data, $e);
     update('editions', (int) $e['id'], [...$data, 'updated_at' => now()]); json_response(edition((int) $e['id']));
 });
 route('DELETE', '/editions/{id}', function ($p) { $e = edition((int) $p['id']); update('editions', (int) $e['id'], ['deleted_at' => now()]); json_response(null, 204); });

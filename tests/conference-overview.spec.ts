@@ -27,7 +27,7 @@ test("name-first conference directory works independently of logos on desktop, m
   await expect(page.getByText("A legacy description that should not clutter the directory.")).toHaveCount(0);
   await expect(page.getByText("A new addition to the crew's shortlist.", { exact: false })).toHaveCount(0);
   await expect(directory.getByRole("link", { name: "JSNation", exact: true })).toHaveAttribute("href", "/conferences/10");
-  await expect(directory.getByRole("link", { name: "JSNation 2027 edition", exact: true })).toHaveAttribute("href", "/editions/39");
+  await expect(directory.getByRole("link", { name: "JSNation edition", exact: true })).toHaveAttribute("href", "/editions/39");
   await expect(directory.getByText("Amsterdam, NL", { exact: true })).toBeVisible();
   await expect(directory.getByText("4 speaker takes", { exact: true })).toHaveCount(2);
   await page.screenshot({ path: "test-results/conferences-directory-desktop.png", fullPage: true, animations: "disabled" });

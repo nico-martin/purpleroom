@@ -34,6 +34,7 @@ export interface Edition {
   id: number;
   conference_id: number;
   title: string;
+  /** Legacy metadata, derived from dates; never appended to the edition title. */
   year: number;
   city: string | null;
   country: string | null;
