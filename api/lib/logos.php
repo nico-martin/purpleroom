@@ -7,7 +7,8 @@ class ConferenceLogoException extends RuntimeException {
 }
 
 const LOGO_LIMIT = 5242880;
-const LOGO_TYPES = ['png' => 'image/png', 'jpg' => 'image/jpeg', 'gif' => 'image/gif', 'webp' => 'image/webp', 'avif' => 'image/avif', 'ico' => 'image/x-icon'];
+const LOGO_TYPES = ['png' => 'image/png', 'jpg' => 'image/jpeg', 'gif' => 'image/gif', 'webp' => 'image/webp', 'avif' => 'image/avif', 'ico' => 'image/x-icon', 'svg' => 'image/svg+xml'];
+require_once __DIR__ . '/svg.php';
 
 function logo_directory(): string { global $config; return dirname($config['database']) . '/logos'; }
 function logo_slug(string $name): string {
@@ -16,11 +17,16 @@ function logo_slug(string $name): string {
     return trim(substr(trim(strtolower(preg_replace('/[^a-zA-Z0-9]+/', '-', $ascii ?: $name)), '-'), 0, 72), '-') ?: 'conference';
 }
 function logo_filename(string $path, int $id): ?string {
-    if (!preg_match('#^/api/conference-logos/' . $id . '/([a-z0-9-]+\.(?:png|jpg|gif|webp|avif|ico))$#D', $path, $matches) || strlen($matches[1]) > 100) return null;
+    if (!preg_match('#^/api/conference-logos/' . $id . '/([a-z0-9-]+\.(?:png|jpg|gif|webp|avif|ico|svg))$#D', $path, $matches) || strlen($matches[1]) > 100) return null;
     return $matches[1];
 }
-function validate_logo_image(string $bytes): string {
+function validate_logo_image(string $bytes, ?string &$safeBytes = null): string {
     if ($bytes === '' || strlen($bytes) > LOGO_LIMIT) throw new ConferenceLogoException('Logo images must be no larger than 5 MB.');
+    $safeBytes = $bytes;
+    if (str_starts_with(ltrim($bytes, "\xEF\xBB\xBF \t\r\n"), '<')) {
+        $safeBytes = sanitize_svg_logo($bytes);
+        return 'svg';
+    }
     $image = @getimagesizefromstring($bytes);
     $types = [IMAGETYPE_PNG => 'png', IMAGETYPE_JPEG => 'jpg', IMAGETYPE_GIF => 'gif', IMAGETYPE_WEBP => 'webp', IMAGETYPE_AVIF => 'avif'];
     if ($image && isset($types[$image[2]]) && $image[0] > 0 && $image[1] > 0 && $image[0] <= 8192 && $image[1] <= 8192 && $image[0] * $image[1] <= 20000000) return $types[$image[2]];
@@ -47,7 +53,7 @@ function validate_logo_image(string $bytes): string {
             return 'ico';
         }
     }
-    throw new ConferenceLogoException('Use a valid PNG, JPEG, GIF, WebP, AVIF, or ICO image (up to 20 megapixels). HTML and SVG images are not supported.');
+    throw new ConferenceLogoException('Use a valid PNG, JPEG, GIF, WebP, AVIF, ICO, or SVG image, up to 5 MB (20 megapixels for raster images). HTML is not supported.');
 }
 function prepare_conference_logo(?string $source, ?array $existing, ?callable $fetcher = null): ?array {
     if ($source === null || $source === '') return null;
@@ -61,7 +67,8 @@ function prepare_conference_logo(?string $source, ?array $existing, ?callable $f
         try { $bytes = ($fetcher ?? 'fetch_public_resource')($source, LOGO_LIMIT)['body']; }
         catch (RemoteResourceException $error) { throw new ConferenceLogoException($error->getMessage(), $error->status); }
     }
-    return ['bytes' => $bytes, 'extension' => validate_logo_image($bytes)];
+    $extension = validate_logo_image($bytes, $safeBytes);
+    return ['bytes' => $safeBytes, 'extension' => $extension];
 }
 function store_conference_logo(int $id, string $name, array $asset): string {
     $directory = logo_directory() . '/' . $id;

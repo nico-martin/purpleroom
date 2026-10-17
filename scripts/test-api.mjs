@@ -30,6 +30,10 @@ function client() {
     if (response.headers.get("content-type")?.startsWith("image/")) {
       assert.equal(response.headers.get("x-content-type-options"), "nosniff");
       assert.ok(response.headers.get("cache-control").includes("private"));
+      if (response.headers.get("content-type") === "image/svg+xml") {
+        assert.ok(response.headers.get("content-security-policy").includes("default-src 'none'"));
+        assert.ok(response.headers.get("content-security-policy").includes("sandbox"));
+      }
       return bytes;
     }
     return response.headers.get("content-type")?.includes("application/json") && text ? JSON.parse(text) : text;
@@ -87,6 +91,19 @@ try {
   await owner(`/conferences/${conference.id}`, "PATCH", { logo_url: logoUrl.replace(`/conference-logos/${conference.id}/`, "/conference-logos/999/") }, 422);
   await owner(`/conferences/${conference.id}`, "PATCH", { name: "Do not save", logo_url: "http://127.0.0.1/logo.png" }, 422);
   assert.equal((await owner(`/conferences/${conference.id}`)).name, "JSNation");
+  const svgFixture = JSON.parse(cli(["-r", `
+    define('GREEN_ROOM', true); $config = require 'api/config.php';
+    foreach (['db', 'logos'] as $file) require 'api/lib/' . $file . '.php';
+    $id = insert('conferences', ['name' => 'SVG conference', 'created_by' => (int)$argv[1]]);
+    $extension = validate_logo_image('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" onload="alert(1)"><style>.brand{fill:#2f6b52}</style><rect class="brand" width="40" height="40"/><script>alert(2)</script></svg>', $safe);
+    $url = store_conference_logo($id, 'SVG conference', ['bytes' => $safe, 'extension' => $extension]);
+    update('conferences', $id, ['logo_url' => $url]);
+    echo json_encode(['id' => $id, 'url' => $url]);
+  `, String(me.user.id)]));
+  const svgImage = await owner(svgFixture.url.slice(4));
+  assert.ok(svgImage.toString("utf8").includes("<svg"));
+  assert.ok(!svgImage.toString("utf8").includes("onload") && !svgImage.toString("utf8").includes("<script"));
+  await anonymous(svgFixture.url.slice(4), "GET", undefined, 401);
   await owner("/conferences", "POST", { name: "Unsafe", website: "javascript:alert(1)" }, 422);
   await owner("/conferences/metadata", "POST", { url: "http://127.0.0.1" }, 422);
   const future = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);

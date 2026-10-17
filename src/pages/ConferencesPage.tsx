@@ -1,22 +1,19 @@
-import { ArrowRight, MessageSquare, Plus, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router-dom";
 
+import ConferenceDirectoryRow from "../components/ConferenceDirectoryRow";
 import useApi from "../hooks/useApi";
-import { REVIEW_TAGS } from "../lib/constants";
-import { dateRange, location } from "../lib/format";
 import {
   ButtonLink,
   Card,
+  Directory,
   EmptyState,
   Input,
   LoadingState,
-  LogoTile,
   Notice,
   PageHeader,
-  Tag,
 } from "../theme";
-import type { ConferenceSummary, ReviewTag } from "../types";
+import type { ConferenceSummary } from "../types";
 
 interface ConferencesPageProps {
   className?: string;
@@ -47,7 +44,9 @@ export default function ConferencesPage({
       />
       <div className="mb-7 flex flex-wrap items-center justify-between gap-4">
         <span className="text-sm text-muted">
-          {data?.length ?? 0} conferences in the room
+          {search
+            ? `${filtered.length} ${filtered.length === 1 ? "match" : "matches"}`
+            : `${data?.length ?? 0} conferences in the room`}
         </span>
         <div className="relative w-full sm:w-72">
           <Search
@@ -68,62 +67,17 @@ export default function ConferencesPage({
       ) : error ? (
         <Notice tone="error">{error}</Notice>
       ) : filtered.length ? (
-        <div className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
+        <Directory
+          label="Conferences"
+          columns={["Conference", "Next edition", "Speaker intel"]}
+        >
           {filtered.map((conference) => (
-            <Card padded key={conference.id} className="flex flex-col">
-              <div className="flex items-start justify-between gap-4">
-                <LogoTile name={conference.name} src={conference.logo_url} />
-                <Link
-                  to={`/conferences/${conference.id}`}
-                  aria-label={`View ${conference.name}`}
-                  className="flex size-11 items-center justify-center rounded-xl text-muted hover:bg-ground hover:text-green"
-                >
-                  <ArrowRight size={18} />
-                </Link>
-              </div>
-              <Link
-                to={`/conferences/${conference.id}`}
-                className="mt-4 font-heading text-xl font-semibold hover:text-green"
-              >
-                {conference.name}
-              </Link>
-              <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted">
-                {conference.description ||
-                  "A new addition to the crew's shortlist. Got the inside story? Share a speaker take."}
-              </p>
-              <div className="my-5 flex flex-wrap gap-2">
-                {Object.entries(conference.tag_counts)
-                  .slice(0, 3)
-                  .map(([tag, count]) => (
-                    <Tag key={tag} count={count}>
-                      {REVIEW_TAGS[tag as ReviewTag]}
-                    </Tag>
-                  ))}
-              </div>
-              <div className="mt-auto border-t border-divider pt-4">
-                <p className="flex items-center gap-2 text-xs text-muted">
-                  <MessageSquare size={13} />
-                  {conference.review_count}{" "}
-                  {conference.review_count === 1
-                    ? "speaker take"
-                    : "speaker takes"}
-                </p>
-                {conference.next_edition && (
-                  <Link
-                    to={`/editions/${conference.next_edition.id}`}
-                    className="mt-3 block text-xs text-muted"
-                  >
-                    <span className="font-semibold text-ink">
-                      Up next: {conference.next_edition.year}
-                    </span>{" "}
-                    · {location(conference.next_edition)} ·{" "}
-                    {dateRange(conference.next_edition)}
-                  </Link>
-                )}
-              </div>
-            </Card>
+            <ConferenceDirectoryRow
+              key={conference.id}
+              conference={conference}
+            />
           ))}
-        </div>
+        </Directory>
       ) : (
         <Card>
           <EmptyState

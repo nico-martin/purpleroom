@@ -504,7 +504,7 @@ On app load call `GET /api/me`; on 401 redirect to `/login` (preserving the inte
 - Conference forms no longer include the "A little context" field. Preserve existing descriptions when saving.
 - Conference logos are imported from a public image URL on save and stored in `api/db/logos/{id}/`. Serve them via authenticated `/api/conference-logos/{id}/{slug-hash}.{ext}` URLs; never expose the storage directory directly.
 - Existing external logos migrate lazily on the next conference save (including PATCH without logo_url). Reuse local images thereafter; no schema change or bulk migration is needed. On download/storage failure, return an error and leave the conference unchanged. Clearing the logo skips migration. Preserve files across soft deletion, restore, and deployment.
-- Validate image bytes (PNG/JPEG/GIF/WebP/AVIF/ICO only, maximum 5 MB and 20 megapixels for raster images); reject HTML/SVG. Use a five-second network budget, at most three redirects, public-IP validation on every hop, and pinned DNS. Do not forward browser credentials.
+- Validate image bytes (PNG/JPEG/GIF/WebP/AVIF/ICO/SVG, maximum 5 MB and 20 megapixels for raster images); reject HTML. SVGs must be parsed and rebuilt as static, self-contained artwork, stripping active content and external references, rejecting DTDs/entities, and served via `<img>` with sandboxed CSP and `nosniff`. Use a five-second network budget, at most three redirects, public-IP validation on every hop, and pinned DNS. Do not forward browser credentials.
 - Avatars: if missing, initials.
 - Optimistic UI not required; show loading/disabled states on buttons.
 - All destructive actions confirm.

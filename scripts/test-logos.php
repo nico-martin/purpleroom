@@ -45,10 +45,47 @@ rejects(fn() => prepare_conference_logo($read($id)['logo_url'], null), Conferenc
 check(logo_filename('/api/conference-logos/' . $id . '/../secret.png', $id) === null, 'Traversal accepted.');
 check(logo_filename('/api/conference-logos/' . $id . '/logo.php', $id) === null, 'Executable extension accepted.');
 
-foreach (['<html>Not an image</html>', '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>', str_repeat('a', LOGO_LIMIT + 1), substr_replace($png, pack('N', 9000), 16, 4)] as $invalid) rejects(fn() => validate_logo_image($invalid), ConferenceLogoException::class);
+foreach (['<html>Not an image</html>', '<svg><broken></svg>', str_repeat('a', LOGO_LIMIT + 1), substr_replace($png, pack('N', 9000), 16, 4)] as $invalid) rejects(fn() => validate_logo_image($invalid), ConferenceLogoException::class);
 $ico = pack('vvv', 0, 1, 1) . pack('CCCCvvVV', 1, 1, 0, 0, 1, 32, strlen($png), 22) . $png;
 check(validate_logo_image($ico) === 'ico', 'Valid ICO rejected.');
 check(validate_logo_image($png) === 'png', 'PNG rejected.');
+
+$svg = <<<'SVG'
+<?xml version="1.0"?>
+<?xml-stylesheet href="https://attacker.example/evil.css"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="120" height="40" viewBox="0 0 120 40" onload="alert(1)" xml:base="https://attacker.example/">
+ <style>.brand { fill: url(#brand); stroke: #123b2b; } .bad { fill: url(https://attacker.example/image); behavior: expression(alert(1)); }</style>
+ <defs><linearGradient id="brand"><stop offset="0" stop-color="#2f6b52"/><stop offset="1" stop-color="#123b2b"/></linearGradient><clipPath id="clip"><rect width="120" height="40"/></clipPath><path id="shape" d="M0 0h20v20z"/></defs>
+ <a xlink:href="javascript:alert(1)"><path class="brand" clip-path="url(#clip)" d="M0 0h120v40H0z" onclick="alert(2)"/></a>
+ <use xlink:href="#shape" x="10"/>
+ <use href="https://attacker.example/sprite.svg#shape"/>
+ <image href="https://attacker.example/image.png" width="20" height="20"/>
+ <rect width="10" height="10" style="fill: #fff; stroke: url(https://attacker.example/stroke); background: url(https://attacker.example/background)"/>
+ <script>alert(3)</script><foreignObject><p xmlns="http://www.w3.org/1999/xhtml">HTML</p></foreignObject>
+ <animate attributeName="href" to="javascript:alert(4)"/><set attributeName="onload" to="alert(5)"/>
+ <title>A friendly &amp; safe logo</title>
+</svg>
+SVG;
+check(validate_logo_image($svg, $safeSvg) === 'svg', 'SVG rejected.');
+check(!str_contains($safeSvg, 'attacker.example') && !str_contains($safeSvg, 'javascript:') && !str_contains($safeSvg, 'alert('), 'Unsafe SVG content survived.');
+check(!str_contains($safeSvg, '<script') && !str_contains($safeSvg, 'foreignObject') && !str_contains($safeSvg, '<animate') && !str_contains($safeSvg, '<set ') && !str_contains($safeSvg, 'onclick') && !str_contains($safeSvg, 'onload'), 'Active SVG elements/attributes survived.');
+check(str_contains($safeSvg, 'linearGradient') && str_contains($safeSvg, 'url(#brand)') && str_contains($safeSvg, 'clipPath') && str_contains($safeSvg, 'href="#shape"') && str_contains($safeSvg, 'class="brand"') && str_contains($safeSvg, 'viewBox="0 0 120 40"'), 'Ordinary logo artwork/styling was lost.');
+check(sanitize_svg_logo($safeSvg) === $safeSvg, 'SVG sanitization is not idempotent.');
+check(svg_safe_value('url(#brand)') === 'url(#brand)', 'Local paint reference rejected.');
+foreach (['url(https://attacker.example/)', 'u/**/rl(https://attacker.example/)', 'u\\72l(https://attacker.example/)', 'expression(alert(1))', 'url(&quot;javascript:alert(1)&quot;)'] as $unsafeValue) check(svg_safe_value($unsafeValue) === null, 'Obfuscated external/active CSS survived.');
+check(svg_safe_stylesheet('@import "https://attacker.example/evil.css"; .x{fill:red}') === '', 'CSS imports survived.');
+foreach (['<!DOCTYPE svg [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><svg xmlns="http://www.w3.org/2000/svg"><text>&xxe;</text></svg>', '<svg xmlns="https://attacker.example/svg"/>', '<svg>' . str_repeat('<g>', 70) . str_repeat('</g>', 70) . '</svg>', '<svg>' . str_repeat('<path/>', 10001) . '</svg>'] as $unsafeSvg) rejects(fn() => validate_logo_image($unsafeSvg), ConferenceLogoException::class);
+$embedded = '<svg xmlns="http://www.w3.org/2000/svg"><image href="data:image/png;base64,' . base64_encode($png) . '" width="1" height="1"/></svg>';
+check(str_contains(sanitize_svg_logo($embedded), 'data:image/png;base64,'), 'Safe embedded raster image rejected.');
+$svgId = insert('conferences', ['name' => 'Vector Logo', 'created_by' => $uid, 'logo_url' => 'https://legacy.example/logo.svg']);
+$svgDownloads = 0;
+$svgFetcher = function () use ($svg, &$svgDownloads): array { $svgDownloads++; return ['body' => $svg]; };
+persist_conference([], $read($svgId), $svgFetcher);
+$storedSvgUrl = $read($svgId)['logo_url'];
+check(str_ends_with($storedSvgUrl, '.svg'), 'Legacy SVG did not migrate to local SVG storage.');
+check(file_get_contents(logo_directory() . '/' . $svgId . '/' . logo_filename($storedSvgUrl, $svgId)) === $safeSvg, 'Raw SVG was stored instead of the sanitized image.');
+persist_conference([], $read($svgId), $svgFetcher);
+check($svgDownloads === 1 && $read($svgId)['logo_url'] === $storedSvgUrl, 'Cached SVG was re-downloaded or its hash changed.');
 
 $before = (int) one('SELECT COUNT(*) AS n FROM conferences')['n'];
 $originalDatabase = $config['database'];

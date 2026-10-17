@@ -12,7 +12,7 @@ route('GET', '/conference-logos/{id}/{filename}', function ($params) {
     session_write_close();
     header('Content-Type: ' . LOGO_TYPES[pathinfo($filename, PATHINFO_EXTENSION)]);
     header('Content-Disposition: inline; filename="' . $filename . '"');
-    header("Content-Security-Policy: default-src 'none'; sandbox");
+    header("Content-Security-Policy: default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox");
     header('Cache-Control: private, max-age=86400');
     header('Vary: Cookie');
     header('Content-Length: ' . filesize($path));

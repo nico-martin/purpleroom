@@ -168,7 +168,7 @@ export default function ConferenceFormPage({
                   ? "Replace logo from URL (optional)"
                   : "Logo URL (optional)"
               }
-              hint="Downloaded on save, then served from Green Room. PNG, JPEG, GIF, WebP, AVIF or ICO, up to 5 MB. No logo? We'll use initials."
+              hint="Downloaded on save, then served from Green Room. PNG, JPEG, GIF, WebP, AVIF, ICO or SVG, up to 5 MB. SVGs are sanitized for safety. No logo? We'll use initials."
             >
               <div className="relative">
                 <Link2

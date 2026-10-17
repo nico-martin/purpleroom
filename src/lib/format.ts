@@ -53,3 +53,12 @@ export function nameColor(name: string): number {
     Array.from(name).reduce((value, char) => value + char.charCodeAt(0), 0) % 4
   );
 }
+
+export function websiteHost(website: string | null): string {
+  if (!website) return "";
+  try {
+    return new URL(website).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}

@@ -39,6 +39,8 @@ The choice is stored only in a host-only `gr_theme` cookie (`Path=/`, `SameSite=
 
 ### Conference logos and existing-data migration
 
+The conference overview is a name-first directory, not a logo gallery: it shows conference names, websites, the next edition, and speaker intel in aligned rows. It does not render or request logo images, so image dimensions, transparency, and colours cannot disrupt the layout. Stored logos remain available on conference detail and edit screens; no existing image data is removed. Generic directory layout components live in `src/theme/`.
+
 Conference forms no longer ask for “A little context”. Existing descriptions are left intact, not deleted or overwritten when you edit a conference.
 
 Paste an image URL (or prefill it from the website) and save. The backend downloads and validates the image, stores it in **`api/db/logos/{id}/`**, and changes `logo_url` to a same-origin URL such as **`/api/conference-logos/12/jsnation-a1b2c3d4e5f67890.png`**. The filename uses the conference's slug plus a content hash so replacement images don't get stuck in browser caches. Renaming a conference updates the slug using the already-stored image, without fetching it again. Stored images are served only to signed-in crew members; direct access to the storage directory is blocked.
@@ -51,7 +53,7 @@ Paste an image URL (or prefill it from the website) and save. The backend downlo
 - A failed download or storage write returns an actionable error and leaves the conference unchanged. Replace the URL or remove the logo to continue.
 - Clearing the logo explicitly skips downloading the old one. Soft delete/restore retains stored images. Old image versions are retained on disk rather than deleting files that another request or restore could still need.
 
-Logo downloads require PHP **cURL**. Supported formats are PNG, JPEG, GIF, WebP, AVIF, and ICO, with a **5 MB** download limit and **20-megapixel** raster limit. HTML and SVG are rejected, regardless of the URL extension. Requests have a five-second total timeout and at most three redirects; every destination is checked for private/reserved IPs and DNS is pinned before connecting. No browser cookies or credentials are forwarded to image servers.
+Logo downloads require PHP **cURL**. Supported formats are PNG, JPEG, GIF, WebP, AVIF, ICO, and **SVG**, with a **5 MB** download limit and **20-megapixel** raster limit. SVG imports require PHP DOM and are parsed/rebuilt with a static element/attribute allowlist: paths, gradients, clip paths, local references, and ordinary inline/class styling are preserved; scripts, event handlers, embedded HTML, animations, external references, and XML processing instructions are discarded. Only validated embedded raster data images are allowed. DTDs/entities, malformed SVGs, and excessive complexity are rejected. Stored SVGs are never inserted as HTML and are served as `image/svg+xml` with sandboxed CSP, blocked external resources, and `nosniff`. HTML files remain unsupported. Requests have a five-second total timeout and at most three redirects; every destination is checked for private/reserved IPs and DNS is pinned before connecting. No browser cookies or credentials are forwarded to image servers.
 
 Make `api/db/` writable by PHP; the logo subdirectories are created automatically. Both the FTP workflow and manual SSH deployment exclude `api/db/logos/` from upload/deletion. Include that directory alongside SQLite in server backups; it is intentionally not committed or bundled.
 

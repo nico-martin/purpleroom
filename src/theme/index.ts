@@ -18,6 +18,8 @@ export { default as Card } from "./layout/Card";
 export { default as PageHeader } from "./layout/PageHeader";
 export { default as SectionHeader } from "./layout/SectionHeader";
 export { default as ListRow } from "./layout/ListRow";
+export { default as Directory } from "./layout/Directory";
+export { default as DirectoryRow } from "./layout/DirectoryRow";
 export { default as EmptyState } from "./feedback/EmptyState";
 export { default as Notice } from "./feedback/Notice";
 export { default as LoadingState } from "./feedback/LoadingState";
