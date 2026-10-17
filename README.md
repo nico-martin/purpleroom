@@ -47,7 +47,7 @@ Migration **`002_edition_titles.sql`** adds the title column and backfills every
 
 ### Conference logos and existing-data migration
 
-The conference overview is a name-first directory, not a logo gallery: it shows conference names, websites, the next edition, and speaker intel in aligned rows. It does not render or request logo images, so image dimensions, transparency, and colours cannot disrupt the layout. Stored logos remain available on conference detail and edit screens; no existing image data is removed. Generic directory layout components live in `src/theme/`.
+The conference overview uses compact, name-first cards: **four per desktop row**, with three/two/one columns at smaller widths. Cards show the conference name, website, next edition, and speaker-take count without placeholder descriptions or logo images. Image dimensions, transparency, and colours cannot disrupt the layout. Stored logos remain available on conference detail and edit screens; no existing image data is removed. The generic summary-card layout lives in `src/theme/`.
 
 Conference forms no longer ask for “A little context”. Existing descriptions are left intact, not deleted or overwritten when you edit a conference.
 

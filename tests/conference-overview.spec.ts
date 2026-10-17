@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("name-first conference directory works independently of logos on desktop, mobile, and dark mode", async ({ page }) => {
+test("compact conference cards show four per desktop row without depending on logos", async ({ page }) => {
   const names = ["AI coding summit", "Build Stuff", "CityJS", "DevTalks Romania", "Devfest Nantes", "FFConf", "Frontier Alicante", "HalfStack", "Infobip Shift Conference", "JSNation", "JSWORLD Conference", "React Advanced London"];
   const conferences = names.map((name, index) => ({
     id: index + 1, name, website: `https://www.conference-${index + 1}.example`,
@@ -23,6 +23,12 @@ test("name-first conference directory works independently of logos on desktop, m
   await page.goto("/conferences");
   const directory = page.getByRole("list", { name: "Conferences", exact: true });
   await expect(directory.getByRole("listitem")).toHaveCount(names.length);
+  await expect(directory).toHaveCSS("grid-template-columns", /^(\d+(?:\.\d+)?px\s+){3}\d+(?:\.\d+)?px$/);
+  const cards = directory.getByRole("listitem");
+  const boxes = await Promise.all([0, 1, 2, 3, 4].map((index) => cards.nth(index).boundingBox()));
+  expect(boxes.slice(0, 4).every((box) => box?.y === boxes[0]?.y)).toBe(true);
+  expect(boxes[4]!.y).toBeGreaterThan(boxes[0]!.y);
+  expect(boxes[0]!.height).toBeLessThan(240);
   await expect(directory.getByRole("img")).toHaveCount(0);
   await expect(page.getByText("A legacy description that should not clutter the directory.")).toHaveCount(0);
   await expect(page.getByText("A new addition to the crew's shortlist.", { exact: false })).toHaveCount(0);
@@ -30,13 +36,13 @@ test("name-first conference directory works independently of logos on desktop, m
   await expect(directory.getByRole("link", { name: "JSNation edition", exact: true })).toHaveAttribute("href", "/editions/39");
   await expect(directory.getByText("Amsterdam, NL", { exact: true })).toBeVisible();
   await expect(directory.getByText("4 speaker takes", { exact: true })).toHaveCount(2);
-  await page.screenshot({ path: "test-results/conferences-directory-desktop.png", fullPage: true, animations: "disabled" });
+  await page.screenshot({ path: "test-results/conferences-cards-desktop.png", fullPage: true, animations: "disabled" });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({ path: "test-results/conferences-directory-mobile.png", fullPage: true, animations: "disabled" });
+  await page.screenshot({ path: "test-results/conferences-cards-mobile.png", fullPage: true, animations: "disabled" });
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await page.screenshot({ path: "test-results/conferences-directory-dark.png", fullPage: true, animations: "disabled" });
+  await page.screenshot({ path: "test-results/conferences-cards-dark.png", fullPage: true, animations: "disabled" });
   await page.getByRole("textbox", { name: "Search conferences", exact: true }).fill("CityJS");
   await expect(directory.getByRole("listitem")).toHaveCount(1);
   await expect(page.getByText("1 match", { exact: true })).toBeVisible();

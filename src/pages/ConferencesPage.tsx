@@ -1,12 +1,11 @@
 import { Plus, Search } from "lucide-react";
 import { useState } from "react";
 
-import ConferenceDirectoryRow from "../components/ConferenceDirectoryRow";
+import ConferenceCard from "../components/ConferenceCard";
 import useApi from "../hooks/useApi";
 import {
   ButtonLink,
   Card,
-  Directory,
   EmptyState,
   Input,
   LoadingState,
@@ -67,17 +66,16 @@ export default function ConferencesPage({
       ) : error ? (
         <Notice tone="error">{error}</Notice>
       ) : filtered.length ? (
-        <Directory
-          label="Conferences"
-          columns={["Conference", "Next edition", "Speaker intel"]}
+        <ul
+          aria-label="Conferences"
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4"
         >
           {filtered.map((conference) => (
-            <ConferenceDirectoryRow
-              key={conference.id}
-              conference={conference}
-            />
+            <li key={conference.id} className="min-w-0">
+              <ConferenceCard conference={conference} />
+            </li>
           ))}
-        </Directory>
+        </ul>
       ) : (
         <Card>
           <EmptyState
