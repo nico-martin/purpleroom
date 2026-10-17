@@ -228,7 +228,7 @@ export default function DashboardPage({ className = "" }: DashboardPageProps) {
           <Card padded>
             {data.recent_activity.length ? (
               <div className="space-y-6">
-                {data.recent_activity.map((activity, index) => (
+                {data.recent_activity.slice(0, 10).map((activity, index) => (
                   <Link
                     key={`${activity.type}-${index}`}
                     to={activity.link}

@@ -93,6 +93,8 @@ try {
   const edition = await owner("/editions", "POST", { conference_id: conference.id, year: 2027, city: "Amsterdam", country: "NL", starts_on: future, ends_on: future, cfp_closes_on: future }, 201);
   await owner(`/editions/${edition.id}`, "PATCH", { ends_on: "2000-01-01" }, 422);
   const paper = await owner("/papers", "POST", { title: "A private idea", abstract: "SECRET ABSTRACT", notes: "SECRET NOTES" }, 201);
+  const editedPaper = await owner(`/papers/${paper.id}`, "PATCH", { title: paper.title, notes: "Updated private notes" });
+  assert.equal(editedPaper.abstract, "SECRET ABSTRACT", "Editing the simplified talk form must preserve the stored abstract");
   const submission = await owner("/submissions", "POST", { paper_id: paper.id, edition_id: edition.id, status: "submitted", hide_title: true, abstract_override: "SECRET OVERRIDE" }, 201);
   assert.ok(submission.submitted_on);
   await owner("/submissions", "POST", { paper_id: paper.id, edition_id: edition.id }, 409);
@@ -119,13 +121,16 @@ try {
   assert.ok(!JSON.stringify(publicEdition).includes("SECRET"));
   assert.ok(!JSON.stringify(await other("/dashboard")).includes("SECRET"));
   assert.equal((await other("/users"))[0].email, undefined);
-  await owner(`/submissions/${submission.id}`, "PATCH", { status: "confirmed" });
+  const confirmed = await owner(`/submissions/${submission.id}`, "PATCH", { status: "confirmed", hide_title: true });
+  assert.equal(confirmed.abstract_override, "SECRET OVERRIDE", "Editing submission details must preserve the stored abstract override");
   const detailed = await owner(`/editions/${edition.id}`);
   assert.equal(detailed.going.length, 1, "Going users are deduplicated");
   assert.equal(detailed.speaking.length, 1);
+  for (let index = 0; index < 12; index++) await owner("/comments", "POST", { edition_id: edition.id, text: `Activity limit fixture ${index}` }, 201);
   const dashboard = await owner("/dashboard");
   assert.equal(dashboard.open_cfps.length, 1);
-  assert.ok(dashboard.recent_activity.length >= 4);
+  assert.equal(dashboard.recent_activity.length, 10);
+  for (let index = 1; index < dashboard.recent_activity.length; index++) assert.ok(dashboard.recent_activity[index - 1].at >= dashboard.recent_activity[index].at, "Recent activity must be newest first");
   const feed = (await owner("/me")).cal_url;
   const calendar = await anonymous(new URL(feed).pathname.slice(4));
   assert.ok(calendar.includes("CFP closes: JSNation"));

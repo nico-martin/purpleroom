@@ -26,3 +26,8 @@ export const SUBMISSION_STATUSES = [
   "declined",
   "attended",
 ] as const;
+
+// Keep the historical status in the data model without offering it for new choices.
+export const SUBMISSION_STATUS_OPTIONS = SUBMISSION_STATUSES.filter(
+  (status) => status !== "attended"
+);

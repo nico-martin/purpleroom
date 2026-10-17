@@ -273,7 +273,7 @@ export default function AuthPage({ mode, className = "" }: AuthPageProps) {
                 </Button>
                 <p className="pt-2 text-center text-xs leading-relaxed text-muted">
                   {mode === "invite"
-                    ? "Your talk abstracts stay private. Your good intel doesn't have to."
+                    ? "Your notes stay private. Your good intel doesn't have to."
                     : "New here? Ask someone in the crew for an invite."}
                 </p>
               </form>

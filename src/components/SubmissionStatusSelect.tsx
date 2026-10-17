@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { api } from "../api";
 import useMutation from "../hooks/useMutation";
-import { SUBMISSION_STATUSES } from "../lib/constants";
+import { SUBMISSION_STATUS_OPTIONS } from "../lib/constants";
 import { Button, Notice, Select } from "../theme";
 import type { Submission } from "../types";
 import SubmissionEditor from "./SubmissionEditor";
@@ -38,7 +38,12 @@ export default function SubmissionStatusSelect({
             )
           }
         >
-          {SUBMISSION_STATUSES.map((s) => (
+          {submission.status === "attended" && (
+            <option value="attended" disabled>
+              Attended (legacy)
+            </option>
+          )}
+          {SUBMISSION_STATUS_OPTIONS.map((s) => (
             <option value={s} key={s}>
               {s[0].toUpperCase() + s.slice(1)}
             </option>

@@ -19,7 +19,6 @@ export default function TalkEditor({
   onSaved,
 }: TalkEditorProps) {
   const [title, setTitle] = useState(paper?.title ?? "");
-  const [abstract, setAbstract] = useState(paper?.abstract ?? "");
   const [notes, setNotes] = useState(paper?.notes ?? "");
   const { busy, error, run } = useMutation();
   function submit(event: FormEvent) {
@@ -28,7 +27,7 @@ export default function TalkEditor({
       () =>
         api<Paper>(paper ? `/papers/${paper.id}` : "/papers", {
           method: paper ? "PATCH" : "POST",
-          body: { title, abstract, notes },
+          body: { title, notes },
         }),
       (result) => {
         onSaved(result);
@@ -50,14 +49,6 @@ export default function TalkEditor({
             placeholder="Give your idea a name"
           />
         </Field>
-        <Field label="Abstract">
-          <Textarea
-            rows={7}
-            value={abstract}
-            onChange={(e) => setAbstract(e.target.value)}
-            placeholder="What will people take away from your talk?"
-          />
-        </Field>
         <Field label="Private notes">
           <Textarea
             rows={3}
@@ -68,7 +59,7 @@ export default function TalkEditor({
         </Field>
         <p className="flex items-center gap-2 text-xs text-muted">
           <LockKeyhole size={13} />
-          Only you can see your abstracts and notes.
+          Only you can see your notes.
         </p>
         {error && <Notice tone="error">{error}</Notice>}
         <div className="flex justify-end gap-2 border-t border-divider pt-5">

@@ -3,15 +3,7 @@ import type { FormEvent } from "react";
 
 import { api } from "../api";
 import useMutation from "../hooks/useMutation";
-import {
-  Button,
-  Checkbox,
-  Field,
-  Input,
-  Modal,
-  Notice,
-  Textarea,
-} from "../theme";
+import { Button, Checkbox, Field, Input, Modal, Notice } from "../theme";
 import type { Submission } from "../types";
 
 interface SubmissionEditorProps {
@@ -25,7 +17,6 @@ export default function SubmissionEditor({
   onSaved,
   onClose,
 }: SubmissionEditorProps) {
-  const [abstract, setAbstract] = useState(submission.abstract_override ?? "");
   const [hide, setHide] = useState(!!submission.hide_title);
   const [date, setDate] = useState(submission.submitted_on ?? "");
   const { busy, error, run } = useMutation();
@@ -36,7 +27,6 @@ export default function SubmissionEditor({
         api(`/submissions/${submission.id}`, {
           method: "PATCH",
           body: {
-            abstract_override: abstract || null,
             hide_title: hide,
             submitted_on: date || null,
           },
@@ -50,16 +40,6 @@ export default function SubmissionEditor({
   return (
     <Modal title="The details of this submission" onClose={onClose}>
       <form className="space-y-5" onSubmit={submit}>
-        <Field
-          label="Abstract for this edition"
-          hint="Private to you. Leave empty to use your talk's original abstract."
-        >
-          <Textarea
-            rows={7}
-            value={abstract}
-            onChange={(e) => setAbstract(e.target.value)}
-          />
-        </Field>
         <Field label="Submitted on">
           <Input
             type="date"

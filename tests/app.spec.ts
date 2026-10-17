@@ -20,7 +20,7 @@ test("the crew can take a conference from shortlist to stage", async ({ page }) 
   await expect(page.getByRole("heading", { name: "Ideas looking for a stage." })).toBeVisible();
   await page.getByRole("button", { name: "New talk", exact: true }).click();
   await page.getByLabel("Talk title", { exact: true }).fill("The web is for everyone");
-  await page.getByLabel("Abstract", { exact: true }).fill("A deeply private abstract about accessible interfaces.");
+  await expect(page.getByLabel("Abstract", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Add to my library" }).click();
   await expect(page.getByRole("link", { name: "The web is for everyone" })).toBeVisible();
   await page.getByRole("link", { name: "Conferences", exact: true }).click();
@@ -48,6 +48,11 @@ test("the crew can take a conference from shortlist to stage", async ({ page }) 
   await page.getByRole("button", { name: "Add edition", exact: true }).click();
   await expect(page.getByRole("heading", { name: /JSNation \d{4}/ })).toBeVisible();
   await page.getByRole("button", { name: "Add my talk", exact: true }).click();
+  await expect(page.getByLabel("Abstract for this edition (optional)")).toHaveCount(0);
+  await expect(page.getByLabel("Submission status").locator('option[value="attended"]')).toHaveCount(0);
+  await page.getByRole("button", { name: "New talk", exact: true }).click();
+  await expect(page.getByLabel("Abstract (private)")).toHaveCount(0);
+  await page.getByRole("button", { name: "From my library", exact: true }).click();
   await page.getByLabel("Submission status").selectOption("confirmed");
   await page.getByRole("button", { name: "Add my talk", exact: true }).last().click();
   await expect(page.locator("span").filter({ hasText: /^Confirmed$/ })).toBeVisible();
@@ -86,7 +91,7 @@ test("the crew can take a conference from shortlist to stage", async ({ page }) 
   await expect(page.getByText("An open seat at the table")).toBeVisible();
   await page.goto("/talks");
   await page.getByRole("link", { name: "The web is for everyone", exact: true }).click();
-  await expect(page.getByText("A deeply private abstract about accessible interfaces.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Abstract", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Edit talk", exact: true }).click();
   await page.getByLabel("Private notes").fill("Remember to bring the accessible demos.");
   await page.getByRole("button", { name: "Save changes", exact: true }).click();

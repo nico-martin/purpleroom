@@ -291,6 +291,7 @@ Unknown tags in input are rejected with 422.
 `interested → submitted → accepted | rejected | waitlisted → confirmed | declined → attended`
 
 Transitions are **not enforced**; any status may be set. The UI shows them in this order.
+The `attended` value remains supported in the schema/API for historical records but is no longer offered as a selectable status in the UI. Existing attended submissions show a disabled legacy option until changed to another status.
 
 ### Derived "who's going" for an edition
 A user counts as **going** if they have attendance `going`, or a submission with status `confirmed` or `attended`. A user counts as **maybe** if attendance is `maybe` or a submission is `accepted`. Speaking is shown separately from attending.
@@ -371,7 +372,7 @@ All endpoints are under `/api`, JSON request/response, `Content-Type: applicatio
       "speaking": [{ "user": User, "status": "accepted" }],
       "going": [User], "maybe": [User] }
   ],
-  "recent_activity": [      // last 20 events: new conference, new edition, status change, review, comment
+  "recent_activity": [      // last 10 events: new conference, new edition, status change, review, comment
     { "type": "submission_status", "at": "…", "user": User, "summary": "…", "link": "/editions/12" }
   ]
 }
@@ -494,7 +495,7 @@ On app load call `GET /api/me`; on 401 redirect to `/login` (preserving the inte
 
 **My talks**
 - List of papers; each expands to show submissions as a small table (edition, deadline, status dropdown editable inline).
-- Create/edit paper: title, abstract (textarea, markdown not required), notes.
+- Create/edit paper: title and private notes. Abstracts and edition-specific abstract overrides are retained in the database/API for compatibility but are not displayed or edited in the UI. Frontend saves omit these fields so existing values are preserved.
 
 ### UX rules
 - Mobile-first; works well on a phone.

@@ -36,7 +36,7 @@ export default function TalksPage({ className = "" }: TalksPageProps) {
       <PageHeader
         eyebrow="Your personal green room"
         title="Ideas looking for a stage."
-        description="Your talk library, from first draft to front row. Abstracts and notes are just for you."
+        description="Your talk library, from first idea to front row. Your notes are just for you."
         action={
           <Button variant="primary" onClick={() => setCreating(true)}>
             <Plus size={16} />
@@ -147,7 +147,7 @@ export default function TalksPage({ className = "" }: TalksPageProps) {
                         to={`/talks/${paper.id}`}
                         className="inline-flex min-h-11 items-center gap-2 text-sm text-green"
                       >
-                        Edit talk & abstract <ArrowUpRight size={14} />
+                        Edit talk <ArrowUpRight size={14} />
                       </Link>
                     </div>
                   </div>
@@ -160,7 +160,7 @@ export default function TalksPage({ className = "" }: TalksPageProps) {
         <Card>
           <EmptyState
             title="It starts with an idea."
-            description="Keep your titles, abstracts, and drafts in one place. When a good CFP comes along, you'll be ready."
+            description="Keep your talk ideas and private notes in one place. When a good CFP comes along, you'll be ready."
             action={
               <Button variant="dashed" onClick={() => setCreating(true)}>
                 <Plus size={15} />

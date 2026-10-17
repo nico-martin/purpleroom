@@ -57,6 +57,8 @@ Make `api/db/` writable by PHP; the logo subdirectories are created automaticall
 
 ## Checks
 
+“Around the room” shows the latest 10 activity entries. Talk and submission forms currently omit abstracts, and submission-status choices omit “Attended”. Existing abstract/override fields and historical attended records are preserved in the database; editing notes or submission details does not clear them. No schema migration is required for these UI changes.
+
 ```bash
 pnpm build
 pnpm lint

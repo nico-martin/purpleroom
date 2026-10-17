@@ -1,11 +1,11 @@
-import { LockKeyhole, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useState } from "react";
 import type { FormEvent } from "react";
 
 import { api } from "../api";
 import useApi from "../hooks/useApi";
 import useMutation from "../hooks/useMutation";
-import { SUBMISSION_STATUSES } from "../lib/constants";
+import { SUBMISSION_STATUS_OPTIONS } from "../lib/constants";
 import {
   Button,
   Checkbox,
@@ -16,7 +16,6 @@ import {
   Notice,
   SegmentedControl,
   Select,
-  Textarea,
 } from "../theme";
 import type { Paper, SubmissionStatus } from "../types";
 
@@ -37,8 +36,6 @@ export default function SubmissionModal({
   const [mode, setMode] = useState("existing");
   const [paperId, setPaperId] = useState("");
   const [title, setTitle] = useState("");
-  const [abstract, setAbstract] = useState("");
-  const [override, setOverride] = useState("");
   const [hideTitle, setHideTitle] = useState(false);
   const [status, setStatus] = useState<SubmissionStatus>("interested");
   const mutation = useMutation();
@@ -51,7 +48,7 @@ export default function SubmissionModal({
           id = (
             await api<Paper>("/papers", {
               method: "POST",
-              body: { title, abstract },
+              body: { title },
             })
           ).id;
         await api("/submissions", {
@@ -61,7 +58,6 @@ export default function SubmissionModal({
             edition_id: editionId,
             status,
             hide_title: hideTitle,
-            abstract_override: override || null,
           },
         });
       },
@@ -117,13 +113,6 @@ export default function SubmissionModal({
                   placeholder="What's your big idea?"
                 />
               </Field>
-              <Field label="Abstract (private)">
-                <Textarea
-                  value={abstract}
-                  onChange={(e) => setAbstract(e.target.value)}
-                  placeholder="The story you want to tell…"
-                />
-              </Field>
             </>
           )}
           <Field label="Submission status">
@@ -131,32 +120,18 @@ export default function SubmissionModal({
               value={status}
               onChange={(e) => setStatus(e.target.value as SubmissionStatus)}
             >
-              {SUBMISSION_STATUSES.map((s) => (
+              {SUBMISSION_STATUS_OPTIONS.map((s) => (
                 <option key={s} value={s}>
                   {s[0].toUpperCase() + s.slice(1)}
                 </option>
               ))}
             </Select>
           </Field>
-          <Field
-            label="Abstract for this edition (optional)"
-            hint="A tailored version, without changing your original talk."
-          >
-            <Textarea
-              rows={3}
-              value={override}
-              onChange={(e) => setOverride(e.target.value)}
-            />
-          </Field>
           <Checkbox
             label="Hide talk title from the crew"
             checked={hideTitle}
             onChange={(e) => setHideTitle(e.target.checked)}
           />
-          <p className="flex items-center gap-2 text-xs text-muted">
-            <LockKeyhole size={13} />
-            Your abstract is always private. Only you can see it.
-          </p>
           {mutation.error && <Notice tone="error">{mutation.error}</Notice>}
           <div className="flex justify-end gap-2 border-t border-divider pt-5">
             <Button onClick={onClose}>Cancel</Button>

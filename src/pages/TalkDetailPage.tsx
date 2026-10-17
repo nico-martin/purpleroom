@@ -51,17 +51,10 @@ export default function TalkDetailPage({
       />
       <div className="mb-6 flex items-center gap-2 text-xs text-muted">
         <LockKeyhole size={14} />
-        Only you can see this page, your abstract, and your notes.
+        Only you can see this page and your notes.
       </div>
       <div className="grid gap-8 xl:grid-cols-3">
         <div className="space-y-6 xl:col-span-2">
-          <Card padded>
-            <h2 className="mb-4 text-xl">Abstract</h2>
-            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-ink-soft">
-              {data.abstract ||
-                "A blank page, full of possibilities. Edit this talk to give your idea a little more shape."}
-            </p>
-          </Card>
           <Card padded>
             <h2 className="mb-4 text-xl">Notes to self</h2>
             <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-muted">
