@@ -1,5 +1,6 @@
 export { default as Button } from "./button/Button";
 export { default as ButtonLink } from "./button/ButtonLink";
+export { default as CopyButton } from "./button/CopyButton";
 export { default as Badge } from "./badge/Badge";
 export { default as StatusChip } from "./badge/StatusChip";
 export { default as DeadlineBadge } from "./badge/DeadlineBadge";

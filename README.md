@@ -57,6 +57,16 @@ Logo downloads require PHP **cURL**. Supported formats are PNG, JPEG, GIF, WebP,
 
 Make `api/db/` writable by PHP; the logo subdirectories are created automatically. Both the FTP workflow and manual SSH deployment exclude `api/db/logos/` from upload/deletion. Include that directory alongside SQLite in server backups; it is intentionally not committed or bundled.
 
+### Copying and revoking invitations
+
+In **The crew → Open invitations**, any signed-in member can **Copy link** or **Delete** an open invitation. Deleting requires confirmation and immediately invalidates the shared URL. Accepted invitations cannot be deleted or regenerated this way. Copying a current link does not rotate it. Clipboard restrictions fall back to a dialog with a selectable URL.
+
+New invite tokens remain hashed in SQLite for verification, with an additional **AES-256-GCM encrypted copy** in protected **`api/db/invite-links/`** for copying later. A random 32-byte server key is generated automatically as `key.bin`, under a file lock, with owner-only permissions. Each payload is authenticated against its invitation ID and token hash; tokens and keys are never stored in plaintext JSON, committed, bundled, or written to logs. PHP OpenSSL and writable `api/db/` storage are required. No extra GitHub secret or schema migration is needed.
+
+Old invitations only have irreversible token hashes. Their existing links continue to work; clicking Copy link asks before **creating a replacement**, which invalidates the old link but preserves the expiry date. A replacement is not generated if you cancel. Removing or accepting an invite also removes its encrypted copy.
+
+Both deployment methods preserve `api/db/invite-links/`. Back up the **entire directory, including `key.bin`**, with SQLite. Losing the key does not revoke already shared links, but makes them unrecoverable for copying; they then require explicitly confirmed regeneration. Never expose, commit, or replace the runtime encryption key during deployments.
+
 ## Checks
 
 “Around the room” shows the latest 10 activity entries. Talk and submission forms currently omit abstracts, and submission-status choices omit “Attended”. Existing abstract/override fields and historical attended records are preserved in the database; editing notes or submission details does not clear them. No schema migration is required for these UI changes.
@@ -94,7 +104,7 @@ Configure these repository **Actions secrets**:
 
 The workflow defaults to **explicit FTPS on port 21**, with strict certificate verification. Optional repository **Actions variables** `FTP_PROTOCOL` (`ftps`, `ftps-legacy`, or `ftp`) and `FTP_PORT` can match your host's requirements. Prefer encrypted FTPS; plain FTP exposes credentials and application files in transit.
 
-Only production files are staged, including Apache `.htaccess` files. The live `api/db/db.sqlite*`, `api/db/sessions/`, and `api/db/logos/` are excluded from both upload and deletion. Do not enable the action's `dangerous-clean-slate` option. Deployments are serialized to avoid overlapping uploads.
+Only production files are staged, including Apache `.htaccess` files. The live `api/db/db.sqlite*`, `api/db/sessions/`, `api/db/logos/`, and `api/db/invite-links/` are excluded from both upload and deletion. Do not enable the action's `dangerous-clean-slate` option. Deployments are serialized to avoid overlapping uploads.
 
 After the frontend build, the workflow generates **`api/config.local.php` from the `APP_*` secrets**, forces production mode, and uploads it with the backend. GitHub secrets are the source of truth: **each deployment replaces manual server config changes**. Local config files from the checkout are never copied. Invalid or missing required settings fail the deployment before upload. Secrets are confined to this PHP config, not frontend bundles, build logs, or uploaded CI artifacts; the runner's generated file is removed afterward. Apache denies web access to the config.
 
@@ -133,7 +143,7 @@ The JSON `server_error` response means PHP received the request but encountered 
 5. Run `php api/db/seed.php "Nico" nico@example.com` over SSH, then open the link.
 6. Configure SPF/DKIM for cyon's outgoing mail service. Magic links use PHP `mail()` in production.
 
-Manual SSH deployment preserves the live database, SQLite sidecar files, stored logos, sessions, and local config. It builds static assets, uploads frontend and API separately, and runs CLI migrations. No Node process is needed in production.
+Manual SSH deployment preserves the live database, SQLite sidecar files, stored logos, encrypted invite links and their key, sessions, and local config. It builds static assets, uploads frontend and API separately, and runs CLI migrations. No Node process is needed in production.
 
 Verify after deployment:
 

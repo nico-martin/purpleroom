@@ -110,7 +110,7 @@ green-room/
 └── .gitignore
 ```
 
-`.gitignore` must include: `node_modules/`, `dist/`, `api/db/db.sqlite*`, `api/db/logos/`, `api/config.local.php`.
+`.gitignore` must include: `node_modules/`, `dist/`, `api/db/db.sqlite*`, `api/db/logos/`, `api/db/invite-links/`, `api/config.local.php`.
 
 ---
 
@@ -309,6 +309,7 @@ A user counts as **going** if they have attendance `going`, or a submission with
 ### Tokens
 - Generate with `bin2hex(random_bytes(32))`.
 - Store only `hash('sha256', $token)`.
+- For copyable invites, keep an additional AES-256-GCM encrypted token in protected `api/db/invite-links/`, with a persistent randomly generated 32-byte server key, 12-byte random nonce, and authenticated binding to invite ID/token hash. Do not store raw tokens in plaintext. Legacy hash-only invites require explicit confirmation before regeneration; never silently rotate them on read/copy. Preserve this directory and its key across deployments/backups.
 - Login tokens expire after 15 min, single use.
 - Invite tokens expire after 14 days, single use.
 
@@ -355,7 +356,9 @@ All endpoints are under `/api`, JSON request/response, `Content-Type: applicatio
 | Method | Path | Notes |
 |---|---|---|
 | POST | `/invites` | `{ email? }` → `{ url, expires_at }` |
-| GET | `/invites` | open invites created by anyone (for visibility) |
+| GET | `/invites` | open invites created by anyone; includes recoverable `url` or `null` for legacy/unrecoverable links |
+| DELETE | `/invites/{id}` | any logged-in member can revoke an open invite; 204 on success, 404 if no longer open; its link immediately becomes invalid |
+| POST | `/invites/{id}/regenerate` | any logged-in member can explicitly replace an open invite's token; returns `{ url, expires_at }`, preserving expiry and invalidating the old link; UI must confirm first |
 | GET | `/invites/{token}` | public: `{ valid, invited_by: {name}, email? }` |
 | POST | `/invites/{token}/accept` | public: `{ name, email }` → `{ user }` + session |
 
@@ -596,6 +599,7 @@ rsync -avz --delete \
   --exclude 'db/db.sqlite*' \
   --exclude 'db/sessions/' \
   --exclude 'db/logos/' \
+  --exclude 'db/invite-links/' \
   --exclude 'config.local.php' \
   api/ "$HOST:$DEST/api/"
 ssh "$HOST" "cd $DEST && php api/db/migrate.php"

@@ -123,6 +123,7 @@ export interface Invite {
   invited_by: User;
   expires_at: string;
   created_at: string;
+  url: string | null;
 }
 export interface Cfp {
   edition: Edition;

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -123,9 +123,65 @@ try {
   await owner("/comments", "POST", { conference_id: conference.id, edition_id: edition.id, text: "Ambiguous" }, 422);
   const invitation = await owner("/invites", "POST", { email: "friend@example.com" }, 201);
   const inviteToken = invitation.url.split("/").at(-1);
+  const listedInvite = (await owner("/invites")).find((invite) => invite.email === "friend@example.com");
+  assert.equal(listedInvite.url, invitation.url);
+  assert.equal(listedInvite.token_hash, undefined);
   assert.equal((await anonymous(`/invites/${inviteToken}`)).valid, true);
   await other(`/invites/${inviteToken}/accept`, "POST", { name: "Friend", email: "friend@example.com" }, 201);
   await anonymous(`/invites/${inviteToken}/accept`, "POST", { name: "Another", email: "another@example.com" }, 422);
+  await owner(`/invites/${listedInvite.id}`, "DELETE", undefined, 404);
+  await owner(`/invites/${listedInvite.id}/regenerate`, "POST", undefined, 404);
+
+  const revocable = await owner("/invites", "POST", { email: "revoke@example.com" }, 201);
+  const revocableToken = revocable.url.split("/").at(-1);
+  const open = (await other("/invites")).find((invite) => invite.email === "revoke@example.com");
+  assert.equal(open.url, revocable.url, "Another member must be able to copy the same link without changing it");
+  const inviteDirectory = join(directory, "invite-links");
+  const payloads = (await readdir(inviteDirectory)).filter((file) => file.endsWith(".json"));
+  assert.equal(payloads.length, 1, "Accepted links should no longer retain encrypted payloads");
+  const payloadPath = join(inviteDirectory, payloads[0]);
+  const encrypted = await readFile(payloadPath, "utf8");
+  assert.ok(!encrypted.includes(revocableToken), "Raw invite tokens must not be stored in plaintext");
+  assert.equal((await stat(payloadPath)).mode & 0o777, 0o600);
+  assert.equal((await stat(join(inviteDirectory, "key.bin"))).mode & 0o777, 0o600);
+  const damaged = JSON.parse(encrypted);
+  const ciphertext = Buffer.from(damaged.ciphertext, "base64"); ciphertext[0] ^= 1;
+  damaged.ciphertext = ciphertext.toString("base64");
+  await writeFile(payloadPath, JSON.stringify(damaged));
+  assert.equal((await owner("/invites")).find((invite) => invite.id === open.id).url, null, "Tampered ciphertext must not be returned");
+  assert.equal((await anonymous(`/invites/${revocableToken}`)).valid, true, "Payload damage must not invalidate an already shared link");
+  await writeFile(payloadPath, encrypted);
+  await anonymous(`/invites/${open.id}`, "DELETE", undefined, 401);
+  await owner(`/invites/${open.id}`, "DELETE", undefined, 403, false);
+  await other(`/invites/${open.id}`, "DELETE", undefined, 204);
+  assert.equal((await anonymous(`/invites/${revocableToken}`)).valid, false);
+  await anonymous(`/invites/${revocableToken}/accept`, "POST", { name: "Revoked", email: "revoked@example.com" }, 422);
+  await owner(`/invites/${open.id}`, "DELETE", undefined, 404);
+  assert.ok(!(await readdir(inviteDirectory)).includes(payloads[0]));
+
+  const legacyToken = randomBytes(32).toString("hex");
+  const legacyId = Number(cli(["-r", `
+    define('GREEN_ROOM', true); $config = require 'api/config.php'; require 'api/lib/db.php';
+    echo insert('invites', ['token_hash' => hash('sha256', $argv[1]), 'invited_by' => (int)$argv[2], 'expires_at' => gmdate('Y-m-d\\TH:i:s\\Z', time()+86400)]);
+  `, legacyToken, String(me.user.id)]));
+  const legacy = (await owner("/invites")).find((invite) => invite.id === legacyId);
+  assert.equal(legacy.url, null, "An old one-way token hash cannot be recovered");
+  assert.equal((await anonymous(`/invites/${legacyToken}`)).valid, true);
+  await owner(`/invites/${legacyId}/regenerate`, "POST", undefined, 403, false);
+  await anonymous(`/invites/${legacyId}/regenerate`, "POST", undefined, 401);
+  const replaced = await other(`/invites/${legacyId}/regenerate`, "POST");
+  assert.equal(replaced.expires_at, legacy.expires_at);
+  assert.equal((await anonymous(`/invites/${legacyToken}`)).valid, false);
+  assert.equal((await anonymous(`/invites/${replaced.url.split("/").at(-1)}`)).valid, true);
+  assert.equal((await owner("/invites")).find((invite) => invite.id === legacyId).url, replaced.url);
+
+  const keyPath = join(inviteDirectory, "key.bin");
+  const key = await readFile(keyPath);
+  const beforeStorageFailure = (await owner("/invites")).length;
+  await writeFile(keyPath, "damaged key");
+  await owner("/invites", "POST", { email: "should-not-save@example.com" }, 503);
+  assert.equal((await owner("/invites")).length, beforeStorageFailure, "Storage failure must roll back the new invitation");
+  await writeFile(keyPath, key);
   assert.equal((await other("/papers")).length, 0);
   await other(`/papers/${paper.id}`, "GET", undefined, 404);
   await other(`/papers/${paper.id}`, "PATCH", { title: "Nope" }, 404);
@@ -167,9 +223,10 @@ try {
   const rotated = await owner("/me/cal-token", "POST");
   assert.notEqual(rotated.cal_url, feed);
   await anonymous(new URL(feed).pathname.slice(4), "GET", undefined, 404);
-  for (const secret of ["/db/db.sqlite", "/db/schema.sql", "/lib/db.php", "/config.php", "/config.local.php"]) await anonymous(secret, "GET", undefined, 403);
+  for (const secret of ["/db/db.sqlite", "/db/schema.sql", "/db/invite-links/key.bin", "/lib/db.php", "/config.php", "/config.local.php"]) await anonymous(secret, "GET", undefined, 403);
   await owner(`/papers/${paper.id}`, "DELETE", undefined, 204);
   assert.equal((await owner(`/editions/${edition.id}`)).submissions.length, 0);
+  const persistentInvite = await owner("/invites", "POST", { email: "persistent@example.com" }, 201);
   await owner("/auth/logout", "POST", undefined, 204);
   await owner("/me", "GET", undefined, 401);
   server.kill("SIGTERM");
@@ -182,6 +239,7 @@ try {
   }
   const disabled = await anonymous("/setup", "POST", { setup_key: setupKey, name: "Intruder", email: "intruder@example.com" }, 404);
   assert.equal(disabled.error.code, "not_found");
+  assert.equal((await other("/invites")).find((invite) => invite.email === "persistent@example.com").url, persistentInvite.url, "Invite links must remain copyable across PHP server restarts");
   console.log("API integration checks passed: one-time web setup, disabled setup, missing-schema diagnostics, authentication, CSRF, validation, CRUD, privacy, ownership, invites, dashboard, calendar, soft delete/restore, and protected files.");
 } finally {
   if (server) {

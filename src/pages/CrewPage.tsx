@@ -1,8 +1,9 @@
-import { Clock3, Link2, Plus, Users } from "lucide-react";
+import { Link2, Plus, Users } from "lucide-react";
 import { useState } from "react";
 import type { FormEvent } from "react";
 
 import { api } from "../api";
+import OpenInviteRow from "../components/OpenInviteRow";
 import useApi from "../hooks/useApi";
 import useMutation from "../hooks/useMutation";
 import useSession from "../hooks/useSession";
@@ -15,7 +16,6 @@ import {
   CopyField,
   Field,
   Input,
-  ListRow,
   LoadingState,
   Modal,
   Notice,
@@ -138,27 +138,11 @@ export default function CrewPage({ className = "" }: CrewPageProps) {
         <Card>
           {invites.data?.length ? (
             invites.data.map((invite) => (
-              <ListRow key={invite.id}>
-                <div className="flex size-10 items-center justify-center rounded-xl bg-divider text-muted">
-                  <Link2 size={17} />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm">
-                    {invite.email || "An open seat at the table"}
-                  </p>
-                  <p className="mt-1 text-xs text-muted">
-                    Invited by {invite.invited_by.name}
-                  </p>
-                </div>
-                <span className="flex items-center gap-2 font-mono text-xs text-muted">
-                  <Clock3 size={13} />
-                  Until{" "}
-                  {formatDate(invite.expires_at, {
-                    day: "numeric",
-                    month: "short",
-                  })}
-                </span>
-              </ListRow>
+              <OpenInviteRow
+                key={invite.id}
+                invite={invite}
+                onChanged={invites.refresh}
+              />
             ))
           ) : (
             <p className="p-6 text-sm text-muted">
@@ -179,8 +163,8 @@ export default function CrewPage({ className = "" }: CrewPageProps) {
               </Notice>
               <CopyField value={link.url} label="invite link" />
               <p className="text-xs text-muted">
-                One use only. Good until {formatDate(link.expires_at)}. Save the
-                link now; we don't store it in readable form.
+                One use only. Good until {formatDate(link.expires_at)}. You can
+                copy this link again from Open invitations while it stays open.
               </p>
               <div className="flex justify-end">
                 <Button onClick={() => setCreating(false)}>Done</Button>
