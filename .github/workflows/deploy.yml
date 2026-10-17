@@ -1,0 +1,113 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Do not interrupt an FTP upload or deploy two versions concurrently.
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy via FTP
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build production app
+        run: pnpm build
+
+      - name: Prepare and verify deployment bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle="$RUNNER_TEMP/green-room-deploy"
+          mkdir -p "$bundle/api"
+          rsync -a dist/ "$bundle/"
+          rsync -a \
+            --exclude='config.local.php' \
+            --exclude='db/db.sqlite*' \
+            --exclude='db/sessions/' \
+            --exclude='dev-router.php' \
+            api/ "$bundle/api/"
+
+          test -s "$bundle/index.html"
+          test -d "$bundle/assets"
+          test -s "$bundle/.htaccess"
+          test -s "$bundle/api/index.php"
+          test -s "$bundle/api/.htaccess"
+          test -s "$bundle/api/db/.htaccess"
+          test -s "$bundle/api/db/schema.sql"
+          test ! -e "$bundle/api/config.local.php"
+          test ! -e "$bundle/api/db/db.sqlite"
+          test ! -d "$bundle/api/db/sessions"
+          echo "Frontend assets, PHP backend, and Apache protection files are ready."
+
+      - name: Validate FTP configuration
+        shell: bash
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_DEPLOY_PATH: ${{ secrets.FTP_DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+          : "${FTP_SERVER:?Set the FTP_SERVER repository secret}"
+          : "${FTP_USERNAME:?Set the FTP_USERNAME repository secret}"
+          : "${FTP_PASSWORD:?Set the FTP_PASSWORD repository secret}"
+          : "${FTP_DEPLOY_PATH:?Set the FTP_DEPLOY_PATH repository secret}"
+          if [[ "$FTP_DEPLOY_PATH" != */ ]]; then
+            echo "::error::FTP_DEPLOY_PATH must end with a slash."
+            exit 1
+          fi
+
+      - name: Deploy frontend and PHP backend
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ secrets.FTP_DEPLOY_PATH }}
+          local-dir: ${{ runner.temp }}/green-room-deploy/
+          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
+          port: ${{ vars.FTP_PORT || '21' }}
+          security: strict
+          dangerous-clean-slate: false
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            **/.DS_Store
+            api/config.local.php
+            api/db/db.sqlite*
+            api/db/sessions
+            api/db/sessions/**
+            api/dev-router.php
+
+      - name: Deployment complete
+        run: |
+          echo "### Production files deployed" >> "$GITHUB_STEP_SUMMARY"
+          echo "Frontend bundles and PHP backend uploaded. Live database, sessions, and local config were excluded." >> "$GITHUB_STEP_SUMMARY"
+          echo 'FTP cannot execute migrations. On first deployment or schema changes, run `php api/db/migrate.php` on the server via SSH.' >> "$GITHUB_STEP_SUMMARY"

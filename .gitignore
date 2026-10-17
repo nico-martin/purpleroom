@@ -1,0 +1,11 @@
+node_modules/
+dist/
+api/db/db.sqlite*
+api/db/sessions/
+api/config.local.php
+*.log
+.DS_Store
+.idea/
+*.tsbuildinfo
+test-results/
+playwright-report/
