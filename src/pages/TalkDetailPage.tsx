@@ -7,6 +7,7 @@ import SubmissionStatusSelect from "../components/SubmissionStatusSelect";
 import TalkEditor from "../components/TalkEditor";
 import useApi from "../hooks/useApi";
 import useMutation from "../hooks/useMutation";
+import { editionLabel } from "../lib/format";
 import {
   Button,
   ButtonLink,
@@ -75,7 +76,7 @@ export default function TalkDetailPage({
                     to={`/editions/${s.edition_id}`}
                     className="font-heading text-base font-semibold hover:text-green"
                   >
-                    {s.conference?.name} {s.edition?.year}
+                    {editionLabel(s.edition, s.conference?.name)}
                   </Link>
                   <SubmissionStatusSelect submission={s} onSaved={refresh} />
                 </ListRow>

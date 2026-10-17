@@ -6,7 +6,13 @@ import CfpRow from "../components/CfpRow";
 import SubmissionModal from "../components/SubmissionModal";
 import useApi from "../hooks/useApi";
 import useSession from "../hooks/useSession";
-import { dateRange, formatDate, location, relativeTime } from "../lib/format";
+import {
+  dateRange,
+  editionLabel,
+  formatDate,
+  location,
+  relativeTime,
+} from "../lib/format";
 import {
   Avatar,
   AvatarStack,
@@ -148,7 +154,7 @@ export default function DashboardPage({ className = "" }: DashboardPageProps) {
                           to={`/editions/${edition.id}`}
                           className="font-heading text-base font-semibold hover:text-green"
                         >
-                          {conference.name} {edition.year}
+                          {editionLabel(edition, conference.name)}
                         </Link>
                         <p className="mt-1 text-xs text-muted">
                           {location(edition)} · {dateRange(edition)}
@@ -189,7 +195,7 @@ export default function DashboardPage({ className = "" }: DashboardPageProps) {
                         ]}
                       />
                       <Link
-                        aria-label={`View ${conference.name}`}
+                        aria-label={`View ${editionLabel(edition, conference.name)}`}
                         to={`/editions/${edition.id}`}
                         className="flex size-11 items-center justify-center text-muted hover:text-green"
                       >
@@ -282,7 +288,7 @@ export default function DashboardPage({ className = "" }: DashboardPageProps) {
       {selected && (
         <SubmissionModal
           editionId={selected.edition.id}
-          editionName={`${selected.conference.name} ${selected.edition.year}`}
+          editionName={editionLabel(selected.edition, selected.conference.name)}
           onClose={() => setSelected(null)}
           onSaved={refresh}
         />

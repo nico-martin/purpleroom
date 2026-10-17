@@ -38,6 +38,7 @@ test("the crew can take a conference from shortlist to stage", async ({ page }) 
   await page.getByRole("button", { name: "Save my take" }).click();
   await expect(page.getByText("Would return", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: "New edition" }).click();
+  await expect(page.getByLabel("Edition title", { exact: true })).toHaveValue("JSNation");
   const future = (days: number) => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
   await page.getByLabel("Year", { exact: true }).fill(String(new Date(future(90)).getFullYear()));
   await page.getByLabel("City", { exact: true }).fill("Amsterdam");

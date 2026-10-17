@@ -20,7 +20,7 @@ import SubmissionStatusSelect from "../components/SubmissionStatusSelect";
 import useApi from "../hooks/useApi";
 import useMutation from "../hooks/useMutation";
 import useSession from "../hooks/useSession";
-import { daysUntil, formatDate, location } from "../lib/format";
+import { daysUntil, editionLabel, formatDate, location } from "../lib/format";
 import {
   Avatar,
   Button,
@@ -56,7 +56,7 @@ export default function EditionDetailPage({
   if (error || !data) return <Notice tone="error">{error}</Notice>;
   const attendance =
     data.attendance.find((a) => a.user_id === user.id)?.status ?? "none";
-  const name = `${data.conference.name} ${data.year}`;
+  const name = editionLabel(data, data.conference.name);
   return (
     <div className={className}>
       <ButtonLink

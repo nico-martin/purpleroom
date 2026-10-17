@@ -12,7 +12,7 @@ import { Link } from "react-router-dom";
 import SubmissionStatusSelect from "../components/SubmissionStatusSelect";
 import TalkEditor from "../components/TalkEditor";
 import useApi from "../hooks/useApi";
-import { formatDate } from "../lib/format";
+import { editionLabel, formatDate } from "../lib/format";
 import {
   Badge,
   Button,
@@ -112,7 +112,7 @@ export default function TalksPage({ className = "" }: TalksPageProps) {
                                 to={`/editions/${s.edition_id}`}
                                 className="text-sm font-semibold hover:text-green"
                               >
-                                {s.conference?.name} {s.edition?.year}
+                                {editionLabel(s.edition, s.conference?.name)}
                               </Link>
                               <p className="mt-1 text-xs text-muted">
                                 CFP:{" "}

@@ -19,7 +19,7 @@ import useApi from "../hooks/useApi";
 import useMutation from "../hooks/useMutation";
 import useSession from "../hooks/useSession";
 import { REVIEW_TAGS } from "../lib/constants";
-import { dateRange, location, relativeTime } from "../lib/format";
+import { dateRange, editionLabel, location, relativeTime } from "../lib/format";
 import {
   Avatar,
   Badge,
@@ -185,7 +185,9 @@ export default function ConferenceDetailPage({
               data.editions.map((edition) => (
                 <ListRow key={edition.id}>
                   <Link to={`/editions/${edition.id}`} className="flex-1">
-                    <h3 className="text-lg">{edition.year}</h3>
+                    <h3 className="text-lg">
+                      {editionLabel(edition, data.name)}
+                    </h3>
                     <p className="mt-1 text-xs text-muted">
                       {location(edition)}
                     </p>
@@ -195,7 +197,7 @@ export default function ConferenceDetailPage({
                   </Link>
                   <Link
                     to={`/editions/${edition.id}`}
-                    aria-label={`View ${edition.year} edition`}
+                    aria-label={`View ${editionLabel(edition, data.name)}`}
                     className="flex size-11 items-center justify-center text-green"
                   >
                     <ArrowRight size={16} />

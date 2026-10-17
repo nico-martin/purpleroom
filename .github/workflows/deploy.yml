@@ -62,6 +62,7 @@ jobs:
           test -s "$bundle/api/.htaccess"
           test -s "$bundle/api/db/.htaccess"
           test -s "$bundle/api/db/schema.sql"
+          test -s "$bundle/api/db/migrations/002_edition_titles.sql"
           test ! -e "$bundle/api/config.local.php"
           test ! -e "$bundle/api/db/db.sqlite"
           test ! -d "$bundle/api/db/sessions"
@@ -133,4 +134,4 @@ jobs:
         run: |
           echo "### Production files deployed" >> "$GITHUB_STEP_SUMMARY"
           echo "Frontend bundles, PHP backend, and generated production config uploaded. Live database, sessions, stored logos, and encrypted invite-link storage were excluded." >> "$GITHUB_STEP_SUMMARY"
-          echo 'First deployment: set APP_SETUP_KEY and visit /setup to initialize the database and first user. Delete APP_SETUP_KEY and redeploy after setup. Existing installations still require CLI migrations when the schema changes.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'First deployment: set APP_SETUP_KEY and visit /setup to initialize the database and first user. Delete APP_SETUP_KEY and redeploy after setup. Existing installations apply bundled database migrations automatically on the next API request.' >> "$GITHUB_STEP_SUMMARY"

@@ -5,7 +5,7 @@ route('GET', '/cal/{token}\.ics', function ($p) {
     $user = one('SELECT * FROM users WHERE cal_token=?', [$p['token']]) ?? fail(404, 'not_found', 'Calendar not found.');
     $lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Green Room//Speaker calendar//EN', 'CALSCALE:GREGORIAN', 'X-WR-CALNAME:Green Room'];
     foreach (all('SELECT e.*,c.name FROM editions e JOIN conferences c ON c.id=e.conference_id WHERE e.deleted_at IS NULL AND c.deleted_at IS NULL') as $e) {
-        $name = $e['name'] . ' ' . $e['year']; $link = $config['base_url'] . '/editions/' . $e['id'];
+        $name = edition_label($e, $e['name']); $link = $config['base_url'] . '/editions/' . $e['id'];
         if ($e['cfp_closes_on'] && $e['cfp_closes_on'] >= gmdate('Y-m-d')) $lines = [...$lines, ...ics_event('cfp-' . $e['id'], 'CFP closes: ' . $name, $e['cfp_closes_on'], gmdate('Y-m-d', strtotime($e['cfp_closes_on'] . ' +1 day')), $link, $e['updated_at'])];
         $speaks = one("SELECT s.id FROM submissions s JOIN papers p ON p.id=s.paper_id WHERE s.edition_id=? AND p.owner_id=? AND s.status IN ('accepted','confirmed','attended')", [$e['id'], $user['id']]);
         $going = one("SELECT id FROM attendance WHERE edition_id=? AND user_id=? AND status='going'", [$e['id'], $user['id']]);

@@ -3,7 +3,7 @@ import { ArchiveRestore, Trash2 } from "lucide-react";
 import { api } from "../api";
 import useApi from "../hooks/useApi";
 import useMutation from "../hooks/useMutation";
-import { relativeTime } from "../lib/format";
+import { editionLabel, relativeTime } from "../lib/format";
 import {
   Badge,
   Button,
@@ -34,7 +34,7 @@ export default function TrashPage({ className = "" }: TrashPageProps) {
     })),
     ...(data?.editions ?? []).map((e) => ({
       ...e,
-      label: `${e.conference_name} ${e.year}`,
+      label: editionLabel(e, e.conference_name),
       kind: "editions",
     })),
   ];

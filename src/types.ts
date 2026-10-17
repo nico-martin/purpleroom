@@ -33,6 +33,7 @@ export interface ConferenceDetail extends ConferenceSummary {
 export interface Edition {
   id: number;
   conference_id: number;
+  title: string;
   year: number;
   city: string | null;
   country: string | null;

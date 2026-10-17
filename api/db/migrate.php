@@ -6,13 +6,10 @@ $config = require dirname(__DIR__) . '/config.php';
 require dirname(__DIR__) . '/lib/db.php';
 require dirname(__DIR__) . '/lib/migrations.php';
 try {
-    db()->beginTransaction();
-    $versions = apply_database_migrations();
-    db()->commit();
+    $versions = run_database_migrations();
     foreach ($versions as $version) echo "Applied migration $version.\n";
     echo "Database is up to date.\n";
 } catch (Throwable $error) {
-    if (db()->inTransaction()) db()->rollBack();
     fwrite(STDERR, $error->getMessage() . "\n");
     exit(1);
 }

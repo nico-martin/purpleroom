@@ -18,6 +18,15 @@ export function dateRange(edition: Edition): string {
   if (!edition.ends_on || edition.ends_on === edition.starts_on) return start;
   return `${start} – ${formatDate(edition.ends_on, { day: "numeric", month: "short" })}`;
 }
+export function editionLabel(
+  edition: Pick<Edition, "title" | "year"> | undefined,
+  conferenceName = "Conference"
+): string {
+  const title = edition?.title?.trim() || conferenceName;
+  if (!edition) return title;
+  const year = String(edition.year);
+  return title.includes(year) ? title : `${title} ${year}`;
+}
 export function location(edition: Edition): string {
   return edition.online
     ? "Online"

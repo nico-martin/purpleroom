@@ -37,6 +37,14 @@ Use the theme icon in the header to cycle **System → Light → Dark**, or choo
 
 The choice is stored only in a host-only `gr_theme` cookie (`Path=/`, `SameSite=Lax`, one-year lifetime, `Secure` on HTTPS). It survives reloads and sign-out on that browser but is not written to your account, database, or local storage. Other browsers keep their own preferences. `public/color-scheme.js` applies the cookie before the app renders to prevent a flash of the wrong theme, and picks up other-tab changes when the window regains focus.
 
+### Edition titles and same-year editions
+
+Each edition has its own **Edition title**, separate from the parent **Conference** and **Year**. Selecting a conference prefills its name; you can change it to e.g. “DevConf Berlin” or “DevConf London”. Custom titles are preserved when switching the selected conference. There is no one-edition-per-year restriction: dates, submissions, attendance, and discussions remain tied to each edition's independent ID. Reviews remain shared at the conference level.
+
+When starting from a conference's previous edition, location/links can be reused, but the year is **not automatically incremented**. Titles are used in conference/edition lists, dashboard CFPs, submissions, activity, trash, and calendar feeds. The year is appended for display unless already present in the title; calendar event UIDs stay unchanged.
+
+Migration **`002_edition_titles.sql`** adds the title column and backfills every existing edition—including deleted editions—with its parent conference's name. IDs, dates, submissions, attendance, and other data are preserved. Existing initialized databases apply bundled migrations automatically on the next normal API request after deployment, under a write lock and with a migration ledger so concurrent requests cannot run the same migration twice. **No SSH/CLI step is required.** `/health` does not migrate, and an uninitialized database still requires the protected first-user setup. CLI migrations remain supported and idempotent. Take a consistent hosting/database backup before deploying schema changes.
+
 ### Conference logos and existing-data migration
 
 The conference overview is a name-first directory, not a logo gallery: it shows conference names, websites, the next edition, and speaker intel in aligned rows. It does not render or request logo images, so image dimensions, transparency, and colours cannot disrupt the layout. Stored logos remain available on conference detail and edit screens; no existing image data is removed. Generic directory layout components live in `src/theme/`.
@@ -78,6 +86,7 @@ pnpm format
 pnpm test:api
 pnpm test:deploy
 pnpm test:logos
+pnpm test:editions
 pnpm exec playwright install chromium
 pnpm test:ui
 ```
@@ -110,7 +119,7 @@ After the frontend build, the workflow generates **`api/config.local.php` from t
 
 Deleting `APP_SETUP_KEY` and redeploying writes `setup_key => null`, explicitly disabling web setup. The workflow does not change the database path or session storage. If your existing config contains other custom settings, account for those before switching to this generated config.
 
-**FTP cannot run PHP commands.** For a first installation without SSH, use the one-time web setup below. Existing installations still need `php api/db/migrate.php` when migrations change; the web installer cannot migrate an existing crew. No deployment has been run merely by adding this workflow.
+**FTP cannot run PHP commands.** For a first installation without SSH, use the one-time web setup below. Existing initialized installations apply trusted, bundled SQL migrations automatically on their next API request; there is no public migration endpoint and the first-user installer stays locked once a crew exists. `php api/db/migrate.php` remains available for manual SSH deployments. No deployment has been run merely by adding this workflow.
 
 ### First installation without command-line access
 

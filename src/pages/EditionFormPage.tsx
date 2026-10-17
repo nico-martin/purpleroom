@@ -25,6 +25,7 @@ interface EditionFormPageProps {
 }
 const empty = {
   conference_id: "",
+  title: "",
   year: String(new Date().getFullYear()),
   city: "",
   country: "",
@@ -60,6 +61,11 @@ export default function EditionFormPage({
         const e = await api<Edition>(`/editions/${id}`);
         setForm({
           conference_id: String(e.conference_id),
+          title:
+            e.title ||
+            list.find((conference) => conference.id === e.conference_id)
+              ?.name ||
+            "",
           year: String(e.year),
           city: e.city ?? "",
           country: e.country ?? "",
@@ -74,11 +80,17 @@ export default function EditionFormPage({
         });
       } else if (conferenceId) {
         const c = await api<ConferenceDetail>(`/conferences/${conferenceId}`);
+        setForm((current) => ({
+          ...current,
+          conference_id: String(c.id),
+          title: c.name,
+          website: c.website ?? "",
+        }));
         const previous = c.editions[0];
         if (previous) {
           setForm((current) => ({
             ...current,
-            year: String(previous.year + 1),
+            year: String(Math.max(new Date().getFullYear(), previous.year)),
             city: previous.city ?? "",
             country: previous.country ?? "",
             online: !!previous.online,
@@ -94,6 +106,25 @@ export default function EditionFormPage({
       .catch((e: Error) => mutation.setError(e.message))
       .finally(() => setLoading(false));
   }, [id, conferenceId]); // eslint-disable-line react-hooks/exhaustive-deps
+  function selectConference(value: string) {
+    setForm((current) => {
+      const previousName = conferences.find(
+        (conference) => String(conference.id) === current.conference_id
+      )?.name;
+      const nextName =
+        conferences.find((conference) => String(conference.id) === value)
+          ?.name ?? "";
+      return {
+        ...current,
+        conference_id: value,
+        title:
+          !current.title.trim() || current.title === previousName
+            ? nextName
+            : current.title,
+      };
+    });
+    setCopied(false);
+  }
   function submit(event: FormEvent) {
     event.preventDefault();
     mutation.run(
@@ -156,8 +187,9 @@ export default function EditionFormPage({
           <form onSubmit={submit} className="space-y-6">
             {copied && (
               <Notice>
-                We carried over the last edition's location and links, and moved
-                the year forward. Add the new dates below.
+                We carried over the last edition's location and links as a
+                starting point. Multiple editions can share a year—check the
+                title and dates below.
               </Notice>
             )}
             <div className="grid gap-5 sm:grid-cols-2">
@@ -165,9 +197,7 @@ export default function EditionFormPage({
                 <Select
                   required
                   value={form.conference_id}
-                  onChange={(e) =>
-                    setForm({ ...form, conference_id: e.target.value })
-                  }
+                  onChange={(e) => selectConference(e.target.value)}
                 >
                   <option value="">Choose a conference</option>
                   {conferences.map((c) => (
@@ -178,6 +208,19 @@ export default function EditionFormPage({
                 </Select>
               </Field>
               {textField("year", "Year", "number")}
+              <Field
+                label="Edition title"
+                hint="Starts with the conference name. Add a city or another detail to distinguish this edition; the year is shown separately."
+                className="sm:col-span-2"
+              >
+                <Input
+                  required
+                  maxLength={500}
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  placeholder="e.g. DevConf Berlin"
+                />
+              </Field>
               {textField("city", "City")}
               {textField("country", "Country code (e.g. NL)")}
             </div>

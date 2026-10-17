@@ -2,7 +2,7 @@ import { CalendarDays, MapPin, MessageSquare } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { REVIEW_TAGS } from "../lib/constants";
-import { formatDate, location, websiteHost } from "../lib/format";
+import { editionLabel, formatDate, location, websiteHost } from "../lib/format";
 import { DirectoryRow, Tag } from "../theme";
 import type { ConferenceSummary, ReviewTag } from "../types";
 
@@ -29,9 +29,12 @@ export default function ConferenceDirectoryRow({
         edition ? (
           <Link
             to={`/editions/${edition.id}`}
-            aria-label={`${conference.name} ${edition.year} edition`}
+            aria-label={`${editionLabel(edition, conference.name)} edition`}
             className="inline-flex min-h-11 max-w-full flex-col justify-center gap-2 rounded-sm text-sm hover:text-green"
           >
+            {edition.title && edition.title !== conference.name && (
+              <span className="text-xs font-semibold">{edition.title}</span>
+            )}
             <span className="flex items-center gap-2">
               <CalendarDays
                 aria-hidden="true"

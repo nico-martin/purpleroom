@@ -2,7 +2,7 @@
 declare(strict_types=1);
 if (!defined('GREEN_ROOM')) exit;
 
-// The caller owns the transaction. Web setup may use this only before any user exists.
+// The caller owns the transaction. Only trusted SQL files bundled with the app are applied.
 function apply_database_migrations(): array {
     $applied = [];
     if (!one("SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations'")) {
@@ -22,4 +22,30 @@ function apply_database_migrations(): array {
         $applied[] = $version;
     }
     return $applied;
+}
+
+function run_database_migrations(): array {
+    db()->exec('BEGIN IMMEDIATE');
+    try {
+        $applied = apply_database_migrations();
+        db()->exec('COMMIT');
+        return $applied;
+    } catch (Throwable $error) {
+        db()->exec('ROLLBACK');
+        throw $error;
+    }
+}
+
+function ensure_database_migrations(): void {
+    static $checked = false;
+    if ($checked) return;
+    $checked = true;
+    // Never initialize an installation implicitly or bypass the first-user setup key.
+    if (!one("SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations'")) return;
+    $versions = array_map('intval', array_column(all('SELECT version FROM schema_migrations'), 'version'));
+    $files = glob(dirname(__DIR__) . '/db/migrations/*.sql') ?: [];
+    $pending = array_filter($files, fn($file) => !in_array((int) basename($file), $versions, true));
+    if (!$pending) return;
+    // Recheck the migration ledger under a write lock so concurrent requests cannot ALTER twice.
+    run_database_migrations();
 }

@@ -7,6 +7,12 @@ function conference(int $id): array {
 function edition(int $id): array {
     return one('SELECT e.* FROM editions e JOIN conferences c ON c.id=e.conference_id WHERE e.id=? AND e.deleted_at IS NULL AND c.deleted_at IS NULL', [$id]) ?? fail(404, 'not_found', 'Edition not found.');
 }
+function edition_label(array $edition, string $conferenceName): string {
+    $title = trim($edition['title'] ?? '');
+    if ($title === '') $title = $conferenceName;
+    $year = (string) $edition['year'];
+    return str_contains($title, $year) ? $title : $title . ' ' . $year;
+}
 function paper(int $id): array {
     return one('SELECT * FROM papers WHERE id=? AND owner_id=?', [$id, require_login()['id']]) ?? fail(404, 'not_found', 'Talk not found.');
 }
@@ -49,6 +55,7 @@ function people_for(int $id): array {
     return ['speaking' => $speaking, 'going' => array_values($going), 'maybe' => array_values(array_diff_key($maybe, $going))];
 }
 function validate_edition(array $data): void {
+    if (isset($data['title']) && preg_match_all('/./us', $data['title']) > 500) fail(422, 'validation', 'Keep the edition title under 500 characters.', ['title' => 'too_long']);
     foreach ([['starts_on', 'ends_on'], ['cfp_opens_on', 'cfp_closes_on']] as [$start, $end]) {
         if (!empty($data[$start]) && !empty($data[$end]) && $data[$end] < $data[$start]) fail(422, 'validation', 'End date must be on or after the start date.', [$end => 'before_start']);
     }

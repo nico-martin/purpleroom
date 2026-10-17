@@ -4,6 +4,7 @@ import { useState } from "react";
 import { api } from "../api";
 import useMutation from "../hooks/useMutation";
 import { SUBMISSION_STATUS_OPTIONS } from "../lib/constants";
+import { editionLabel } from "../lib/format";
 import { Button, Notice, Select } from "../theme";
 import type { Submission } from "../types";
 import SubmissionEditor from "./SubmissionEditor";
@@ -24,7 +25,7 @@ export default function SubmissionStatusSelect({
     <div className={className}>
       <div className="flex items-center gap-1">
         <Select
-          aria-label={`Status for ${submission.paper_title ?? submission.conference?.name ?? "talk"}`}
+          aria-label={`Status for ${submission.edition ? editionLabel(submission.edition, submission.conference?.name) : (submission.paper_title ?? submission.conference?.name ?? "talk")}`}
           disabled={busy}
           value={submission.status}
           onChange={(e) =>

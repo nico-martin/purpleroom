@@ -14,6 +14,7 @@ function dispatch(): never {
     foreach ($routes as [$verb, $pattern, $handler, $public]) {
         if ($method !== $verb || !preg_match($pattern, $path, $matches)) continue;
         if (!$public) require_login();
+        if (!in_array($path, ['/health', '/setup'], true)) ensure_database_migrations();
         $params = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
         $handler($params);
         json_response(null, 204);

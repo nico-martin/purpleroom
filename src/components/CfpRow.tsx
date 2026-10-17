@@ -1,7 +1,7 @@
 import { Check, Plus } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { dateRange, formatDate, location } from "../lib/format";
+import { dateRange, editionLabel, formatDate, location } from "../lib/format";
 import {
   AvatarStack,
   Button,
@@ -27,7 +27,7 @@ export default function CfpRow({ cfp, onSubmit, className = "" }: CfpRowProps) {
         <LogoTile name={conference.name} src={conference.logo_url} />
         <div className="min-w-0">
           <h3 className="break-words text-base hover:text-green">
-            {conference.name} {edition.year}
+            {editionLabel(edition, conference.name)}
           </h3>
           <p className="mt-1 text-xs text-muted">
             {location(edition)}
