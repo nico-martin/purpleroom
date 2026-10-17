@@ -110,7 +110,7 @@ green-room/
 └── .gitignore
 ```
 
-`.gitignore` must include: `node_modules/`, `dist/`, `api/db/db.sqlite*`, `api/config.local.php`.
+`.gitignore` must include: `node_modules/`, `dist/`, `api/db/db.sqlite*`, `api/db/logos/`, `api/config.local.php`.
 
 ---
 
@@ -159,7 +159,7 @@ CREATE TABLE conferences (
   id            INTEGER PRIMARY KEY,
   name          TEXT NOT NULL,
   website       TEXT,
-  logo_url      TEXT,
+  logo_url      TEXT,                          -- legacy remote URL or cached /api/conference-logos/{id}/{slug-hash}.{ext}
   description   TEXT,
   created_by    INTEGER NOT NULL REFERENCES users(id),
   created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
@@ -500,6 +500,10 @@ On app load call `GET /api/me`; on 401 redirect to `/login` (preserving the inte
 - Mobile-first; works well on a phone.
 - Dates displayed as `20 May 2027`; relative for deadlines (`in 5 days`). Use `Intl.DateTimeFormat`, locale `en-GB`.
 - Logos: if `logo_url` missing, show initials on a coloured tile derived from the name.
+- Conference forms no longer include the "A little context" field. Preserve existing descriptions when saving.
+- Conference logos are imported from a public image URL on save and stored in `api/db/logos/{id}/`. Serve them via authenticated `/api/conference-logos/{id}/{slug-hash}.{ext}` URLs; never expose the storage directory directly.
+- Existing external logos migrate lazily on the next conference save (including PATCH without logo_url). Reuse local images thereafter; no schema change or bulk migration is needed. On download/storage failure, return an error and leave the conference unchanged. Clearing the logo skips migration. Preserve files across soft deletion, restore, and deployment.
+- Validate image bytes (PNG/JPEG/GIF/WebP/AVIF/ICO only, maximum 5 MB and 20 megapixels for raster images); reject HTML/SVG. Use a five-second network budget, at most three redirects, public-IP validation on every hop, and pinned DNS. Do not forward browser credentials.
 - Avatars: if missing, initials.
 - Optimistic UI not required; show loading/disabled states on buttons.
 - All destructive actions confirm.
@@ -590,6 +594,7 @@ rsync -avz --delete \
 rsync -avz --delete \
   --exclude 'db/db.sqlite*' \
   --exclude 'db/sessions/' \
+  --exclude 'db/logos/' \
   --exclude 'config.local.php' \
   api/ "$HOST:$DEST/api/"
 ssh "$HOST" "cd $DEST && php api/db/migrate.php"
@@ -639,7 +644,7 @@ Each milestone should leave the app runnable.
 - Multiple groups, roles, admin
 - Email notifications other than magic links (calendar feed covers reminders)
 - Public pages, SEO, sharing outside the group
-- File uploads (logos/avatars are URLs)
+- File uploads (conference logos are imported from URLs and cached locally; avatars remain URLs)
 - Numeric ratings
 - Importing from Sessionize/Papercall
 - Real-time updates

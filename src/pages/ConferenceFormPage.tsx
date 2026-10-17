@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Link2, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Link2, Sparkles, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -12,9 +12,9 @@ import {
   Field,
   Input,
   LoadingState,
+  LogoTile,
   Notice,
   PageHeader,
-  Textarea,
 } from "../theme";
 import type { Conference } from "../types";
 
@@ -32,7 +32,6 @@ export default function ConferenceFormPage({
     name: "",
     website: "",
     logo_url: "",
-    description: "",
   });
   const [loading, setLoading] = useState(!!id);
   const [prefilled, setPrefilled] = useState(false);
@@ -44,7 +43,6 @@ export default function ConferenceFormPage({
             name: c.name,
             website: c.website ?? "",
             logo_url: c.logo_url ?? "",
-            description: c.description ?? "",
           })
         )
         .catch((e: Error) => mutation.setError(e.message))
@@ -72,7 +70,6 @@ export default function ConferenceFormPage({
         setForm((value) => ({
           ...value,
           name: result.name || value.name,
-          description: result.description || value.description,
           logo_url: result.logo_url || value.logo_url,
         }));
         setPrefilled(true);
@@ -136,21 +133,42 @@ export default function ConferenceFormPage({
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
             </Field>
+            {form.logo_url && (
+              <div className="flex items-center gap-3 rounded-xl border border-border p-3">
+                <LogoTile
+                  key={form.logo_url}
+                  name={form.name || "Conference"}
+                  src={form.logo_url}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold">
+                    {form.logo_url.startsWith("/api/conference-logos/")
+                      ? "Stored with Green Room"
+                      : "Logo preview"}
+                  </p>
+                  <p className="mt-1 text-xs text-muted">
+                    {form.logo_url.startsWith("/api/conference-logos/")
+                      ? "No external image request needed."
+                      : "We'll download and store this image when you save."}
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  className="size-11 p-0"
+                  aria-label="Remove logo"
+                  onClick={() => setForm({ ...form, logo_url: "" })}
+                >
+                  <X size={16} />
+                </Button>
+              </div>
+            )}
             <Field
-              label="A little context"
-              hint="What's it about? Why does it belong on our shortlist?"
-            >
-              <Textarea
-                value={form.description}
-                onChange={(e) =>
-                  setForm({ ...form, description: e.target.value })
-                }
-                placeholder="The kind of conference you'd tell a friend about…"
-              />
-            </Field>
-            <Field
-              label="Logo URL (optional)"
-              hint="No logo? We'll make a little initials tile instead."
+              label={
+                form.logo_url.startsWith("/api/conference-logos/")
+                  ? "Replace logo from URL (optional)"
+                  : "Logo URL (optional)"
+              }
+              hint="Downloaded on save, then served from Green Room. PNG, JPEG, GIF, WebP, AVIF or ICO, up to 5 MB. No logo? We'll use initials."
             >
               <div className="relative">
                 <Link2
@@ -160,7 +178,11 @@ export default function ConferenceFormPage({
                 <Input
                   type="url"
                   className="pl-10"
-                  value={form.logo_url}
+                  value={
+                    form.logo_url.startsWith("/api/conference-logos/")
+                      ? ""
+                      : form.logo_url
+                  }
                   onChange={(e) =>
                     setForm({ ...form, logo_url: e.target.value })
                   }

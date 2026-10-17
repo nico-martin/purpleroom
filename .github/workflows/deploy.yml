@@ -50,6 +50,7 @@ jobs:
             --exclude='config.local.php' \
             --exclude='db/db.sqlite*' \
             --exclude='db/sessions/' \
+            --exclude='db/logos/' \
             --exclude='dev-router.php' \
             api/ "$bundle/api/"
 
@@ -63,6 +64,7 @@ jobs:
           test ! -e "$bundle/api/config.local.php"
           test ! -e "$bundle/api/db/db.sqlite"
           test ! -d "$bundle/api/db/sessions"
+          test ! -d "$bundle/api/db/logos"
           echo "Frontend assets, PHP backend, and Apache protection files are ready."
 
       - name: Generate production PHP config from secrets
@@ -114,6 +116,8 @@ jobs:
             api/db/db.sqlite*
             api/db/sessions
             api/db/sessions/**
+            api/db/logos
+            api/db/logos/**
             api/dev-router.php
 
       - name: Remove generated config from the runner
@@ -124,5 +128,5 @@ jobs:
       - name: Deployment complete
         run: |
           echo "### Production files deployed" >> "$GITHUB_STEP_SUMMARY"
-          echo "Frontend bundles, PHP backend, and generated production config uploaded. Live database and sessions were excluded." >> "$GITHUB_STEP_SUMMARY"
+          echo "Frontend bundles, PHP backend, and generated production config uploaded. Live database, sessions, and stored conference logos were excluded." >> "$GITHUB_STEP_SUMMARY"
           echo 'First deployment: set APP_SETUP_KEY and visit /setup to initialize the database and first user. Delete APP_SETUP_KEY and redeploy after setup. Existing installations still require CLI migrations when the schema changes.' >> "$GITHUB_STEP_SUMMARY"

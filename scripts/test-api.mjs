@@ -24,8 +24,14 @@ function client() {
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     if (response.headers.has("set-cookie")) cookie = response.headers.get("set-cookie").split(";")[0];
-    const text = await response.text();
+    const bytes = Buffer.from(await response.arrayBuffer());
+    const text = bytes.toString("utf8");
     assert.equal(response.status, expected, `${method} ${path}: ${text}\n${failures}`);
+    if (response.headers.get("content-type")?.startsWith("image/")) {
+      assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+      assert.ok(response.headers.get("cache-control").includes("private"));
+      return bytes;
+    }
     return response.headers.get("content-type")?.includes("application/json") && text ? JSON.parse(text) : text;
   };
 }
@@ -61,6 +67,26 @@ try {
   assert.equal(me.user.email, "speaker@example.com");
   assert.equal(me.user.cal_token, undefined);
   const conference = await owner("/conferences", "POST", { name: "JSNation", website: "https://jsnation.com", description: "JavaScript, together." }, 201);
+  await owner("/conferences", "POST", { name: "Private image", logo_url: "http://127.0.0.1/logo.png" }, 422);
+  assert.equal((await owner("/conferences")).length, 1, "Failed logo download must not create a conference");
+  const logoUrl = cli(["-r", `
+    define('GREEN_ROOM', true);
+    $config = require 'api/config.php';
+    foreach (['db', 'logos'] as $file) require 'api/lib/' . $file . '.php';
+    $bytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aAt8AAAAASUVORK5CYII=');
+    $url = store_conference_logo((int)$argv[1], 'JSNation', ['bytes' => $bytes, 'extension' => 'png']);
+    update('conferences', (int)$argv[1], ['logo_url' => $url]);
+    echo $url;
+  `, String(conference.id)]).trim();
+  const logo = await owner(logoUrl.slice(4));
+  assert.ok(Buffer.isBuffer(logo) && logo[0] === 0x89);
+  await anonymous(logoUrl.slice(4), "GET", undefined, 401);
+  await owner(`/db/logos/${conference.id}/${logoUrl.split("/").at(-1)}`, "GET", undefined, 403);
+  const savedLogo = await owner(`/conferences/${conference.id}`, "PATCH", { name: "JSNation", logo_url: logoUrl });
+  assert.equal(savedLogo.logo_url, logoUrl);
+  await owner(`/conferences/${conference.id}`, "PATCH", { logo_url: logoUrl.replace(`/conference-logos/${conference.id}/`, "/conference-logos/999/") }, 422);
+  await owner(`/conferences/${conference.id}`, "PATCH", { name: "Do not save", logo_url: "http://127.0.0.1/logo.png" }, 422);
+  assert.equal((await owner(`/conferences/${conference.id}`)).name, "JSNation");
   await owner("/conferences", "POST", { name: "Unsafe", website: "javascript:alert(1)" }, 422);
   await owner("/conferences/metadata", "POST", { url: "http://127.0.0.1" }, 422);
   const future = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
@@ -107,11 +133,13 @@ try {
   assert.ok(calendar.includes("\r\n"));
   for (const line of calendar.split("\r\n")) assert.ok(Buffer.byteLength(line) <= 75);
   await owner(`/conferences/${conference.id}`, "DELETE", undefined, 204);
+  await owner(logoUrl.slice(4), "GET", undefined, 404);
   await other(`/editions/${edition.id}`, "GET", undefined, 404);
   assert.equal((await owner("/dashboard")).open_cfps.length, 0);
   assert.equal((await owner("/papers"))[0].submissions.length, 0);
   assert.equal((await owner("/trash")).conferences.length, 1);
   await other(`/conferences/${conference.id}/restore`, "POST");
+  assert.ok(Buffer.isBuffer(await other(logoUrl.slice(4))), "Restoring a conference must retain its image");
   await other(`/editions/${edition.id}`, "DELETE", undefined, 204);
   await owner(`/editions/${edition.id}/restore`, "POST");
   const rotated = await owner("/me/cal-token", "POST");

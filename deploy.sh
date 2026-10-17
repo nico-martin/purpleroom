@@ -4,5 +4,5 @@ set -euo pipefail
 DEST="${DEPLOY_DEST:-~/public_html/green-room}"
 pnpm build
 rsync -avz --delete --exclude 'api/' dist/ "$DEPLOY_HOST:$DEST/"
-rsync -avz --delete --exclude 'db/db.sqlite*' --exclude 'db/sessions/' --exclude 'config.local.php' api/ "$DEPLOY_HOST:$DEST/api/"
+rsync -avz --delete --exclude 'db/db.sqlite*' --exclude 'db/sessions/' --exclude 'db/logos/' --exclude 'config.local.php' api/ "$DEPLOY_HOST:$DEST/api/"
 ssh "$DEPLOY_HOST" "cd $DEST && php api/db/migrate.php"

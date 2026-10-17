@@ -2,6 +2,7 @@ node_modules/
 dist/
 api/db/db.sqlite*
 api/db/sessions/
+api/db/logos/
 api/config.local.php
 *.log
 .DS_Store

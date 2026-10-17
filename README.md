@@ -37,6 +37,24 @@ Use the theme icon in the header to cycle **System → Light → Dark**, or choo
 
 The choice is stored only in a host-only `gr_theme` cookie (`Path=/`, `SameSite=Lax`, one-year lifetime, `Secure` on HTTPS). It survives reloads and sign-out on that browser but is not written to your account, database, or local storage. Other browsers keep their own preferences. `public/color-scheme.js` applies the cookie before the app renders to prevent a flash of the wrong theme, and picks up other-tab changes when the window regains focus.
 
+### Conference logos and existing-data migration
+
+Conference forms no longer ask for “A little context”. Existing descriptions are left intact, not deleted or overwritten when you edit a conference.
+
+Paste an image URL (or prefill it from the website) and save. The backend downloads and validates the image, stores it in **`api/db/logos/{id}/`**, and changes `logo_url` to a same-origin URL such as **`/api/conference-logos/12/jsnation-a1b2c3d4e5f67890.png`**. The filename uses the conference's slug plus a content hash so replacement images don't get stuck in browser caches. Renaming a conference updates the slug using the already-stored image, without fetching it again. Stored images are served only to signed-in crew members; direct access to the storage directory is blocked.
+
+**Migration is lazy and requires no SQL migration, CLI command, or bulk job.** The existing `logo_url` column accepts both old URLs and new local paths:
+
+- Existing conferences continue to show their external logo until edited.
+- The next conference save downloads an existing remote logo, even when a PATCH omits `logo_url`.
+- Subsequent saves reuse the local image. Ordinary reads never trigger downloads.
+- A failed download or storage write returns an actionable error and leaves the conference unchanged. Replace the URL or remove the logo to continue.
+- Clearing the logo explicitly skips downloading the old one. Soft delete/restore retains stored images. Old image versions are retained on disk rather than deleting files that another request or restore could still need.
+
+Logo downloads require PHP **cURL**. Supported formats are PNG, JPEG, GIF, WebP, AVIF, and ICO, with a **5 MB** download limit and **20-megapixel** raster limit. HTML and SVG are rejected, regardless of the URL extension. Requests have a five-second total timeout and at most three redirects; every destination is checked for private/reserved IPs and DNS is pinned before connecting. No browser cookies or credentials are forwarded to image servers.
+
+Make `api/db/` writable by PHP; the logo subdirectories are created automatically. Both the FTP workflow and manual SSH deployment exclude `api/db/logos/` from upload/deletion. Include that directory alongside SQLite in server backups; it is intentionally not committed or bundled.
+
 ## Checks
 
 ```bash
@@ -45,6 +63,7 @@ pnpm lint
 pnpm format
 pnpm test:api
 pnpm test:deploy
+pnpm test:logos
 pnpm exec playwright install chromium
 pnpm test:ui
 ```
@@ -71,7 +90,7 @@ Configure these repository **Actions secrets**:
 
 The workflow defaults to **explicit FTPS on port 21**, with strict certificate verification. Optional repository **Actions variables** `FTP_PROTOCOL` (`ftps`, `ftps-legacy`, or `ftp`) and `FTP_PORT` can match your host's requirements. Prefer encrypted FTPS; plain FTP exposes credentials and application files in transit.
 
-Only production files are staged, including Apache `.htaccess` files. The live `api/db/db.sqlite*` and `api/db/sessions/` are excluded from both upload and deletion. Do not enable the action's `dangerous-clean-slate` option. Deployments are serialized to avoid overlapping uploads.
+Only production files are staged, including Apache `.htaccess` files. The live `api/db/db.sqlite*`, `api/db/sessions/`, and `api/db/logos/` are excluded from both upload and deletion. Do not enable the action's `dangerous-clean-slate` option. Deployments are serialized to avoid overlapping uploads.
 
 After the frontend build, the workflow generates **`api/config.local.php` from the `APP_*` secrets**, forces production mode, and uploads it with the backend. GitHub secrets are the source of truth: **each deployment replaces manual server config changes**. Local config files from the checkout are never copied. Invalid or missing required settings fail the deployment before upload. Secrets are confined to this PHP config, not frontend bundles, build logs, or uploaded CI artifacts; the runner's generated file is removed afterward. Apache denies web access to the config.
 
@@ -110,7 +129,7 @@ The JSON `server_error` response means PHP received the request but encountered 
 5. Run `php api/db/seed.php "Nico" nico@example.com` over SSH, then open the link.
 6. Configure SPF/DKIM for cyon's outgoing mail service. Magic links use PHP `mail()` in production.
 
-Deployment preserves the live database, SQLite sidecar files, sessions, and local config. It builds static assets, uploads frontend and API separately, and runs CLI migrations. No Node process is needed in production.
+Manual SSH deployment preserves the live database, SQLite sidecar files, stored logos, sessions, and local config. It builds static assets, uploads frontend and API separately, and runs CLI migrations. No Node process is needed in production.
 
 Verify after deployment:
 
@@ -126,4 +145,4 @@ The first two must return **403**; the third must return **401 JSON** when signe
 
 Papers, notes, and abstract overrides are owner-only. Shared submissions expose public member data, title (unless hidden), and status—never abstracts. Shared entities are soft-deleted; private talk deletion is permanent and confirms first. Writes require the `X-Requested-With: green-room` header. Production sessions use Secure/HttpOnly/SameSite=Lax cookies; Secure is disabled only for local HTTP development.
 
-Metadata fetching rejects private/reserved addresses, pins DNS using cURL, does not follow redirects, and limits response size and time. Metadata is best-effort; fields always remain editable.
+Metadata and logo fetching reject private/reserved addresses, pin DNS using cURL, revalidate every redirect, and limit response size and time. Metadata is best-effort; fields always remain editable. Logo content is validated before storage and is never executed or served directly from its filesystem path.

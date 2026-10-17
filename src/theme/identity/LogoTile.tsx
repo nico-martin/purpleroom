@@ -21,7 +21,7 @@ export default function LogoTile({
   size = "md",
   className = "",
 }: LogoTileProps) {
-  const [failed, setFailed] = useState(false);
+  const [failedSource, setFailedSource] = useState<string | null>(null);
   return (
     <div
       className={cn(
@@ -31,12 +31,12 @@ export default function LogoTile({
         className
       )}
     >
-      {src && !failed ? (
+      {src && failedSource !== src ? (
         <img
           src={src}
           alt=""
           className="size-full object-contain"
-          onError={() => setFailed(true)}
+          onError={() => setFailedSource(src)}
           referrerPolicy="no-referrer"
         />
       ) : initials(name).length === 1 ? (
