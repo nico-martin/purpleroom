@@ -14,7 +14,7 @@ function start_session(): void {
     // Local HTTP cannot set a Secure cookie. Production always requires HTTPS.
     session_set_cookie_params(['lifetime' => 15552000, 'path' => '/', 'secure' => $config['env'] !== 'dev', 'httponly' => true, 'samesite' => 'Lax']);
     if (!@session_start()) {
-        error_log('Green Room: session_start failed. Check session-directory permissions and PHP session settings.');
+        error_log('purpleroom: session_start failed. Check session-directory permissions and PHP session settings.');
         fail(503, 'storage_unavailable', 'PHP could not start a session. Check session-directory permissions and PHP session settings.');
     }
 }
@@ -22,7 +22,7 @@ function current_user(): ?array {
     start_session();
     return isset($_SESSION['user_id']) ? one('SELECT * FROM users WHERE id = ?', [$_SESSION['user_id']]) : null;
 }
-function require_login(): array { return current_user() ?? fail(401, 'unauthenticated', 'Please sign in to the Green Room.'); }
+function require_login(): array { return current_user() ?? fail(401, 'unauthenticated', 'Please sign in to purpleroom.'); }
 function login(int $id): void { start_session(); session_regenerate_id(true); $_SESSION['user_id'] = $id; }
 function public_user(array $user): array { return array_intersect_key($user, array_flip(['id', 'name', 'avatar_url'])); }
 function user_by_id(int $id): array { return public_user(one('SELECT id, name, avatar_url FROM users WHERE id = ?', [$id])); }

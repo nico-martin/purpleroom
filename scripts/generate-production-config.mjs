@@ -21,7 +21,7 @@ export function productionConfig(environment) {
     );
   }
 
-  const mailFrom = environment.APP_MAIL_FROM || "Green Room <noreply@nico.dev>";
+  const mailFrom = environment.APP_MAIL_FROM || "purpleroom <noreply@nico.dev>";
   const address = mailFrom.match(/<([^<>]+)>$/)?.[1] ?? mailFrom;
   if (
     /[\x00-\x1f\x7f]/.test(mailFrom) ||

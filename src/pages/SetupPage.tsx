@@ -52,7 +52,7 @@ export default function SetupPage({ className = "" }: SetupPageProps) {
         </div>
         <PageHeader
           eyebrow="Just once, before the crew arrives"
-          title="Open the Green Room."
+          title="Open purpleroom."
           description="Initialize the database and create the first member. No command line or email delivery needed."
         />
         <Card padded>

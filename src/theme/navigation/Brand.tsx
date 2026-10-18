@@ -13,7 +13,7 @@ export default function Brand({ className = "" }: BrandProps) {
         <DoorOpen size={24} strokeWidth={1.6} />
       </span>
       <span className="font-heading text-xl font-semibold tracking-tight">
-        Green Room<span className="ml-0.5 text-green">.</span>
+        purpleroom<span className="ml-0.5 text-purple">.</span>
       </span>
     </Link>
   );

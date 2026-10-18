@@ -1,4 +1,8 @@
-# Green Room
+# purpleroom
+
+Named in homage to CSS `rebeccapurple` (`#663399`). Repository: `git@github.com:nico-martin/purpleroom.git`.
+
+The rename preserves existing storage, sessions, invitation encryption, calendar UIDs, `GREEN_ROOM_*` environment variables, and internal browser/request identifiers. The current production hostname and deployment destination are unchanged; set `APP_BASE_URL` and `FTP_DEPLOY_PATH` in GitHub when moving to a new domain. Set `APP_MAIL_FROM` if an existing secret still uses the old sender name.
 
 A private backstage room for a small crew of conference speakers. React 18, TypeScript, Vite, Tailwind v4, and a dependency-free PHP/SQLite API. No demo sign-in or fabricated conference data.
 
@@ -108,7 +112,7 @@ Configure these repository **Actions secrets**:
 | `FTP_PASSWORD` | FTP account password |
 | `FTP_DEPLOY_PATH` | App document root relative to the FTP account, ending in `/`, e.g. `public_html/green-room/` |
 | `APP_BASE_URL` | Required production HTTPS origin, e.g. `https://greenroom.nico.dev` |
-| `APP_MAIL_FROM` | Optional sender, defaults to `Green Room <noreply@nico.dev>` |
+| `APP_MAIL_FROM` | Optional sender, defaults to `purpleroom <noreply@nico.dev>` |
 | `APP_SETUP_KEY` | Optional unique random secret of at least 32 characters; set only for first-user setup |
 
 The workflow defaults to **explicit FTPS on port 21**, with strict certificate verification. Optional repository **Actions variables** `FTP_PROTOCOL` (`ftps`, `ftps-legacy`, or `ftp`) and `FTP_PORT` can match your host's requirements. Prefer encrypted FTPS; plain FTP exposes credentials and application files in transit.

@@ -3,7 +3,7 @@ if (!defined('GREEN_ROOM')) exit;
 route('GET', '/cal/{token}\.ics', function ($p) {
     global $config;
     $user = one('SELECT * FROM users WHERE cal_token=?', [$p['token']]) ?? fail(404, 'not_found', 'Calendar not found.');
-    $lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Green Room//Speaker calendar//EN', 'CALSCALE:GREGORIAN', 'X-WR-CALNAME:Green Room'];
+    $lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//purpleroom//Speaker calendar//EN', 'CALSCALE:GREGORIAN', 'X-WR-CALNAME:purpleroom'];
     foreach (all('SELECT e.*,c.name FROM editions e JOIN conferences c ON c.id=e.conference_id WHERE e.deleted_at IS NULL AND c.deleted_at IS NULL') as $e) {
         $name = edition_label($e, $e['name']); $link = $config['base_url'] . '/editions/' . $e['id'];
         if ($e['cfp_closes_on'] && $e['cfp_closes_on'] >= gmdate('Y-m-d')) $lines = [...$lines, ...ics_event('cfp-' . $e['id'], 'CFP closes: ' . $name, $e['cfp_closes_on'], gmdate('Y-m-d', strtotime($e['cfp_closes_on'] . ' +1 day')), $link, $e['updated_at'])];

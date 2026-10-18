@@ -17,7 +17,7 @@ test("stored conference logos can be kept or removed without invalid URL fields 
     await route.fulfill({ json: conference });
   });
   await page.goto("/conferences/77/edit");
-  await expect(page.getByText("Stored with Green Room", { exact: true })).toBeVisible();
+  await expect(page.getByText("Stored with purpleroom", { exact: true })).toBeVisible();
   await expect(page.getByLabel("A little context")).toHaveCount(0);
   await expect(page.getByLabel("Replace logo from URL (optional)")).toHaveValue("");
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
@@ -27,7 +27,7 @@ test("stored conference logos can be kept or removed without invalid URL fields 
 
   await page.goto("/conferences/77/edit");
   await page.getByRole("button", { name: "Remove logo", exact: true }).click();
-  await expect(page.getByText("Stored with Green Room", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Stored with purpleroom", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page.getByRole("heading", { name: "JSNation", exact: true })).toBeVisible();
   expect(saved[1].logo_url).toBe("");

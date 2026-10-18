@@ -69,5 +69,5 @@ function recover_invite_link(array $invite): ?string {
 
 function forget_invite_link(array $invite): void {
     $path = invite_link_path($invite);
-    if (is_file($path) && !@unlink($path)) error_log('Green Room: could not remove an encrypted invite-link payload. The database token is no longer valid.');
+    if (is_file($path) && !@unlink($path)) error_log('purpleroom: could not remove an encrypted invite-link payload. The database token is no longer valid.');
 }

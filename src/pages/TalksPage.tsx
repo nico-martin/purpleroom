@@ -34,7 +34,7 @@ export default function TalksPage({ className = "" }: TalksPageProps) {
   return (
     <div className={className}>
       <PageHeader
-        eyebrow="Your personal green room"
+        eyebrow="Your personal purpleroom"
         title="Ideas looking for a stage."
         description="Your talk library, from first idea to front row. Your notes are just for you."
         action={

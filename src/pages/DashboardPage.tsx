@@ -214,7 +214,7 @@ export default function DashboardPage({ className = "" }: DashboardPageProps) {
             </Card>
           </section>
           <div className="flex items-center gap-4 rounded-2xl bg-green-soft p-5">
-            <LogoTile name="Green Room" className="bg-transparent" />
+            <LogoTile name="purpleroom" className="bg-transparent" />
             <div>
               <h3 className="text-base text-green-deep">
                 Not a directory. A little collective wisdom.

@@ -1,4 +1,6 @@
-# Green Room — Build Spec
+# purpleroom — Build Spec
+
+Brand: purpleroom, an homage to CSS `rebeccapurple` (`#663399`). Repository: `git@github.com:nico-martin/purpleroom.git`. Legacy internal identifiers and calendar UIDs remain stable for compatibility. Deployment origins below are legacy examples; `APP_BASE_URL` controls the live origin.
 
 > A private app for a small crew (5–10 people) of conference speakers to share hand-picked conferences, CFP deadlines, speaker-perspective reviews, and who is submitting to / going where.
 
@@ -325,7 +327,7 @@ A user counts as **going** if they have attendance `going`, or a submission with
 
 ### Mail
 - Use PHP `mail()` (cyon delivers via its own MTA).
-- From: `Green Room <noreply@nico.dev>` (configurable). Plain text body, short.
+- From: `purpleroom <noreply@nico.dev>` (configurable). Plain text body, short.
 - Note for setup: SPF/DKIM for nico.dev must allow cyon's servers, otherwise links land in spam.
 
 ---

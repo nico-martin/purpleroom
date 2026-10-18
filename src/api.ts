@@ -26,7 +26,7 @@ export async function api<T>(
     const payload = await response.json().catch(() => ({
       error: {
         code: "server_error",
-        message: "Could not reach the Green Room. Try again.",
+        message: "Could not reach purpleroom. Try again.",
       },
     }));
     if (

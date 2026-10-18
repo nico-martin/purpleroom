@@ -16,7 +16,7 @@ test("production defaults disable setup and normalize the origin", () => {
     {
       env: "production",
       base_url: "https://greenroom.nico.dev",
-      mail_from: "Green Room <noreply@nico.dev>",
+      mail_from: "purpleroom <noreply@nico.dev>",
       setup_key: null,
     }
   );
@@ -90,7 +90,7 @@ test("CLI generates only a server-side file, with no secret output", async () =>
     const env = {
       ...process.env,
       APP_BASE_URL: "https://greenroom.nico.dev",
-      APP_MAIL_FROM: "Green Room <mail@nico.dev>",
+      APP_MAIL_FROM: "purpleroom <mail@nico.dev>",
       APP_SETUP_KEY: "a".repeat(64),
     };
     const result = spawnSync(

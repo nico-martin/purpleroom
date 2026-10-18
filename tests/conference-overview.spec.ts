@@ -21,6 +21,10 @@ test("compact conference cards show four per desktop row without depending on lo
   await page.route("**/api/me", (route) => route.fulfill({ json: { user: { id: 1, name: "Nico", email: "test@example.com", avatar_url: null }, cal_url: "https://example.com/calendar" } }));
   await page.route("**/api/conferences", (route) => route.fulfill({ json: conferences }));
   await page.goto("/conferences");
+  await expect(page).toHaveTitle("purpleroom — A little speaker intel");
+  const brand = page.getByRole("link", { name: "purpleroom.", exact: true });
+  await expect(brand).toBeVisible();
+  await expect(brand.locator("span").first()).toHaveCSS("background-color", "rgb(102, 51, 153)");
   const directory = page.getByRole("list", { name: "Conferences", exact: true });
   await expect(directory.getByRole("listitem")).toHaveCount(names.length);
   await expect(directory).toHaveCSS("grid-template-columns", /^(\d+(?:\.\d+)?px\s+){3}\d+(?:\.\d+)?px$/);
@@ -42,6 +46,7 @@ test("compact conference cards show four per desktop row without depending on lo
   await page.screenshot({ path: "test-results/conferences-cards-mobile.png", fullPage: true, animations: "disabled" });
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(brand.locator("span").first()).toHaveCSS("background-color", "rgb(196, 154, 232)");
   await page.screenshot({ path: "test-results/conferences-cards-dark.png", fullPage: true, animations: "disabled" });
   await page.getByRole("textbox", { name: "Search conferences", exact: true }).fill("CityJS");
   await expect(directory.getByRole("listitem")).toHaveCount(1);

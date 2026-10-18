@@ -143,7 +143,7 @@ export default function ConferenceFormPage({
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold">
                     {form.logo_url.startsWith("/api/conference-logos/")
-                      ? "Stored with Green Room"
+                      ? "Stored with purpleroom"
                       : "Logo preview"}
                   </p>
                   <p className="mt-1 text-xs text-muted">
@@ -168,7 +168,7 @@ export default function ConferenceFormPage({
                   ? "Replace logo from URL (optional)"
                   : "Logo URL (optional)"
               }
-              hint="Downloaded on save, then served from Green Room. PNG, JPEG, GIF, WebP, AVIF, ICO or SVG, up to 5 MB. SVGs are sanitized for safety. No logo? We'll use initials."
+              hint="Downloaded on save, then served from purpleroom. PNG, JPEG, GIF, WebP, AVIF, ICO or SVG, up to 5 MB. SVGs are sanitized for safety. No logo? We'll use initials."
             >
               <div className="relative">
                 <Link2

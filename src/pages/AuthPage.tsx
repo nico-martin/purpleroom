@@ -282,7 +282,7 @@ export default function AuthPage({ mode, className = "" }: AuthPageProps) {
         </main>
         <footer className="flex justify-between border-t border-border pt-5 text-xs text-muted">
           <span>Trusted speaker intel. Just for the crew.</span>
-          <span>Green Room © {new Date().getFullYear()}</span>
+          <span>purpleroom © {new Date().getFullYear()}</span>
         </footer>
       </div>
     </div>

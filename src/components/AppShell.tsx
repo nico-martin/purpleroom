@@ -154,7 +154,7 @@ export default function AppShell({ className = "" }: AppShellProps) {
               A quiet corner of the conference circuit.
             </span>
             <span className="font-heading font-semibold sm:hidden">
-              Green Room.
+              purpleroom.
             </span>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
