@@ -17,6 +17,7 @@ export { default as CopyField } from "./form/CopyField";
 export { default as SegmentedControl } from "./form/SegmentedControl";
 export { default as Card } from "./layout/Card";
 export { default as SummaryCard } from "./layout/SummaryCard";
+export { default as DistributionChart } from "./data/DistributionChart";
 export { default as PageHeader } from "./layout/PageHeader";
 export { default as SectionHeader } from "./layout/SectionHeader";
 export { default as ListRow } from "./layout/ListRow";

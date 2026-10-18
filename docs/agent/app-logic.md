@@ -90,6 +90,9 @@ purpleroom helps conference speakers discover opportunities, privately manage pr
 - Owners can change submission status/details or remove a submission without deleting the reusable proposal.
 - Creating/reassigning a submission requires an owned proposal and an active edition. Owners retain access to existing submissions linked to deleted catalog items, which are shown as archived in their library.
 - The current talk form has a title and private notes. Abstracts and per-submission abstract overrides remain supported stored data but are omitted from the UI; unrelated edits must not clear them.
+- `/talks` presents the private library as cards: three per row on wide desktop screens, two at medium widths, and one on mobile. Each card shows the title, last-updated date, total linked submissions, and a stacked status bar with labelled counts. Empty talks show zero submissions and a route to find a stage.
+- Card statistics describe **current statuses**, not a history of transitions. Every linked submission counts once, including `interested` and archived-edition submissions; legacy `attended` is labelled explicitly. These private totals differ from friend-participation counts, which exclude `interested` and deduplicate people.
+- Submission controls can be expanded on each card to inspect editions and edit statuses/details or remove submissions. Statistics update after changes; the title opens the full talk page. Charts have text counts and accessible summaries rather than relying on colour alone.
 - Talk titles are always private. The legacy `hide_title` field is retained but is not a privacy toggle in the current UI.
 
 ### Submission statuses

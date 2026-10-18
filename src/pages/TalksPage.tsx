@@ -1,21 +1,10 @@
-import {
-  ArrowUpRight,
-  ChevronDown,
-  ChevronUp,
-  LockKeyhole,
-  Mic2,
-  Plus,
-} from "lucide-react";
+import { LockKeyhole, Mic2, Plus } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router-dom";
 
-import SubmissionEditionLink from "../components/SubmissionEditionLink";
-import SubmissionStatusSelect from "../components/SubmissionStatusSelect";
+import TalkCard from "../components/TalkCard";
 import TalkEditor from "../components/TalkEditor";
 import useApi from "../hooks/useApi";
-import { formatDate } from "../lib/format";
 import {
-  Badge,
   Button,
   Card,
   EmptyState,
@@ -31,7 +20,6 @@ interface TalksPageProps {
 export default function TalksPage({ className = "" }: TalksPageProps) {
   const { data, loading, error, refresh } = useApi<Paper[]>("/papers");
   const [creating, setCreating] = useState(false);
-  const [expanded, setExpanded] = useState<number[]>([]);
   return (
     <div className={className}>
       <PageHeader
@@ -47,114 +35,24 @@ export default function TalksPage({ className = "" }: TalksPageProps) {
       />
       <div className="mb-7 flex items-center gap-2 text-xs text-muted">
         <LockKeyhole size={14} />
-        Private library. Only titles and submission statuses are shared.
+        Private library. Your talk titles, notes, and submission statuses are
+        only visible to you.
       </div>
       {loading && !data ? (
         <LoadingState />
       ) : error ? (
         <Notice tone="error">{error}</Notice>
       ) : data?.length ? (
-        <div className="space-y-4">
-          {data.map((paper) => {
-            const open = expanded.includes(paper.id);
-            return (
-              <Card key={paper.id}>
-                <div className="flex items-center gap-4 p-5 sm:p-6">
-                  <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-green-soft text-green">
-                    <Mic2 size={20} strokeWidth={1.5} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <Link
-                      to={`/talks/${paper.id}`}
-                      className="font-heading text-lg font-semibold hover:text-green"
-                    >
-                      {paper.title}
-                    </Link>
-                    <p className="mt-1 font-mono text-xs text-muted">
-                      Updated{" "}
-                      {formatDate(paper.updated_at, {
-                        day: "numeric",
-                        month: "short",
-                      })}
-                    </p>
-                  </div>
-                  <Badge className="hidden sm:inline-flex">
-                    {paper.submissions.length} submissions
-                  </Badge>
-                  <Button
-                    variant="ghost"
-                    aria-label={
-                      open ? "Collapse submissions" : "Expand submissions"
-                    }
-                    aria-expanded={open}
-                    className="size-11 p-0"
-                    onClick={() =>
-                      setExpanded((current) =>
-                        open
-                          ? current.filter((id) => id !== paper.id)
-                          : [...current, paper.id]
-                      )
-                    }
-                  >
-                    {open ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                  </Button>
-                </div>
-                {open && (
-                  <div className="border-t border-divider">
-                    {paper.submissions.length ? (
-                      <div className="divide-y divide-divider">
-                        {paper.submissions.map((s) => (
-                          <div
-                            key={s.id}
-                            className="flex flex-wrap items-center gap-4 p-5 sm:px-6"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <SubmissionEditionLink
-                                submission={s}
-                                className="text-sm font-semibold hover:text-green"
-                              />
-                              <p className="mt-1 text-xs text-muted">
-                                CFP:{" "}
-                                {s.edition?.cfp_closes_on
-                                  ? formatDate(s.edition.cfp_closes_on)
-                                  : "No deadline"}
-                              </p>
-                            </div>
-                            <SubmissionStatusSelect
-                              submission={s}
-                              onSaved={refresh}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <EmptyState
-                        title="No submissions. Plenty of possibilities."
-                        description="Head to the room, find an open CFP, and add this talk."
-                        action={
-                          <Link
-                            to="/"
-                            className="flex min-h-11 items-center gap-2 text-sm text-green"
-                          >
-                            Find a stage <ArrowUpRight size={15} />
-                          </Link>
-                        }
-                      />
-                    )}
-                    <div className="border-t border-divider px-6 py-3">
-                      <Link
-                        to={`/talks/${paper.id}`}
-                        className="inline-flex min-h-11 items-center gap-2 text-sm text-green"
-                      >
-                        Edit talk <ArrowUpRight size={14} />
-                      </Link>
-                    </div>
-                  </div>
-                )}
-              </Card>
-            );
-          })}
-        </div>
+        <ul
+          aria-label="My talks"
+          className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
+        >
+          {data.map((paper) => (
+            <li key={paper.id} className="min-w-0">
+              <TalkCard paper={paper} onSaved={refresh} />
+            </li>
+          ))}
+        </ul>
       ) : (
         <Card>
           <EmptyState
