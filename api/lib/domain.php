@@ -2,7 +2,10 @@
 declare(strict_types=1);
 if (!defined('GREEN_ROOM')) exit;
 function conference(int $id): array {
-    return one('SELECT * FROM conferences WHERE id = ? AND deleted_at IS NULL', [$id]) ?? fail(404, 'not_found', 'Conference not found.');
+    return conference_record(one('SELECT * FROM conferences WHERE id = ? AND deleted_at IS NULL', [$id]) ?? fail(404, 'not_found', 'Conference not found.'));
+}
+function conference_record(array $row): array {
+    return [...$row,'tags'=>is_array($row['tags'] ?? null) ? $row['tags'] : json_decode($row['tags'] ?? '[]',true,64,JSON_THROW_ON_ERROR)];
 }
 function edition(int $id): array {
     return one('SELECT e.* FROM editions e JOIN conferences c ON c.id=e.conference_id WHERE e.id=? AND e.deleted_at IS NULL AND c.deleted_at IS NULL', [$id]) ?? fail(404, 'not_found', 'Edition not found.');
@@ -38,7 +41,8 @@ function visible_reviews(int $id): array {
     return all('SELECT * FROM reviews WHERE conference_id=? AND user_id IN (' . id_placeholders($ids) . ') ORDER BY updated_at DESC', [$id,...$ids]);
 }
 function conference_summary(array $row): array {
-    return [...$row, ...review_summary((int) $row['id']), 'next_edition' => one('SELECT * FROM editions WHERE conference_id=? AND deleted_at IS NULL AND starts_on >= ? ORDER BY starts_on LIMIT 1', [$row['id'], gmdate('Y-m-d')])];
+    $today=gmdate('Y-m-d');
+    return [...conference_record($row), ...review_summary((int) $row['id']), 'next_edition' => one('SELECT * FROM editions WHERE conference_id=? AND deleted_at IS NULL AND starts_on >= ? ORDER BY starts_on,id LIMIT 1', [$row['id'], $today]), 'has_open_cfp'=>(bool)one('SELECT id FROM editions WHERE conference_id=? AND deleted_at IS NULL AND cfp_closes_on>=? AND (cfp_opens_on IS NULL OR cfp_opens_on<=?) LIMIT 1',[$row['id'],$today,$today])];
 }
 function attendance_for(int $id): array {
     $ids = visible_user_ids();

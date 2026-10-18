@@ -19,7 +19,7 @@ route('GET', '/submissions', function () {
     $rows=all($sql . ' ORDER BY e.starts_on,s.id',[require_login()['id']]);
     json_response(array_map(function($s) {
         unset($s['owner_id']);
-        return [...$s,'edition'=>one('SELECT * FROM editions WHERE id=?',[$s['edition_id']]),'conference'=>one('SELECT * FROM conferences WHERE id=?',[$s['conference_id']])];
+        return [...$s,'edition'=>one('SELECT * FROM editions WHERE id=?',[$s['edition_id']]),'conference'=>conference_record(one('SELECT * FROM conferences WHERE id=?',[$s['conference_id']]))];
     },$rows));
 });
 route('POST', '/submissions', function () {

@@ -76,7 +76,7 @@ try {
     insert('comments', ['conference_id'=>$cid,'user_id'=>$other,'text'=>'Preserve this retired comment']);
     insert('invites', ['invited_by'=>$uid,'token_hash'=>hash('sha256','legacy-invite'),'expires_at'=>gmdate('Y-m-d\TH:i:s\Z',time()+86400)]);
     insert('login_tokens', ['user_id' => $uid, 'token_hash' => hash('sha256', $argv[1]), 'expires_at' => gmdate('Y-m-d\\TH:i:s\\Z', time()+900)]);
-    echo json_encode(['conference' => $cid, 'berlin' => $berlin, 'london' => $london, 'editions' => all('SELECT * FROM editions ORDER BY id'), 'users'=>all('SELECT * FROM users ORDER BY id'), 'reviews'=>all('SELECT * FROM reviews'), 'comments'=>all('SELECT * FROM comments'), 'invites'=>all('SELECT * FROM invites'), 'submissions'=>all('SELECT * FROM submissions ORDER BY id')]);
+    echo json_encode(['conference' => $cid, 'berlin' => $berlin, 'london' => $london, 'editions' => all('SELECT * FROM editions ORDER BY id'), 'users'=>all('SELECT * FROM users ORDER BY id'), 'reviews'=>all('SELECT * FROM reviews'), 'comments'=>all('SELECT * FROM comments'), 'invites'=>all('SELECT * FROM invites'), 'submissions'=>all('SELECT * FROM submissions ORDER BY id'), 'conferences'=>all('SELECT * FROM conferences ORDER BY id')]);
   `,
       [token, `${year}-05-20`, future(5), `${year}-06-20`]
     )
@@ -106,6 +106,22 @@ try {
     "Health must not silently initialize or migrate a database"
   );
   await request("/auth/verify", "POST", { token });
+  const taggedConferences = JSON.parse(
+    php(
+      bootstrap +
+        "echo json_encode(all('SELECT * FROM conferences ORDER BY id'));"
+    )
+  );
+  assert.deepEqual(
+    taggedConferences.map(({ tags, ...legacy }) => legacy),
+    fixture.conferences,
+    "Adding conference tags must retain all existing catalog data"
+  );
+  assert.ok(taggedConferences.every((row) => row.tags === "[]"));
+  assert.deepEqual(
+    (await request(`/conferences/${fixture.conference}`)).tags,
+    []
+  );
   const migratedSubmissions = JSON.parse(
     php(
       bootstrap +

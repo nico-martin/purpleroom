@@ -44,6 +44,10 @@ rejects(fn() => conference_fields(['logo_url' => $read($id)['logo_url']], $read(
 rejects(fn() => prepare_conference_logo($read($id)['logo_url'], null), ConferenceLogoException::class);
 check(logo_filename('/api/conference-logos/' . $id . '/../secret.png', $id) === null, 'Traversal accepted.');
 check(logo_filename('/api/conference-logos/' . $id . '/logo.php', $id) === null, 'Executable extension accepted.');
+persist_conference(conference_fields(['logo_url'=>$read($id)['logo_url'],'tags'=>[' JavaScript ','javascript','2026']],$read($id)),$read($id),$fetcher);
+check(json_decode($read($id)['tags'],true)===['javascript','2026'],'Tags were lost when retaining a cached logo.');
+persist_conference(['name'=>$read($id)['name']],$read($id),$fetcher);
+check(json_decode($read($id)['tags'],true)===['javascript','2026'],'An unrelated update cleared conference tags.');
 
 // Profile images share the logo validator/transport but have independent, member-owned storage.
 $profile = fn(): array => one('SELECT * FROM users WHERE id=?',[$uid]);

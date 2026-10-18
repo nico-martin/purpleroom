@@ -40,5 +40,5 @@ route('POST', '/conferences/{id}/restore', function ($p) {
 });
 route('GET', '/trash', function () {
     $since = gmdate('Y-m-d\TH:i:s\Z', time() - 90 * 86400);
-    json_response(['conferences' => all('SELECT * FROM conferences WHERE deleted_at>=? ORDER BY deleted_at DESC', [$since]), 'editions' => all('SELECT e.*, c.name AS conference_name FROM editions e JOIN conferences c ON c.id=e.conference_id WHERE e.deleted_at>=? ORDER BY e.deleted_at DESC', [$since])]);
+    json_response(['conferences' => array_map('conference_record',all('SELECT * FROM conferences WHERE deleted_at>=? ORDER BY deleted_at DESC', [$since])), 'editions' => all('SELECT e.*, c.name AS conference_name FROM editions e JOIN conferences c ON c.id=e.conference_id WHERE e.deleted_at>=? ORDER BY e.deleted_at DESC', [$since])]);
 });

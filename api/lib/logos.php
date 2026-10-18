@@ -86,13 +86,27 @@ function store_conference_logo(int $id, string $name, array $asset): string {
     return '/api/conference-logos/' . $id . '/' . $filename;
 }
 function conference_fields(array $input, ?array $existing = null): array {
+    $tagData = [];
+    if (array_key_exists('tags',$input)) {
+        if (!is_array($input['tags']) || !array_is_list($input['tags']) || count($input['tags'])>20) fail(422,'validation','Choose up to 20 conference tags.',['tags'=>'invalid']);
+        $tags=[];
+        foreach ($input['tags'] as $tag) {
+            if (!is_string($tag)) fail(422,'validation','Each conference tag must be text.',['tags'=>'invalid']);
+            $tag=strtolower(trim(preg_replace('/\s+/u',' ',$tag)));
+            if ($tag==='') continue;
+            if (preg_match_all('/./us',$tag)>50 || str_contains($tag,',')) fail(422,'validation','Keep tags under 50 characters and separate them with commas.',['tags'=>'invalid']);
+            if (!in_array($tag,$tags,true)) $tags[]=$tag;
+        }
+        $tagData['tags']=json_encode($tags,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+        unset($input['tags']);
+    }
     $local = $input['logo_url'] ?? null;
     if (is_string($local) && str_starts_with($local, '/api/conference-logos/')) {
         if (!$existing || $local !== $existing['logo_url'] || !logo_filename($local, (int) $existing['id'])) throw new ConferenceLogoException('Use a public image URL or keep this conference\'s existing stored logo.');
         unset($input['logo_url']);
-        return [...fields($input, ['name', 'website', 'description']), 'logo_url' => $local];
+        return [...fields($input, ['name', 'website', 'description']), 'logo_url' => $local, ...$tagData];
     }
-    return fields($input, ['name', 'website', 'logo_url', 'description']);
+    return [...fields($input, ['name', 'website', 'logo_url', 'description']), ...$tagData];
 }
 function persist_conference(array $data, ?array $existing = null, ?callable $fetcher = null): int {
     $source = array_key_exists('logo_url', $data) ? $data['logo_url'] : ($existing['logo_url'] ?? null);

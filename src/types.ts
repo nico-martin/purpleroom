@@ -17,6 +17,7 @@ export interface Account extends User, ProfileLinks {
 export interface Conference {
   id: number;
   name: string;
+  tags: string[];
   website: string | null;
   logo_url: string | null;
   description: string | null;
@@ -26,6 +27,7 @@ export interface Conference {
   deleted_at: string | null;
 }
 export interface ConferenceSummary extends Conference {
+  has_open_cfp: boolean;
   review_count: number;
   tag_counts: Partial<Record<ReviewTag, number>>;
   next_edition: Edition | null;

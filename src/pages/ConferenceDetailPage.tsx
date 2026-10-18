@@ -83,6 +83,15 @@ export default function ConferenceDetailPage({
           </ButtonLink>
         )}
       </header>
+      {!!data.tags?.length && (
+        <div className="mb-6 flex flex-wrap gap-2" aria-label="Conference tags">
+          {data.tags.map((tag) => (
+            <Tag key={tag} className="max-w-full">
+              <span className="min-w-0 break-all">{tag}</span>
+            </Tag>
+          ))}
+        </div>
+      )}
       {data.description && (
         <p className="mb-9 max-w-3xl text-base leading-relaxed text-muted">
           {data.description}

@@ -6,7 +6,7 @@ purpleroom is a members-only space for conference speakers to find their next st
 
 ## What you can do
 
-- **Explore conferences and editions.** Find event dates, locations, CFP links, and deadlines in an admin-maintained catalog.
+- **Explore conferences and editions.** Find event dates, locations, CFP links, and deadlines in an admin-maintained catalog. Filter by topic tags or open CFPs, and sort by name or next event date.
 - **Keep a private talk library.** Reuse a proposal across editions and track each submission's progress in one place.
 - **Leave room for a conversation.** Use “Topic to be agreed” when a speaking opportunity has no specific talk yet. Attach a new or existing talk later without losing its status or submission date.
 - **Build your crew.** Browse the member directory, send a request, and connect when the other person accepts.

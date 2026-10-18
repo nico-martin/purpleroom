@@ -64,7 +64,12 @@ purpleroom helps conference speakers discover opportunities, privately manage pr
 ### Conferences
 
 - Admins maintain the shared catalog. Conference data includes name, optional website, optional logo, and any retained description.
+- Conferences also have admin-managed topic tags, separate from the structured tags in speaker reviews. Tags are entered as comma-separated text in the form, normalised to trimmed/lowercase labels with collapsed whitespace, and deduplicated. Each conference supports up to 20 tags of 50 characters each. An empty list clears tags; omitting tags on an API update preserves them. Tags are visible to all signed-in members on conference cards/details.
 - The directory is name-first: compact cards, four per row on wide desktop screens and fewer on smaller screens. It shows the next edition and viewer-scoped review count, without logos or placeholder descriptions.
+- `/conferences` combines name/context/tag text search, selectable topic tags, and **Have editions with open CFPs**. Multiple selected tags match any selected tag; text/tag/CFP filters combine together. Filter state and sorting are kept in the URL, and Clear filters retains the chosen sort order. Empty results show guidance rather than suggesting the catalog is empty.
+- The open-CFP filter matches a conference if **any** active edition has a closing date today or later and an absent/past/today opening date. It does not consider only the next edition. Deleted editions, future opening windows, expired deadlines, and unknown closing dates do not qualify. An undated event can still have an open CFP.
+- Directory sorting supports name A–Z/Z–A and next-edition date soonest/latest first. The default is name A–Z; date ties are broken by name. Conferences without a dated next edition stay last in **both** date directions. This sorts event dates, not personal submission dates or CFP deadlines.
+- Cards show up to three topic tags with an overflow count and an Open CFP badge when applicable. Detail pages show all topic tags. Review summaries retain their independent friend-scoped visibility.
 - Detail and edit views may show logos. An admin can prefill metadata from a website and import a logo by URL; importing never creates conference content without saving.
 - Logo imports are validated and stored locally. Existing external logos are migrated on the next conference save, not during ordinary reads. A failed import leaves the conference unchanged.
 - The current form omits conference descriptions. Saving unrelated changes must preserve existing descriptions.

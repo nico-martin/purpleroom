@@ -2,7 +2,7 @@ import { CalendarDays, MapPin, MessageSquare } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { editionLabel, formatDate, location, websiteHost } from "../lib/format";
-import { SummaryCard } from "../theme";
+import { Badge, SummaryCard, Tag } from "../theme";
 import type { ConferenceSummary } from "../types";
 
 interface ConferenceCardProps {
@@ -30,6 +30,28 @@ export default function ConferenceCard({
         </p>
       }
     >
+      {!!conference.tags?.length && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {conference.tags.slice(0, 3).map((tag) => (
+            <Tag key={tag} className="max-w-full px-2 py-1">
+              <span className="min-w-0 break-all">{tag}</span>
+            </Tag>
+          ))}
+          {conference.tags.length > 3 && (
+            <span
+              className="self-center text-xs text-muted"
+              title={conference.tags.slice(3).join(", ")}
+            >
+              +{conference.tags.length - 3}
+            </span>
+          )}
+        </div>
+      )}
+      {conference.has_open_cfp && (
+        <div className="mb-2">
+          <Badge tone="positive">Open CFP</Badge>
+        </div>
+      )}
       {edition ? (
         <Link
           to={`/editions/${edition.id}`}

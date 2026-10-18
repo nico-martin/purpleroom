@@ -1,0 +1,1 @@
+ALTER TABLE conferences ADD COLUMN tags TEXT NOT NULL DEFAULT '[]';

@@ -257,9 +257,39 @@ try {
   const c = await admin(
     "/conferences",
     "POST",
-    { name: "JSNation", website: "https://jsnation.com" },
+    {
+      name: "JSNation",
+      website: "https://jsnation.com",
+      tags: [" JavaScript ", "javascript", " Accessibility ", "", "2026"],
+    },
     201
   );
+  assert.deepEqual(c.tags, ["javascript", "accessibility", "2026"]);
+  assert.equal(c.has_open_cfp, false);
+  await admin(`/conferences/${c.id}`, "PATCH", { name: "JSNation" });
+  assert.deepEqual(
+    (await alice(`/conferences/${c.id}`)).tags,
+    c.tags,
+    "Omitted tags must be retained"
+  );
+  for (const tags of [
+    null,
+    "javascript",
+    { invalid: true },
+    [12],
+    ["x".repeat(51)],
+    ["a,b"],
+    Array.from({ length: 21 }, (_, i) => String(i)),
+  ])
+    await admin(`/conferences/${c.id}`, "PATCH", { tags }, 422);
+  await alice(`/conferences/${c.id}`, "PATCH", { tags: ["changed"] }, 403);
+  assert.deepEqual(
+    (await admin(`/conferences/${c.id}`, "PATCH", { tags: [] })).tags,
+    []
+  );
+  await admin(`/conferences/${c.id}`, "PATCH", {
+    tags: ["javascript", "accessibility"],
+  });
   await admin(
     "/conferences",
     "POST",
@@ -292,6 +322,76 @@ try {
     },
     201
   );
+  assert.equal((await alice(`/conferences/${c.id}`)).has_open_cfp, true);
+  const filters = await admin(
+    "/conferences",
+    "POST",
+    { name: "CFP date checks", tags: ["test"] },
+    201
+  );
+  const makeFilterEdition = async (data) =>
+    admin("/editions", "POST", { conference_id: filters.id, ...data }, 201);
+  const closedEdition = await makeFilterEdition({
+    starts_on: future(10),
+    cfp_closes_on: future(-1),
+  });
+  const notYet = await makeFilterEdition({
+    starts_on: future(20),
+    cfp_opens_on: future(5),
+    cfp_closes_on: future(10),
+  });
+  const unknownDeadline = await makeFilterEdition({ starts_on: future(22) });
+  assert.equal((await alice(`/conferences/${filters.id}`)).has_open_cfp, false);
+  const deletedOpen = await makeFilterEdition({
+    starts_on: future(25),
+    cfp_closes_on: future(2),
+  });
+  assert.equal((await alice(`/conferences/${filters.id}`)).has_open_cfp, true);
+  await admin(`/editions/${deletedOpen.id}`, "DELETE", undefined, 204);
+  assert.equal(
+    (await alice(`/conferences/${filters.id}`)).has_open_cfp,
+    false,
+    "Deleted editions cannot qualify"
+  );
+  const laterOpen = await makeFilterEdition({
+    starts_on: future(30),
+    cfp_opens_on: future(-2),
+    cfp_closes_on: future(10),
+  });
+  const mixed = await alice(`/conferences/${filters.id}`);
+  assert.equal(mixed.next_edition.id, closedEdition.id);
+  assert.equal(
+    mixed.has_open_cfp,
+    true,
+    "Any edition can have an open CFP, not only the next edition"
+  );
+  const today = await makeFilterEdition({
+    starts_on: future(40),
+    cfp_opens_on: future(0),
+    cfp_closes_on: future(0),
+  });
+  await admin(`/editions/${laterOpen.id}`, "DELETE", undefined, 204);
+  assert.equal(
+    (await alice(`/conferences/${filters.id}`)).has_open_cfp,
+    true,
+    "Opening and closing today is open"
+  );
+  await admin(`/editions/${today.id}`, "PATCH", {
+    cfp_opens_on: null,
+    cfp_closes_on: future(-1),
+  });
+  assert.equal((await alice(`/conferences/${filters.id}`)).has_open_cfp, false);
+  for (const row of [closedEdition, notYet, unknownDeadline, today])
+    await admin(`/editions/${row.id}`, "DELETE", undefined, 204);
+  await makeFilterEdition({ cfp_closes_on: future(2) });
+  const undatedOpen = await alice(`/conferences/${filters.id}`);
+  assert.equal(undatedOpen.next_edition, null);
+  assert.equal(
+    undatedOpen.has_open_cfp,
+    true,
+    "An undated edition can still have an open CFP"
+  );
+  await admin(`/conferences/${filters.id}`, "DELETE", undefined, 204);
   for (const [path, method, body] of [
     [`/conferences/${c.id}`, "PATCH", { name: "No" }],
     [`/conferences/${c.id}`, "DELETE"],

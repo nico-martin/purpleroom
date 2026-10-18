@@ -32,6 +32,7 @@ export default function ConferenceFormPage({
     name: "",
     website: "",
     logo_url: "",
+    tags: "",
   });
   const [loading, setLoading] = useState(!!id);
   const [prefilled, setPrefilled] = useState(false);
@@ -43,6 +44,7 @@ export default function ConferenceFormPage({
             name: c.name,
             website: c.website ?? "",
             logo_url: c.logo_url ?? "",
+            tags: (c.tags ?? []).join(", "),
           })
         )
         .catch((e: Error) => mutation.setError(e.message))
@@ -54,7 +56,13 @@ export default function ConferenceFormPage({
       () =>
         api<Conference>(id ? `/conferences/${id}` : "/conferences", {
           method: id ? "PATCH" : "POST",
-          body: form,
+          body: {
+            ...form,
+            tags: form.tags
+              .split(",")
+              .map((tag) => tag.trim())
+              .filter(Boolean),
+          },
         }),
       (c) => navigate(`/conferences/${c.id}`)
     );
@@ -131,6 +139,18 @@ export default function ConferenceFormPage({
                 placeholder="e.g. JSNation"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
+              />
+            </Field>
+            <Field
+              label="Conference tags"
+              hint="Comma-separated topics, e.g. javascript, accessibility, ai. Up to 20 tags, 50 characters each. These are separate from speaker-review tags."
+            >
+              <Input
+                value={form.tags}
+                onChange={(event) =>
+                  setForm({ ...form, tags: event.target.value })
+                }
+                placeholder="javascript, accessibility, ai"
               />
             </Field>
             {form.logo_url && (

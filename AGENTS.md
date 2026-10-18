@@ -64,6 +64,7 @@ The seed grants admin on creation only for `mail@nico.dev`; arbitrary seeded/pub
 - Reuse controls, notices, cards, dialogs, and loading/empty states. Preserve accessible labels, keyboard/focus behaviour, responsive layouts, and light/dark support.
 - Keep `src/types.ts` aligned with API response shapes. Public member identity must not accidentally become a private account payload.
 - Use `editionLabel()`/`edition_label()` for edition names; never append a year. Do not restore overview logos or removed fields merely because an old design image shows them.
+- Conference topic `tags` are admin-managed JSON arrays, not review `tag_counts`. Keep create/edit, cached-logo saves, summaries, and nested conference response shapes consistent. The directory filters locally using shared summaries' `has_open_cfp` flag (any active edition, not only `next_edition`), with URL-backed controls. `src/lib/conferences.ts` keeps missing next-edition dates last in both date-sort directions.
 - Profile link labels/field keys live in `src/lib/profile.ts` and `api/lib/profiles.php`; keep all eight fields aligned. Avatar sources are downloaded on save, not rendered directly as previews of untrusted replacement URLs. Stored local paths must not be put into a `type="url"` field; show a blank replacement field and an explicit remove action.
 - Appearance lives in the host-only `gr_theme` cookie (`Path=/`, `SameSite=Lax`, one year, Secure over HTTPS), not on the account or in local storage. Keep the pre-render script and React event handling consistent.
 - Use the API helper for credentials, headers, errors, and redirects. Never render untrusted content with `dangerouslySetInnerHTML`; render sanitised SVG logos as images, not inline markup.
@@ -103,6 +104,7 @@ The seed grants admin on creation only for `mail@nico.dev`; arbitrary seeded/pub
 - Migration 004 adds optional homepage/social link columns without changing existing avatars or other account data. Avatar downloads remain lazy on profile save.
 - Migration 005 rebuilds `submissions` with explicit ownership and an optional proposal, backfilling owners and retaining every existing ID/field. It preserves unique proposal/edition pairs, permits one unassigned row per owner/edition, and enforces matching proposal ownership with triggers. Retain linked-proposal cascade deletion, but do not delete unassigned opportunities when unrelated talks are removed.
 - Migration 006 adds nullable per-submission private notes without rewriting existing submission data.
+- Migration 007 adds conference topic tags with an empty-array default, preserving existing catalog records. Only admins may change tags; omission must not clear stored values.
 - Existing `gr_session`, `gr_theme`, `green-room` request/browser identifiers, and legacy environment variables are intentional compatibility details, not unfinished branding work.
 
 ## Checks
