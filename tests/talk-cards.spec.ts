@@ -64,6 +64,9 @@ test("talk cards show three per desktop row, current status counts, and editable
     })
   );
   await page.route("**/api/papers", (route) => route.fulfill({ json: papers }));
+  await page.route("**/api/submissions?unassigned=1", (route) =>
+    route.fulfill({ json: [] })
+  );
   await page.route("**/api/submissions/2", async (route) => {
     papers[0].submissions[1].status = route.request().postDataJSON().status;
     await route.fulfill({ json: papers[0].submissions[1] });
@@ -78,6 +81,15 @@ test("talk cards show three per desktop row, current status counts, and editable
   expect(boxes.slice(0, 3).every((box) => box?.y === boxes[0]?.y)).toBe(true);
   expect(boxes[3]!.y).toBeGreaterThan(boxes[0]!.y);
   const first = cards.nth(0);
+  expect(
+    await first.locator("dl > div").evaluateAll((groups) =>
+      groups.every((group) => {
+        const label = group.querySelector("dt")!.getBoundingClientRect();
+        const count = group.querySelector("dd")!.getBoundingClientRect();
+        return count.left >= label.right && count.left - label.right <= 12;
+      })
+    )
+  ).toBe(true);
   await expect(
     first.getByRole("link", { name: "A talk with a long life", exact: true })
   ).toHaveAttribute("href", "/talks/1");

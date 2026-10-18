@@ -34,11 +34,11 @@ export default function DistributionChart({
           />
         ))}
       </div>
-      <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+      <dl className="mt-4 flex flex-wrap gap-2 text-xs">
         {visible.map((item) => (
           <div
             key={item.label}
-            className="flex min-w-0 items-center justify-between gap-2"
+            className="inline-flex items-center gap-2 rounded-lg bg-ground px-2 py-1.5"
           >
             <dt className="flex min-w-0 items-center gap-2 text-muted">
               <span

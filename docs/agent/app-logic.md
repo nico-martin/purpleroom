@@ -17,7 +17,7 @@ purpleroom helps conference speakers discover opportunities, privately manage pr
 | Conference | A long-lived event brand, such as JSNation. |
 | Edition | A particular event with its own title, dates, location, and CFP information. |
 | Talk / proposal | A reusable, privately owned entry in a member's library; called a `paper` internally. |
-| Submission | A proposal linked to one edition, with a privately tracked status. |
+| Submission | An owned speaking opportunity for an edition, optionally linked to a proposal, with a privately tracked status. |
 | Attendance | A manually selected Going or Maybe marker for an edition. |
 | Crew | The current member's mutually accepted friends. There are no separate named crews. |
 | Speaker review / take | A member's conference-level experience, shared with their friends. |
@@ -85,14 +85,19 @@ purpleroom helps conference speakers discover opportunities, privately manage pr
 
 - Members create, edit, and permanently delete their own talks/proposals. Deleting a proposal also deletes its linked submissions and requires confirmation in the UI.
 - A proposal can be linked to multiple editions. Multiple different proposals can be linked to one edition, but the same proposal/edition pair cannot be duplicated.
+- “Add my talk” offers **From my library**, **New talk**, and **Topic to be agreed**. The third option records a submission without a linked proposal and creates no placeholder in the talk library. It has the same private status and submission-date controls as other submissions.
+- Each member can have at most one unassigned opportunity per edition, alongside any submissions with specific talks. Different members can independently have unassigned opportunities for the same edition.
+- Owners can later attach a library talk or create a new talk from the opportunity's **Attach a talk** action. This updates the same submission, retaining its ID, status, submission date, creation date, and other details. Attaching a proposal already submitted to that edition is rejected without merging or replacing either submission.
 - Submissions track local plans and outcomes. Adding a talk in purpleroom **does not submit it to an external CFP service**.
 - Proposal titles, content, private notes, submission IDs, individual submission totals, submission dates, and outcomes are owner-only—even from admins through the app.
 - Owners can change submission status/details or remove a submission without deleting the reusable proposal.
-- Creating/reassigning a submission requires an owned proposal and an active edition. Owners retain access to existing submissions linked to deleted catalog items, which are shown as archived in their library.
+- Each submission has optional **private notes**, edited in “The details of this submission”. These are specific to that edition/opportunity and separate from reusable talk notes. Only the owner can read/edit them, including when the submission has no attached talk; friends and admins have no access through the app. Empty notes clear the field, while status-only changes and attaching a talk preserve it.
+- Creating a submission requires an active edition; a proposal, when supplied, must belong to the submission owner. Reassigning a proposal/edition validates the corresponding ownership/active-edition requirement. Owners retain access to existing submissions linked to deleted catalog items, including unassigned opportunities.
 - The current talk form has a title and private notes. Abstracts and per-submission abstract overrides remain supported stored data but are omitted from the UI; unrelated edits must not clear them.
-- `/talks` presents the private library as cards: three per row on wide desktop screens, two at medium widths, and one on mobile. Each card shows the title, last-updated date, total linked submissions, and a stacked status bar with labelled counts. Empty talks show zero submissions and a route to find a stage.
+- `/talks` presents the private library as cards: three per row on wide desktop screens, two at medium widths, and one on mobile. Each card shows the title, last-updated date, total linked submissions, and a stacked status bar. Each status label sits directly beside its count in a grouped badge so their connection is clear. Empty talks show zero submissions and a route to find a stage.
 - Card statistics describe **current statuses**, not a history of transitions. Every linked submission counts once, including `interested` and archived-edition submissions; legacy `attended` is labelled explicitly. These private totals differ from friend-participation counts, which exclude `interested` and deduplicate people.
 - Submission controls can be expanded on each card to inspect editions and edit statuses/details or remove submissions. Statistics update after changes; the title opens the full talk page. Charts have text counts and accessible summaries rather than relying on colour alone.
+- Unassigned opportunities appear in a separate **Topics to be agreed** section on `/talks`, with edition links, private controls, and the attach action. They also appear under the edition's **My submissions** and in the owner's dashboard data. They do not inflate a talk's card statistics until attached to that talk. Deleting an unrelated library talk does not delete an unassigned opportunity.
 - Talk titles are always private. The legacy `hide_title` field is retained but is not a privacy toggle in the current UI.
 
 ### Submission statuses
@@ -105,6 +110,7 @@ Statuses are owner-managed, not a mandatory linear workflow. A newly linked prop
 
 - An edition may reveal **which accepted friends have submitted** and their combined count.
 - A member qualifies if they currently have at least one submission whose status is not `interested`. All other supported statuses qualify, including `declined` and legacy `attended`; no submitted date or history is required.
+- Topic-to-be-agreed submissions qualify on the same basis, without revealing that their topic is unassigned. A member with an unassigned opportunity and several linked proposals still counts once.
 - Each friend counts once, regardless of proposal count. The viewer never counts as their own friend.
 - Status changes between qualifying statuses do not reveal a changed outcome. Moving the last qualifying submission to `interested`, or deleting it, removes that friend from the list/count.
 - Non-friends, pending requests, blocked relationships, and suspended accounts do not qualify.
@@ -159,7 +165,7 @@ The crew screen provides **My crew**, **All members**, **Requests**, and **Block
 
 ## 9. Dashboard and appearance
 
-- The footer shows the app version on signed-in and login/verification pages. Development displays `dev`; GitHub Actions builds display the short hash of the commit being deployed. Local builds without version metadata also display `dev`.
+- The footer shows the app version on signed-in and login/verification pages. Development and local builds without version metadata display `version: dev-local`; GitHub Actions builds display `version: dev-HASH`, where HASH is the short commit hash being deployed.
 - Login/verification and signed-in pages share footer credits: “A project by Nico Martin · Open source on GitHub”, linking to `https://nico.dev` and `https://github.com/nico-martin/purpleroom/` respectively.
 - Open CFPs are active editions whose closing date is today or later and whose opening date is absent or today/past, ordered by deadline. Unknown deadlines are not included.
 - CFP rows show edition information, deadline, the viewer's own submissions, and qualifying submitted friends.

@@ -8,6 +8,7 @@ purpleroom is a members-only space for conference speakers to find their next st
 
 - **Explore conferences and editions.** Find event dates, locations, CFP links, and deadlines in an admin-maintained catalog.
 - **Keep a private talk library.** Reuse a proposal across editions and track each submission's progress in one place.
+- **Leave room for a conversation.** Use “Topic to be agreed” when a speaking opportunity has no specific talk yet. Attach a new or existing talk later without losing its status or submission date.
 - **Build your crew.** Browse the member directory, send a request, and connect when the other person accepts.
 - **Make plans together.** Mark an edition Going or Maybe, and see your friends' plans—even if you haven't submitted a talk.
 - **Share speaker experience.** Leave conference reviews with practical tags, a return recommendation, and your own take, visible to your friends.

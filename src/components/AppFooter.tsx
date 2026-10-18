@@ -40,8 +40,8 @@ export default function AppFooter({
         </a>
       </p>
       {showVersion && (
-        <span aria-label="App version" className="font-mono">
-          {APP_VERSION}
+        <span aria-label="App version" className="whitespace-nowrap font-mono">
+          version: {APP_VERSION}
         </span>
       )}
     </footer>

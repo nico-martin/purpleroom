@@ -1,6 +1,8 @@
 import { LockKeyhole, Mic2, Plus } from "lucide-react";
 import { useState } from "react";
 
+import SubmissionEditionLink from "../components/SubmissionEditionLink";
+import SubmissionStatusSelect from "../components/SubmissionStatusSelect";
 import TalkCard from "../components/TalkCard";
 import TalkEditor from "../components/TalkEditor";
 import useApi from "../hooks/useApi";
@@ -11,14 +13,20 @@ import {
   LoadingState,
   Notice,
   PageHeader,
+  SectionHeader,
 } from "../theme";
-import type { Paper } from "../types";
+import type { Paper, Submission } from "../types";
 
 interface TalksPageProps {
   className?: string;
 }
 export default function TalksPage({ className = "" }: TalksPageProps) {
   const { data, loading, error, refresh } = useApi<Paper[]>("/papers");
+  const opportunities = useApi<Submission[]>("/submissions?unassigned=1");
+  function refreshAll() {
+    refresh();
+    opportunities.refresh();
+  }
   const [creating, setCreating] = useState(false);
   return (
     <div className={className}>
@@ -38,6 +46,39 @@ export default function TalksPage({ className = "" }: TalksPageProps) {
         Private library. Your talk titles, notes, and submission statuses are
         only visible to you.
       </div>
+      {opportunities.error && (
+        <Notice tone="error" className="mb-6">
+          {opportunities.error}
+        </Notice>
+      )}
+      {!!opportunities.data?.length && (
+        <section className="mb-8">
+          <SectionHeader
+            title="Topics to be agreed"
+            count={opportunities.data.length}
+            description="Speaking opportunities without a specific talk. Attach one whenever you're ready."
+          />
+          <ul
+            aria-label="Topics to be agreed"
+            className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
+          >
+            {opportunities.data.map((submission) => (
+              <li key={submission.id} className="min-w-0">
+                <Card padded className="h-full">
+                  <SubmissionEditionLink
+                    submission={submission}
+                    className="mb-4 block break-words font-heading text-lg font-semibold hover:text-purple"
+                  />
+                  <SubmissionStatusSelect
+                    submission={submission}
+                    onSaved={refreshAll}
+                  />
+                </Card>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {loading && !data ? (
         <LoadingState />
       ) : error ? (
@@ -49,7 +90,7 @@ export default function TalksPage({ className = "" }: TalksPageProps) {
         >
           {data.map((paper) => (
             <li key={paper.id} className="min-w-0">
-              <TalkCard paper={paper} onSaved={refresh} />
+              <TalkCard paper={paper} onSaved={refreshAll} />
             </li>
           ))}
         </ul>
@@ -69,7 +110,7 @@ export default function TalksPage({ className = "" }: TalksPageProps) {
         </Card>
       )}
       {creating && (
-        <TalkEditor onClose={() => setCreating(false)} onSaved={refresh} />
+        <TalkEditor onClose={() => setCreating(false)} onSaved={refreshAll} />
       )}
     </div>
   );

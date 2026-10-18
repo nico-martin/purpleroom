@@ -16,11 +16,12 @@ import {
   SegmentedControl,
   Select,
 } from "../theme";
-import type { Paper, SubmissionStatus } from "../types";
+import type { Paper, Submission, SubmissionStatus } from "../types";
 
 interface SubmissionModalProps {
   editionId: number;
   editionName: string;
+  submission?: Submission;
   onClose: () => void;
   onSaved: () => void;
   className?: string;
@@ -28,11 +29,13 @@ interface SubmissionModalProps {
 export default function SubmissionModal({
   editionId,
   editionName,
+  submission,
   onClose,
   onSaved,
 }: SubmissionModalProps) {
   const { data: papers, error, loading } = useApi<Paper[]>("/papers");
-  const [mode, setMode] = useState("existing");
+  const [selectedMode, setMode] = useState<string | null>(null);
+  const mode = selectedMode ?? (papers?.length ? "existing" : "new");
   const [paperId, setPaperId] = useState("");
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState<SubmissionStatus>("interested");
@@ -41,22 +44,28 @@ export default function SubmissionModal({
     event.preventDefault();
     mutation.run(
       async () => {
-        let id = Number(paperId || papers?.[0]?.id);
-        if (mode === "new" || !papers?.length)
+        let id: number | null =
+          mode === "unassigned" ? null : Number(paperId || papers?.[0]?.id);
+        if (mode === "new")
           id = (
             await api<Paper>("/papers", {
               method: "POST",
               body: { title },
             })
           ).id;
-        await api("/submissions", {
-          method: "POST",
-          body: {
-            paper_id: id,
-            edition_id: editionId,
-            status,
-          },
-        });
+        await api(
+          submission ? `/submissions/${submission.id}` : "/submissions",
+          {
+            method: submission ? "PATCH" : "POST",
+            body: submission
+              ? { paper_id: id }
+              : {
+                  paper_id: id,
+                  edition_id: editionId,
+                  status,
+                },
+          }
+        );
       },
       () => {
         onSaved();
@@ -65,7 +74,10 @@ export default function SubmissionModal({
     );
   }
   return (
-    <Modal title="Add my talk" onClose={onClose}>
+    <Modal
+      title={submission ? "Attach a talk" : "Add my talk"}
+      onClose={onClose}
+    >
       <p className="mb-5 text-sm text-muted">
         A possible next stage:{" "}
         <span className="font-semibold text-ink">{editionName}</span>
@@ -76,63 +88,90 @@ export default function SubmissionModal({
         <Notice tone="error">{error}</Notice>
       ) : (
         <form onSubmit={submit} className="space-y-5">
-          {!!papers?.length && (
-            <SegmentedControl
-              value={mode}
-              onChange={setMode}
-              label="Choose a talk"
-              options={[
-                { value: "existing", label: "From my library" },
-                { value: "new", label: "New talk" },
-              ]}
-            />
+          <SegmentedControl
+            value={mode}
+            onChange={setMode}
+            label="Choose a talk"
+            options={[
+              { value: "existing", label: "From my library" },
+              { value: "new", label: "New talk" },
+              ...(!submission
+                ? [{ value: "unassigned", label: "Topic to be agreed" }]
+                : []),
+            ]}
+          />
+          {mode === "unassigned" ? (
+            <Notice>
+              No specific talk yet? Track the speaking opportunity now and
+              attach a talk later. Nothing is added to your talk library.
+            </Notice>
+          ) : mode === "existing" ? (
+            papers?.length ? (
+              <Field label="Your talk">
+                <Select
+                  value={paperId || papers[0].id}
+                  onChange={(e) => setPaperId(e.target.value)}
+                >
+                  {papers.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            ) : (
+              <Notice>
+                Your library is empty. Choose New talk to create one.
+              </Notice>
+            )
+          ) : (
+            <Field label="Talk title">
+              <Input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+                placeholder="What's your big idea?"
+              />
+            </Field>
           )}
-          {mode === "existing" && !!papers?.length ? (
-            <Field label="Your talk">
+          {!submission && (
+            <Field label="Submission status">
               <Select
-                value={paperId || papers[0].id}
-                onChange={(e) => setPaperId(e.target.value)}
+                value={status}
+                onChange={(e) => setStatus(e.target.value as SubmissionStatus)}
               >
-                {papers.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.title}
+                {SUBMISSION_STATUS_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s[0].toUpperCase() + s.slice(1)}
                   </option>
                 ))}
               </Select>
             </Field>
-          ) : (
-            <>
-              <Field label="Talk title">
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  required
-                  placeholder="What's your big idea?"
-                />
-              </Field>
-            </>
           )}
-          <Field label="Submission status">
-            <Select
-              value={status}
-              onChange={(e) => setStatus(e.target.value as SubmissionStatus)}
-            >
-              {SUBMISSION_STATUS_OPTIONS.map((s) => (
-                <option key={s} value={s}>
-                  {s[0].toUpperCase() + s.slice(1)}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          {submission && (
+            <p className="text-sm text-muted">
+              Attaching a talk keeps this submission's status and submission
+              date.
+            </p>
+          )}
           <p className="text-xs text-muted">
             Talk titles and submission statuses are always private.
           </p>
           {mutation.error && <Notice tone="error">{mutation.error}</Notice>}
           <div className="flex justify-end gap-2 border-t border-divider pt-5">
             <Button onClick={onClose}>Cancel</Button>
-            <Button type="submit" variant="primary" loading={mutation.busy}>
+            <Button
+              type="submit"
+              variant="primary"
+              loading={mutation.busy}
+              disabled={mode === "existing" && !papers?.length}
+            >
               <Plus size={16} />
-              Add my talk
+              {submission
+                ? "Attach talk"
+                : mode === "unassigned"
+                  ? "Add opportunity"
+                  : "Add my talk"}
             </Button>
           </div>
         </form>

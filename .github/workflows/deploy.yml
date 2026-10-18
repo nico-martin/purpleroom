@@ -65,6 +65,8 @@ jobs:
           test -s "$bundle/api/db/schema.sql"
           test -s "$bundle/api/db/migrations/002_edition_titles.sql"
           test -s "$bundle/api/db/migrations/004_profile_links.sql"
+          test -s "$bundle/api/db/migrations/005_unassigned_submissions.sql"
+          test -s "$bundle/api/db/migrations/006_submission_notes.sql"
           test ! -e "$bundle/api/config.local.php"
           test ! -e "$bundle/api/db/db.sqlite"
           test ! -d "$bundle/api/db/sessions"

@@ -148,7 +148,7 @@ export default function EditionDetailPage({
                     className="flex flex-wrap items-center justify-between gap-3"
                   >
                     <span className="min-w-0 flex-1 break-words text-sm">
-                      {s.paper_title}
+                      {s.paper_title ?? "Topic to be agreed"}
                     </span>
                     <SubmissionStatusSelect submission={s} onSaved={refresh} />
                   </div>

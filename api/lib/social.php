@@ -39,5 +39,5 @@ function take_rate_limit(string $key, int $maximum, int $seconds): bool {
 function submitted_friends(int $edition): array {
     $ids = friend_ids();
     if (!$ids) return [];
-    return all('SELECT DISTINCT u.id,u.name,u.avatar_url FROM submissions s JOIN papers p ON p.id=s.paper_id JOIN users u ON u.id=p.owner_id WHERE s.edition_id=? AND s.status<>\'interested\' AND u.id IN (' . id_placeholders($ids) . ') ORDER BY u.name,u.id', [$edition,...$ids]);
+    return all('SELECT DISTINCT u.id,u.name,u.avatar_url FROM submissions s JOIN users u ON u.id=s.owner_id WHERE s.edition_id=? AND s.status<>\'interested\' AND u.id IN (' . id_placeholders($ids) . ') ORDER BY u.name,u.id', [$edition,...$ids]);
 }

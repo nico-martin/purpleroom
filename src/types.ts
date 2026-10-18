@@ -88,14 +88,15 @@ export interface Paper {
 }
 export interface Submission {
   id: number;
-  paper_id: number;
+  paper_id: number | null;
   edition_id: number;
   status: SubmissionStatus;
   abstract_override: string | null;
   hide_title: number;
   submitted_on: string | null;
+  notes: string | null;
   updated_at: string;
-  paper_title?: string;
+  paper_title?: string | null;
   edition?: Edition;
   conference?: Conference;
 }

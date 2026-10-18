@@ -1,4 +1,4 @@
-import { Pencil, Trash2 } from "lucide-react";
+import { Link2, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { api } from "../api";
@@ -8,6 +8,7 @@ import { editionLabel } from "../lib/format";
 import { Button, Notice, Select } from "../theme";
 import type { Submission } from "../types";
 import SubmissionEditor from "./SubmissionEditor";
+import SubmissionModal from "./SubmissionModal";
 
 interface SubmissionStatusSelectProps {
   submission: Submission;
@@ -21,11 +22,12 @@ export default function SubmissionStatusSelect({
 }: SubmissionStatusSelectProps) {
   const { busy, error, run } = useMutation();
   const [editing, setEditing] = useState(false);
+  const [attaching, setAttaching] = useState(false);
   return (
     <div className={className}>
       <div className="flex items-center gap-1">
         <Select
-          aria-label={`Status for ${submission.edition ? editionLabel(submission.edition, submission.conference?.name) : (submission.paper_title ?? submission.conference?.name ?? "talk")}`}
+          aria-label={`Status for ${submission.edition ? editionLabel(submission.edition, submission.conference?.name) : (submission.paper_title ?? (submission.paper_id === null ? "Topic to be agreed" : (submission.conference?.name ?? "talk")))}`}
           disabled={busy}
           value={submission.status}
           onChange={(e) =>
@@ -66,7 +68,9 @@ export default function SubmissionStatusSelect({
           onClick={() => {
             if (
               confirm(
-                "Remove this submission? Your talk stays in your library."
+                submission.paper_id === null
+                  ? "Remove this speaking opportunity?"
+                  : "Remove this submission? Your talk stays in your library."
               )
             )
               run(
@@ -79,6 +83,16 @@ export default function SubmissionStatusSelect({
           <Trash2 size={14} />
         </Button>
       </div>
+      {submission.paper_id === null && (
+        <Button
+          variant="ghost"
+          className="mt-2 text-xs"
+          onClick={() => setAttaching(true)}
+        >
+          <Link2 size={14} />
+          Attach a talk
+        </Button>
+      )}
       {error && (
         <Notice tone="error" className="mt-2">
           {error}
@@ -89,6 +103,19 @@ export default function SubmissionStatusSelect({
           submission={submission}
           onSaved={onSaved}
           onClose={() => setEditing(false)}
+        />
+      )}
+      {attaching && (
+        <SubmissionModal
+          submission={submission}
+          editionId={submission.edition_id}
+          editionName={
+            submission.edition
+              ? editionLabel(submission.edition, submission.conference?.name)
+              : "This edition"
+          }
+          onClose={() => setAttaching(false)}
+          onSaved={onSaved}
         />
       )}
     </div>

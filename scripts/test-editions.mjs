@@ -70,13 +70,13 @@ try {
     $london = insert('editions', ['conference_id' => $cid, 'year' => (int)substr($argv[4],0,4), 'city' => 'London', 'country' => 'GB', 'starts_on' => $argv[4], 'ends_on' => $argv[4], 'cfp_closes_on' => $argv[3], 'created_by' => $uid]);
     insert('editions', ['conference_id' => $archive, 'year' => 2025, 'created_by' => $uid, 'deleted_at' => now()]);
     $paper = insert('papers', ['owner_id' => $uid, 'title' => 'Keep my talk', 'abstract' => 'Private abstract']);
-    insert('submissions', ['paper_id' => $paper, 'edition_id' => $berlin, 'status' => 'confirmed']);
+    insert('submissions', ['paper_id' => $paper, 'edition_id' => $berlin, 'status' => 'confirmed', 'abstract_override'=>'Keep this override', 'hide_title'=>1, 'submitted_on'=>'2025-01-03', 'created_at'=>'2025-01-03T00:00:00Z', 'updated_at'=>'2025-02-04T00:00:00Z']);
     insert('attendance', ['edition_id' => $london, 'user_id' => $uid, 'status' => 'going']);
     insert('reviews', ['conference_id'=>$cid,'user_id'=>$other,'tags'=>'["covers_travel"]','text'=>'Preserve this friends-only review']);
     insert('comments', ['conference_id'=>$cid,'user_id'=>$other,'text'=>'Preserve this retired comment']);
     insert('invites', ['invited_by'=>$uid,'token_hash'=>hash('sha256','legacy-invite'),'expires_at'=>gmdate('Y-m-d\TH:i:s\Z',time()+86400)]);
     insert('login_tokens', ['user_id' => $uid, 'token_hash' => hash('sha256', $argv[1]), 'expires_at' => gmdate('Y-m-d\\TH:i:s\\Z', time()+900)]);
-    echo json_encode(['conference' => $cid, 'berlin' => $berlin, 'london' => $london, 'editions' => all('SELECT * FROM editions ORDER BY id'), 'users'=>all('SELECT * FROM users ORDER BY id'), 'reviews'=>all('SELECT * FROM reviews'), 'comments'=>all('SELECT * FROM comments'), 'invites'=>all('SELECT * FROM invites')]);
+    echo json_encode(['conference' => $cid, 'berlin' => $berlin, 'london' => $london, 'editions' => all('SELECT * FROM editions ORDER BY id'), 'users'=>all('SELECT * FROM users ORDER BY id'), 'reviews'=>all('SELECT * FROM reviews'), 'comments'=>all('SELECT * FROM comments'), 'invites'=>all('SELECT * FROM invites'), 'submissions'=>all('SELECT * FROM submissions ORDER BY id')]);
   `,
       [token, `${year}-05-20`, future(5), `${year}-06-20`]
     )
@@ -106,6 +106,32 @@ try {
     "Health must not silently initialize or migrate a database"
   );
   await request("/auth/verify", "POST", { token });
+  const migratedSubmissions = JSON.parse(
+    php(
+      bootstrap +
+        "echo json_encode(all('SELECT * FROM submissions ORDER BY id'));"
+    )
+  );
+  assert.deepEqual(
+    migratedSubmissions.map(({ owner_id, notes, ...legacy }) => legacy),
+    fixture.submissions,
+    "Submission migration must preserve every field and ID"
+  );
+  assert.ok(
+    migratedSubmissions.every(
+      (submission) => submission.owner_id === fixture.users[0].id
+    )
+  );
+  assert.ok(
+    migratedSubmissions.every((submission) => submission.notes === null),
+    "Existing submissions get empty notes without rewriting legacy fields"
+  );
+  assert.deepEqual(
+    JSON.parse(
+      php(bootstrap + "echo json_encode(all('PRAGMA foreign_key_check'));")
+    ),
+    []
+  );
   const preserved = JSON.parse(
     php(
       bootstrap +
@@ -344,6 +370,33 @@ try {
     encoding: "utf8",
   });
   assert.equal(migration.status, 0, migration.stderr);
+  const invalidLegacy = JSON.parse(
+    php(
+      bootstrap +
+        `
+    $config['database'] = dirname($config['database']) . '/inconsistent-legacy.sqlite';
+    db()->exec(file_get_contents('api/db/schema.sql'));
+    insert('schema_migrations',['version'=>1,'applied_at'=>now()]);
+    db()->exec('PRAGMA foreign_keys=OFF');
+    insert('submissions',['paper_id'=>999,'edition_id'=>999,'status'=>'submitted']);
+    require 'api/lib/migrations.php';
+    $failed=false;
+    try { run_database_migrations(); } catch (PDOException) { $failed=true; }
+    echo json_encode(['failed'=>$failed,'submissions'=>all('SELECT * FROM submissions'),'versions'=>all('SELECT version FROM schema_migrations')]);
+  `
+    )
+  );
+  assert.equal(
+    invalidLegacy.failed,
+    true,
+    "Inconsistent legacy ownership must stop migration, not discard a submission"
+  );
+  assert.equal(invalidLegacy.submissions.length, 1);
+  assert.deepEqual(
+    invalidLegacy.versions,
+    [{ version: 1 }],
+    "A failed upgrade must roll back the full migration transaction"
+  );
   assert.equal(
     JSON.parse(
       php(

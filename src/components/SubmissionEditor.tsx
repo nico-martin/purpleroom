@@ -3,7 +3,7 @@ import type { FormEvent } from "react";
 
 import { api } from "../api";
 import useMutation from "../hooks/useMutation";
-import { Button, Field, Input, Modal, Notice } from "../theme";
+import { Button, Field, Input, Modal, Notice, Textarea } from "../theme";
 import type { Submission } from "../types";
 
 interface SubmissionEditorProps {
@@ -18,6 +18,7 @@ export default function SubmissionEditor({
   onClose,
 }: SubmissionEditorProps) {
   const [date, setDate] = useState(submission.submitted_on ?? "");
+  const [notes, setNotes] = useState(submission.notes ?? "");
   const { busy, error, run } = useMutation();
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -27,6 +28,7 @@ export default function SubmissionEditor({
           method: "PATCH",
           body: {
             submitted_on: date || null,
+            notes: notes || null,
           },
         }),
       () => {
@@ -43,6 +45,17 @@ export default function SubmissionEditor({
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
+          />
+        </Field>
+        <Field
+          label="Private notes (optional)"
+          hint="Only you can see these notes. They belong to this submission, not the reusable talk."
+        >
+          <Textarea
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            maxLength={100000}
+            placeholder="Organiser conversations, follow-ups, or details for this edition…"
           />
         </Field>
         <p className="text-xs text-muted">

@@ -32,7 +32,7 @@ The deployed origin and FTP destination come from configuration, not the reposit
 
 ## What a deployment does
 
-1. Installs locked dependencies with pnpm and builds the React frontend, injecting the checked-out commit's short hash as `VITE_APP_VERSION`. The footer displays this build identifier; it identifies the deployed frontend, not the latest remote commit after deployment.
+1. Installs locked dependencies with pnpm and builds the React frontend, injecting the checked-out commit's short hash as `VITE_APP_VERSION`. The footer displays `version: dev-HASH` (or `version: dev-local` for local builds without metadata); it identifies the deployed frontend, not the latest remote commit after deployment.
 2. Stages the frontend output and PHP API, including Apache protection files and SQL migrations; excludes runtime data, local config, and the development router.
 3. Generates `api/config.local.php` from `APP_*` secrets, with production mode forced on. Invalid required settings stop deployment before upload.
 4. Uploads incrementally through `SamKirkland/FTP-Deploy-Action`, with deployments serialised and `dangerous-clean-slate` disabled.
@@ -60,6 +60,8 @@ Initialised databases apply bundled numbered migrations automatically on the nex
 - Migration 002 adds edition titles and backfills all editions, including deleted ones, without changing IDs.
 - Migration 003 adds roles and social relationships. It promotes only the **existing `mail@nico.dev` account** to admin; verify that account mapping before deploying the upgrade. All other accounts remain members and no friendships are created automatically.
 - Migration 004 adds homepage/social profile fields without rewriting existing account data. Remote profile images migrate into local avatar storage on the next profile save, not during the schema migration.
+- Migration 005 adds directly owned, optionally talk-linked submissions for “Topic to be agreed”. It rebuilds the submissions table transactionally, backfills owners, and retains IDs, statuses, dates, and legacy fields. Back up the database before deployment; no manual SQL or server CLI step is required.
+- Migration 006 adds optional private submission notes. Existing rows start with empty notes; all other fields are retained.
 - Historical data remains stored even when its feature is retired. Existing invitation and calendar URLs no longer provide functionality.
 - Rollback planning must account for the database schema as well as uploaded files; restoring an older frontend alone does not undo a migration.
 

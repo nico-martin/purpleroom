@@ -17,7 +17,7 @@ route('POST', '/editions', function () {
 });
 route('GET', '/editions/{id}', function ($p) {
     $e = edition((int) $p['id']);
-    json_response([...$e, 'conference' => conference_summary(conference((int) $e['conference_id'])), 'submitted_friends' => submitted_friends((int)$e['id']), 'attendance' => attendance_for((int) $e['id']), ...people_for((int) $e['id']), 'my_submissions' => all('SELECT s.*, p.title AS paper_title FROM submissions s JOIN papers p ON p.id=s.paper_id WHERE s.edition_id=? AND p.owner_id=?', [$e['id'], require_login()['id']])]);
+    json_response([...$e, 'conference' => conference_summary(conference((int) $e['conference_id'])), 'submitted_friends' => submitted_friends((int)$e['id']), 'attendance' => attendance_for((int) $e['id']), ...people_for((int) $e['id']), 'my_submissions' => all('SELECT s.*, p.title AS paper_title FROM submissions s LEFT JOIN papers p ON p.id=s.paper_id WHERE s.edition_id=? AND s.owner_id=?', [$e['id'], require_login()['id']])]);
 });
 route('PATCH', '/editions/{id}', function ($p) {
     $e = edition((int) $p['id']); $data = fields(body(), EDITION_FIELDS);

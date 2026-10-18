@@ -74,7 +74,7 @@ test("the crew can take a conference from shortlist to stage", async ({ page }) 
   await page.screenshot({ path: "test-results/dashboard-mobile.png", fullPage: true, animations: "disabled" });
   await page.getByRole("button", { name: "Open navigation" }).click();
   await expect(page.locator("aside").getByLabel("App version", { exact: true })).toHaveCount(0);
-  await expect(page.locator("footer").getByLabel("App version", { exact: true })).toHaveText("dev");
+  await expect(page.locator("footer").getByLabel("App version", { exact: true })).toHaveText("version: dev-local");
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByLabel("Your name", { exact: true }).fill("Nico Speaker");
   await page.getByRole("button", { name: "Save profile" }).click();

@@ -148,6 +148,7 @@ try {
     "/editions",
     "/dashboard",
     "/papers",
+    "/submissions",
     "/admin/users",
     "/trash",
   ])
@@ -326,6 +327,7 @@ try {
       edition_id: e.id,
       status: "submitted",
       abstract_override: "SECRET OVERRIDE",
+      notes: "SECRET SUBMISSION NOTES",
     },
     201
   );
@@ -335,6 +337,39 @@ try {
     { paper_id: paper2.id, edition_id: e.id, status: "interested" },
     201
   );
+  assert.equal(sub.notes, "SECRET SUBMISSION NOTES");
+  assert.equal(sub2.notes, null);
+  await bob(
+    `/submissions/${sub.id}`,
+    "PATCH",
+    { notes: { invalid: true } },
+    422
+  );
+  await bob(`/submissions/${sub.id}`, "PATCH", {
+    notes: "  A private follow-up\nfor this edition.  ",
+  });
+  assert.equal(
+    (await bob("/submissions")).find((row) => row.id === sub.id).notes,
+    "A private follow-up\nfor this edition."
+  );
+  await bob(`/submissions/${sub.id}`, "PATCH", { status: "submitted" });
+  assert.equal(
+    (await bob(`/papers/${paper.id}`)).submissions[0].notes,
+    "A private follow-up\nfor this edition.",
+    "Status-only updates preserve notes"
+  );
+  assert.equal(
+    (await bob(`/papers/${paper.id}`)).notes,
+    "SECRET NOTES",
+    "Submission notes must not overwrite reusable talk notes"
+  );
+  const cleared = await bob(`/submissions/${sub.id}`, "PATCH", {
+    notes: "   ",
+  });
+  assert.equal(cleared.notes, null);
+  await bob(`/submissions/${sub.id}`, "PATCH", {
+    notes: "SECRET SUBMISSION NOTES",
+  });
   await bob(
     "/submissions",
     "POST",
@@ -347,7 +382,7 @@ try {
     await request(
       `/submissions/${sub.id}`,
       "PATCH",
-      { status: "confirmed" },
+      { status: "confirmed", notes: "Cannot overwrite another member's notes" },
       403
     );
     const detail = await request(`/editions/${e.id}`);
@@ -510,7 +545,153 @@ try {
     { ok: true }
   );
   const own = await bob(`/editions/${e.id}`);
+  const topicEdition = await admin(
+    "/editions",
+    "POST",
+    {
+      conference_id: c.id,
+      title: "A speaking conversation",
+      starts_on: future(45),
+    },
+    201
+  );
+  const libraryBefore = (await bob("/papers")).length;
+  const topic = await bob(
+    "/submissions",
+    "POST",
+    {
+      edition_id: topicEdition.id,
+      status: "submitted",
+      submitted_on: "2026-01-02",
+      abstract_override: "Keep the opportunity context",
+      notes: "PRIVATE OPPORTUNITY NOTES",
+      owner_id: a.id,
+    },
+    201
+  );
+  assert.equal(topic.paper_id, null);
+  assert.equal(
+    (await bob("/papers")).length,
+    libraryBefore,
+    "Topic to be agreed must not create a fake talk"
+  );
+  assert.ok(
+    (await bob("/submissions?unassigned=1")).some((row) => row.id === topic.id)
+  );
+  assert.ok(!(await admin("/submissions")).some((row) => row.id === topic.id));
+  assert.ok(
+    !(await stranger("/submissions")).some((row) => row.id === topic.id)
+  );
+  await admin(`/submissions/${topic.id}`, "PATCH", { status: "accepted" }, 403);
+  await alice(`/submissions/${topic.id}`, "DELETE", undefined, 403);
+  await bob(
+    "/submissions",
+    "POST",
+    { edition_id: topicEdition.id, paper_id: null },
+    409
+  );
+  const aliceTopic = await alice(
+    "/submissions",
+    "POST",
+    { edition_id: topicEdition.id, status: "interested" },
+    201
+  );
+  assert.equal(
+    (await alice(`/editions/${topicEdition.id}`)).submitted_friends.length,
+    1,
+    "A submitted unassigned opportunity counts its owner once"
+  );
+  assert.equal(
+    (await alice(`/editions/${topicEdition.id}`)).my_submissions[0].id,
+    aliceTopic.id
+  );
+  assert.ok(
+    !(await admin(`/editions/${topicEdition.id}`)).my_submissions.length
+  );
+  const foreign = await alice(
+    "/papers",
+    "POST",
+    { title: "Not your proposal" },
+    201
+  );
+  await bob(`/submissions/${topic.id}`, "PATCH", { paper_id: foreign.id }, 404);
+  const attachPaper = await bob(
+    "/papers",
+    "POST",
+    { title: "A topic we agreed" },
+    201
+  );
+  const duplicate = await bob(
+    "/submissions",
+    "POST",
+    { paper_id: attachPaper.id, edition_id: topicEdition.id },
+    201
+  );
+  assert.equal(
+    (await alice(`/editions/${topicEdition.id}`)).submitted_friends.length,
+    1,
+    "An unassigned and assigned submission still count once"
+  );
+  await bob(
+    `/submissions/${topic.id}`,
+    "PATCH",
+    { paper_id: attachPaper.id },
+    409
+  );
+  assert.equal(
+    (await bob("/submissions?unassigned=1")).find((row) => row.id === topic.id)
+      .status,
+    "submitted",
+    "Failed conversion must preserve original data"
+  );
+  await bob(`/submissions/${duplicate.id}`, "DELETE", undefined, 204);
+  const attached = await bob(`/submissions/${topic.id}`, "PATCH", {
+    paper_id: attachPaper.id,
+    owner_id: a.id,
+  });
+  assert.equal(attached.id, topic.id);
+  assert.equal(attached.paper_id, attachPaper.id);
+  for (const key of [
+    "status",
+    "submitted_on",
+    "abstract_override",
+    "created_at",
+    "notes",
+  ])
+    assert.equal(attached[key], topic[key]);
+  assert.ok(
+    !(await bob("/submissions?unassigned=1")).some((row) => row.id === topic.id)
+  );
+  assert.equal(
+    (await bob(`/papers/${attachPaper.id}`)).submissions[0].id,
+    topic.id
+  );
+  assert.equal(
+    (await bob(`/editions/${topicEdition.id}`)).going.length,
+    0,
+    "Assigning a talk must not affect attendance"
+  );
+  await bob(`/submissions/${topic.id}`, "PATCH", {
+    paper_id: null,
+    status: "accepted",
+  });
+  await bob(`/papers/${attachPaper.id}`, "DELETE", undefined, 204);
+  assert.ok(
+    (await bob("/submissions?unassigned=1")).some((row) => row.id === topic.id),
+    "Unassigned opportunity does not depend on a library entry"
+  );
+  await admin(`/editions/${topicEdition.id}`, "DELETE", undefined, 204);
+  assert.ok(
+    (await bob("/submissions?unassigned=1")).find((row) => row.id === topic.id)
+      .edition.deleted_at,
+    "Archived opportunities stay accessible to their owner"
+  );
+  await admin(`/editions/${topicEdition.id}/restore`, "POST");
+  await bob(`/submissions/${topic.id}`, "DELETE", undefined, 204);
+  await alice(`/submissions/${aliceTopic.id}`, "DELETE", undefined, 204);
+  await alice(`/papers/${foreign.id}`, "DELETE", undefined, 204);
   assert.equal(own.my_submissions[0].abstract_override, "SECRET OVERRIDE");
+  assert.equal(own.my_submissions[0].notes, "SECRET SUBMISSION NOTES");
   await admin(`/conferences/${c.id}`, "DELETE", undefined, 204);
   await alice(`/editions/${e.id}`, "GET", undefined, 404);
   assert.equal(

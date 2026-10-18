@@ -63,7 +63,7 @@ export default function CfpRow({ cfp, onSubmit, className = "" }: CfpRowProps) {
         {my_submissions.length ? (
           <>
             <Check size={14} className="text-green" />
-            Talk added
+            Submission added
           </>
         ) : (
           <>

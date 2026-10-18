@@ -31,7 +31,7 @@ test("public signup requires verification and a display name; members cannot acc
   ).toBeVisible();
   const footer = page.locator("footer");
   await expect(footer.getByLabel("App version", { exact: true })).toHaveText(
-    "dev"
+    "version: dev-local"
   );
   await expect(
     footer.getByRole("link", { name: "Nico Martin", exact: true })

@@ -22,7 +22,7 @@ test("compact conference cards show four per desktop row without depending on lo
   await page.route("**/api/conferences", (route) => route.fulfill({ json: conferences }));
   await page.goto("/conferences");
   await expect(page).toHaveTitle("purpleroom — A little speaker intel");
-  await expect(page.locator("footer").getByLabel("App version", { exact: true })).toHaveText("dev");
+  await expect(page.locator("footer").getByLabel("App version", { exact: true })).toHaveText("version: dev-local");
   await expect(page.locator("aside").getByLabel("App version", { exact: true })).toHaveCount(0);
   await expect(page.locator("footer").getByRole("link", { name: "Nico Martin", exact: true })).toHaveAttribute("href", "https://nico.dev");
   await expect(page.locator("footer").getByRole("link", { name: "Open source on GitHub", exact: true })).toHaveAttribute("href", "https://github.com/nico-martin/purpleroom/");
