@@ -55,9 +55,14 @@ test("the crew can take a conference from shortlist to stage", async ({ page }) 
   await expect(page.getByLabel("Abstract (private)")).toHaveCount(0);
   await page.getByRole("button", { name: "From my library", exact: true }).click();
   await page.getByLabel("Submission status").selectOption("confirmed");
+  await page.getByLabel("Private notes (optional)", { exact: true }).fill("Ask about the speaker dinner.");
   await page.getByRole("button", { name: "Add my talk", exact: true }).last().click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("combobox")).toHaveValue("confirmed");
+  await page.getByRole("button", { name: "Edit submission details", exact: true }).click();
+  await expect(page.getByLabel("Private notes (optional)", { exact: true })).toHaveValue("Ask about the speaker dinner.");
+  await page.getByRole("button", { name: "Save submission", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Going", exact: true })).toHaveAttribute("aria-pressed", "false");
   await page.getByRole("button", { name: "Going", exact: true }).click();
   await expect(page.getByRole("button", { name: "Going", exact: true })).toHaveAttribute("aria-pressed", "true");

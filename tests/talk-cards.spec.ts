@@ -65,14 +65,64 @@ test("talk cards show three per desktop row, current status counts, and editable
   );
   await page.route("**/api/papers", (route) => route.fulfill({ json: papers }));
   await page.route("**/api/submissions?unassigned=1", (route) =>
-    route.fulfill({ json: [] })
+    route.fulfill({
+      json: [
+        {
+          id: 900,
+          paper_id: null,
+          edition_id: 900,
+          status: "interested",
+          submitted_on: null,
+          notes: null,
+          edition: { id: 900, title: "Future Product Days", deleted_at: null },
+          conference: {
+            id: 900,
+            name: "Future Product Days",
+            deleted_at: null,
+          },
+        },
+      ],
+    })
   );
   await page.route("**/api/submissions/2", async (route) => {
     papers[0].submissions[1].status = route.request().postDataJSON().status;
     await route.fulfill({ json: papers[0].submissions[1] });
   });
   await page.goto("/talks");
+  await expect(
+    page
+      .getByRole("region", { name: "Talk library", exact: true })
+      .getByRole("heading", { name: /^Talk library/ })
+  ).toBeVisible();
   const grid = page.getByRole("list", { name: "My talks", exact: true });
+  const opportunitySection = page.getByRole("region", {
+    name: "Speaking opportunities",
+    exact: true,
+  });
+  const librarySection = page.getByRole("region", {
+    name: "Talk library",
+    exact: true,
+  });
+  await expect(
+    opportunitySection.getByRole("link", {
+      name: "Future Product Days",
+      exact: true,
+    })
+  ).toBeVisible();
+  await expect(
+    librarySection.getByRole("link", {
+      name: "Future Product Days",
+      exact: true,
+    })
+  ).toHaveCount(0);
+  await expect(
+    opportunitySection.getByRole("list", { name: "My talks", exact: true })
+  ).toHaveCount(0);
+  const opportunityBox = await opportunitySection.boundingBox();
+  const libraryBox = await librarySection.boundingBox();
+  expect(libraryBox!.y).toBeGreaterThan(
+    opportunityBox!.y + opportunityBox!.height
+  );
   const cards = grid.getByRole("listitem");
   await expect(cards).toHaveCount(7);
   const boxes = await Promise.all(

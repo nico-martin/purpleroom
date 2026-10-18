@@ -15,6 +15,7 @@ import {
   Notice,
   SegmentedControl,
   Select,
+  Textarea,
 } from "../theme";
 import type { Paper, Submission, SubmissionStatus } from "../types";
 
@@ -39,6 +40,7 @@ export default function SubmissionModal({
   const [paperId, setPaperId] = useState("");
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState<SubmissionStatus>("interested");
+  const [notes, setNotes] = useState("");
   const mutation = useMutation();
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -63,6 +65,7 @@ export default function SubmissionModal({
                   paper_id: id,
                   edition_id: editionId,
                   status,
+                  notes: notes || null,
                 },
           }
         );
@@ -153,6 +156,19 @@ export default function SubmissionModal({
               Attaching a talk keeps this submission's status and submission
               date.
             </p>
+          )}
+          {!submission && (
+            <Field
+              label="Private notes (optional)"
+              hint="Only you can see these notes. They belong to this submission, not the reusable talk."
+            >
+              <Textarea
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                maxLength={100000}
+                placeholder="Organiser conversations, follow-ups, or details for this edition…"
+              />
+            </Field>
           )}
           <p className="text-xs text-muted">
             Talk titles and submission statuses are always private.

@@ -52,7 +52,7 @@ export default function TalksPage({ className = "" }: TalksPageProps) {
         </Notice>
       )}
       {!!opportunities.data?.length && (
-        <section className="mb-8">
+        <section aria-label="Speaking opportunities" className="mb-10">
           <SectionHeader
             title="Topics to be agreed"
             count={opportunities.data.length}
@@ -79,36 +79,48 @@ export default function TalksPage({ className = "" }: TalksPageProps) {
           </ul>
         </section>
       )}
-      {loading && !data ? (
-        <LoadingState />
-      ) : error ? (
-        <Notice tone="error">{error}</Notice>
-      ) : data?.length ? (
-        <ul
-          aria-label="My talks"
-          className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
-        >
-          {data.map((paper) => (
-            <li key={paper.id} className="min-w-0">
-              <TalkCard paper={paper} onSaved={refreshAll} />
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <Card>
-          <EmptyState
-            title="It starts with an idea."
-            description="Keep your talk ideas and private notes in one place. When a good CFP comes along, you'll be ready."
-            action={
-              <Button variant="dashed" onClick={() => setCreating(true)}>
-                <Plus size={15} />
-                Write your first talk
-              </Button>
-            }
-            icon={<Mic2 size={22} strokeWidth={1.5} />}
-          />
-        </Card>
-      )}
+      <section
+        aria-label="Talk library"
+        className={
+          opportunities.data?.length ? "border-t border-border pt-8" : ""
+        }
+      >
+        <SectionHeader
+          title="Talk library"
+          count={data?.length}
+          description="Your reusable talks and their current submission stats."
+        />
+        {loading && !data ? (
+          <LoadingState />
+        ) : error ? (
+          <Notice tone="error">{error}</Notice>
+        ) : data?.length ? (
+          <ul
+            aria-label="My talks"
+            className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
+          >
+            {data.map((paper) => (
+              <li key={paper.id} className="min-w-0">
+                <TalkCard paper={paper} onSaved={refreshAll} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <Card>
+            <EmptyState
+              title="It starts with an idea."
+              description="Keep your talk ideas and private notes in one place. When a good CFP comes along, you'll be ready."
+              action={
+                <Button variant="dashed" onClick={() => setCreating(true)}>
+                  <Plus size={15} />
+                  Write your first talk
+                </Button>
+              }
+              icon={<Mic2 size={22} strokeWidth={1.5} />}
+            />
+          </Card>
+        )}
+      </section>
       {creating && (
         <TalkEditor onClose={() => setCreating(false)} onSaved={refreshAll} />
       )}

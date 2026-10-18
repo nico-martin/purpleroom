@@ -64,11 +64,17 @@ test("a topic can be tracked without a talk, then attached to a new or existing 
       .click();
     const dialog = page.getByRole("dialog");
     await dialog
+      .getByLabel("Private notes (optional)", { exact: true })
+      .fill("An initial conversation about a speaking slot.");
+    await dialog
       .getByRole("button", { name: "Topic to be agreed", exact: true })
       .click();
     await expect(dialog.getByLabel("Talk title", { exact: true })).toHaveCount(
       0
     );
+    await expect(
+      dialog.getByLabel("Private notes (optional)", { exact: true })
+    ).toHaveValue("An initial conversation about a speaking slot.");
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth
@@ -95,12 +101,20 @@ test("a topic can be tracked without a talk, then attached to a new or existing 
     expect(original.paper_id).toBeNull();
     expect(original.status).toBe("submitted");
     expect(original.submitted_on).toBeTruthy();
+    expect(original.notes).toBe(
+      "An initial conversation about a speaking slot."
+    );
     await expect(
       page.getByRole("button", { name: "Going", exact: true })
     ).toHaveAttribute("aria-pressed", "false");
     await page.goto("/talks");
     await expect(
       page.getByRole("heading", { name: "Topics to be agreed", exact: false })
+    ).toBeVisible();
+    await expect(
+      page
+        .getByRole("region", { name: "Talk library", exact: true })
+        .getByRole("heading", { name: /^Talk library/ })
     ).toBeVisible();
     await page
       .getByRole("button", { name: "Attach a talk", exact: true })
@@ -130,6 +144,7 @@ test("a topic can be tracked without a talk, then attached to a new or existing 
     expect(attached.id).toBe(original.id);
     expect(attached.status).toBe(original.status);
     expect(attached.submitted_on).toBe(original.submitted_on);
+    expect(attached.notes).toBe(original.notes);
     const library = await (await page.request.get("/api/papers")).json();
     expect(library).toHaveLength(1);
     expect(library[0].submissions[0].id).toBe(original.id);
