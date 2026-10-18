@@ -13,8 +13,15 @@ function dispatch(): never {
     if (in_array($method, ['POST', 'PATCH', 'PUT', 'DELETE'], true) && ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') !== 'green-room') fail(403, 'csrf', 'Missing request header.');
     foreach ($routes as [$verb, $pattern, $handler, $public]) {
         if ($method !== $verb || !preg_match($pattern, $path, $matches)) continue;
-        if (!$public) require_login();
         if (!in_array($path, ['/health', '/setup'], true)) ensure_database_migrations();
+        if (!$public) {
+            $user = require_login();
+            if (!$user['profile_complete'] && $path !== '/me') fail(403, 'profile_required', 'Choose a display name to complete your profile.');
+            // Match the same arbitrary path segments as route(), not only numeric IDs:
+            // PHP handlers cast IDs, so /conferences/1suffix must not bypass admin checks.
+            $catalogWrite = $method !== 'GET' && (preg_match('#^/conferences(?:/[^/]+(?:/restore)?)?$#', $path) || preg_match('#^/editions(?:/[^/]+(?:/restore)?)?$#', $path));
+            if ($catalogWrite || $path === '/trash') require_admin();
+        }
         $params = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
         $handler($params);
         json_response(null, 204);

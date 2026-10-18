@@ -62,7 +62,8 @@ try {
         `
     db()->exec(file_get_contents('api/db/schema.sql'));
     insert('schema_migrations', ['version' => 1, 'applied_at' => now()]);
-    $uid = insert('users', ['name' => 'Existing speaker', 'email' => 'edition-test@example.com', 'cal_token' => bin2hex(random_bytes(32))]);
+    $uid = insert('users', ['name' => 'Existing speaker', 'email' => 'mail@nico.dev', 'cal_token' => bin2hex(random_bytes(32))]);
+    $other = insert('users', ['name' => 'Existing friend', 'email' => 'legacy-friend@example.com', 'cal_token' => bin2hex(random_bytes(32))]);
     $cid = insert('conferences', ['name' => 'DevConf', 'created_by' => $uid]);
     $archive = insert('conferences', ['name' => 'ArchivedConf', 'created_by' => $uid, 'deleted_at' => now()]);
     $berlin = insert('editions', ['conference_id' => $cid, 'year' => (int)substr($argv[2],0,4), 'city' => 'Berlin', 'country' => 'DE', 'starts_on' => $argv[2], 'ends_on' => $argv[2], 'cfp_closes_on' => $argv[3], 'notes' => 'Keep this note.', 'created_by' => $uid]);
@@ -71,8 +72,11 @@ try {
     $paper = insert('papers', ['owner_id' => $uid, 'title' => 'Keep my talk', 'abstract' => 'Private abstract']);
     insert('submissions', ['paper_id' => $paper, 'edition_id' => $berlin, 'status' => 'confirmed']);
     insert('attendance', ['edition_id' => $london, 'user_id' => $uid, 'status' => 'going']);
+    insert('reviews', ['conference_id'=>$cid,'user_id'=>$other,'tags'=>'["covers_travel"]','text'=>'Preserve this friends-only review']);
+    insert('comments', ['conference_id'=>$cid,'user_id'=>$other,'text'=>'Preserve this retired comment']);
+    insert('invites', ['invited_by'=>$uid,'token_hash'=>hash('sha256','legacy-invite'),'expires_at'=>gmdate('Y-m-d\TH:i:s\Z',time()+86400)]);
     insert('login_tokens', ['user_id' => $uid, 'token_hash' => hash('sha256', $argv[1]), 'expires_at' => gmdate('Y-m-d\\TH:i:s\\Z', time()+900)]);
-    echo json_encode(['conference' => $cid, 'berlin' => $berlin, 'london' => $london, 'editions' => all('SELECT * FROM editions ORDER BY id')]);
+    echo json_encode(['conference' => $cid, 'berlin' => $berlin, 'london' => $london, 'editions' => all('SELECT * FROM editions ORDER BY id'), 'users'=>all('SELECT * FROM users ORDER BY id'), 'reviews'=>all('SELECT * FROM reviews'), 'comments'=>all('SELECT * FROM comments'), 'invites'=>all('SELECT * FROM invites')]);
   `,
       [token, `${year}-05-20`, future(5), `${year}-06-20`]
     )
@@ -102,6 +106,40 @@ try {
     "Health must not silently initialize or migrate a database"
   );
   await request("/auth/verify", "POST", { token });
+  const preserved = JSON.parse(
+    php(
+      bootstrap +
+        "echo json_encode(['users'=>all('SELECT * FROM users ORDER BY id'),'reviews'=>all('SELECT * FROM reviews'),'comments'=>all('SELECT * FROM comments'),'invites'=>all('SELECT * FROM invites'),'friends'=>all('SELECT * FROM friendships')]);"
+    )
+  );
+  assert.deepEqual(
+    preserved.users.map(
+      ({ role, suspended, profile_complete, session_version, ...legacy }) =>
+        legacy
+    ),
+    fixture.users
+  );
+  assert.deepEqual(
+    preserved.users.map((user) => user.role),
+    ["admin", "member"]
+  );
+  assert.equal(
+    preserved.friends.length,
+    0,
+    "Migration must not manufacture friendships"
+  );
+  for (const table of ["reviews", "comments", "invites"])
+    assert.deepEqual(preserved[table], fixture[table]);
+  assert.equal(
+    (await request(`/conferences/${fixture.conference}`)).review_count,
+    0,
+    "Legacy reviews become friends-only without deleting records"
+  );
+  assert.equal(
+    (await request(`/editions/${fixture.berlin}`)).going.length,
+    0,
+    "Do not migrate submission-derived plans into manual attendance"
+  );
   assert.ok(
     columns().some((column) => column.name === "title"),
     "Existing installations must upgrade without CLI access"
@@ -132,7 +170,7 @@ try {
   );
   assert.equal((await request("/papers"))[0].abstract, "Private abstract");
   assert.equal(
-    (await request(`/editions/${fixture.berlin}`)).submissions.length,
+    (await request(`/editions/${fixture.berlin}`)).my_submissions.length,
     1
   );
   assert.equal(
@@ -272,18 +310,8 @@ try {
     berlinTitle
   );
   const me = await request("/me");
-  const calendar = await request(new URL(me.cal_url).pathname.slice(4));
-  assert.ok(calendar.includes(`CFP closes: ${berlinTitle}`));
-  assert.ok(calendar.includes(`CFP closes: ${londonTitle}`));
-  assert.ok(
-    !calendar.includes(`${berlinTitle} ${year}`),
-    "An abbreviated year in the title must not acquire a full-year suffix"
-  );
-  assert.ok(!calendar.includes(`${londonTitle} ${year}`));
-  assert.ok(
-    calendar.includes(`UID:conf-${fixture.berlin}@green-room.nico.dev`),
-    "Calendar UIDs must remain stable"
-  );
+  assert.equal(me.cal_url, undefined);
+  await request("/cal/legacy.ics", "GET", undefined, 404);
   const rescheduled = await request(`/editions/${fixture.berlin}`, "PATCH", {
     starts_on: `${year + 1}-05-20`,
     ends_on: `${year + 1}-05-21`,
@@ -325,7 +353,7 @@ try {
     1
   );
   console.log(
-    "Edition checks passed: automatic v1 upgrade, preserved data, same-year editions, title defaults/validation, calendar labels/UIDs, activity, restore, and idempotent migration."
+    "Edition checks passed: automatic v1 upgrade, preserved data, same-year editions, title defaults/validation, calendar retirement, activity, restore, and idempotent migration."
   );
 } finally {
   if (server) {

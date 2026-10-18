@@ -13,7 +13,7 @@ const existing = {
 };
 
 test.beforeEach(async ({ page }) => {
-  await page.route("**/api/me", (route) => route.fulfill({ json: { user: { id: 1, name: "Nico", avatar_url: null }, cal_url: "https://example.com/calendar" } }));
+  await page.route("**/api/me", (route) => route.fulfill({ json: { user: { id: 1, name: "Nico", avatar_url: null, role: "admin", profile_complete: 1 } } }));
   await page.route("**/api/conferences", (route) => route.fulfill({ json: conferences }));
   await page.route("**/api/conferences/1", (route) => route.fulfill({ json: { ...conferences[0], editions: [existing], reviews: [], comments: [] } }));
   await page.route("**/api/editions/15", (route) => route.fulfill({ json: existing }));

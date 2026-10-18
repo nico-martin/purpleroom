@@ -12,7 +12,6 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { api } from "../api";
-import Comments from "../components/Comments";
 import ReviewEditor from "../components/ReviewEditor";
 import ReviewSummary from "../components/ReviewSummary";
 import useApi from "../hooks/useApi";
@@ -77,10 +76,12 @@ export default function ConferenceDetailPage({
             </a>
           )}
         </div>
-        <ButtonLink to={`/conferences/${id}/edit`}>
-          <Pencil size={15} />
-          Edit
-        </ButtonLink>
+        {user.role === "admin" && (
+          <ButtonLink to={`/conferences/${id}/edit`}>
+            <Pencil size={15} />
+            Edit
+          </ButtonLink>
+        )}
       </header>
       {data.description && (
         <p className="mb-9 max-w-3xl text-base leading-relaxed text-muted">
@@ -96,7 +97,7 @@ export default function ConferenceDetailPage({
         <div className="space-y-10 xl:col-span-2">
           <section>
             <SectionHeader
-              title="The speaker's side"
+              title="Your crew's speaker takes"
               count={data.review_count}
               action={
                 <Button onClick={() => setEditing(true)} variant="primary">
@@ -160,24 +161,21 @@ export default function ConferenceDetailPage({
               </Card>
             )}
           </section>
-          <Comments
-            comments={data.comments}
-            target={{ conference_id: data.id }}
-            onSaved={refresh}
-          />
         </div>
         <aside>
           <SectionHeader
             title="Editions"
             count={data.editions.length}
             action={
-              <ButtonLink
-                to={`/editions/new?conference=${id}`}
-                variant="dashed"
-              >
-                <Plus size={15} />
-                New edition
-              </ButtonLink>
+              user.role === "admin" && (
+                <ButtonLink
+                  to={`/editions/new?conference=${id}`}
+                  variant="dashed"
+                >
+                  <Plus size={15} />
+                  New edition
+                </ButtonLink>
+              )
             }
           />
           <Card>
@@ -215,25 +213,27 @@ export default function ConferenceDetailPage({
             The conference is the story. An edition is a chapter: a year, a
             city, a new chance to speak.
           </p>
-          <Button
-            variant="ghost"
-            className="mt-6 text-xs"
-            loading={mutation.busy}
-            onClick={() => {
-              if (
-                confirm(
-                  `Move ${data.name} and its editions to recently deleted? The crew can restore it.`
+          {user.role === "admin" && (
+            <Button
+              variant="ghost"
+              className="mt-6 text-xs"
+              loading={mutation.busy}
+              onClick={() => {
+                if (
+                  confirm(
+                    `Move ${data.name} and its editions to recently deleted? An admin can restore it.`
+                  )
                 )
-              )
-                mutation.run(
-                  () => api(`/conferences/${id}`, { method: "DELETE" }),
-                  () => navigate("/conferences")
-                );
-            }}
-          >
-            <Trash2 size={14} />
-            Move to recently deleted
-          </Button>
+                  mutation.run(
+                    () => api(`/conferences/${id}`, { method: "DELETE" }),
+                    () => navigate("/conferences")
+                  );
+              }}
+            >
+              <Trash2 size={14} />
+              Move to recently deleted
+            </Button>
+          )}
         </aside>
       </div>
       {editing && (

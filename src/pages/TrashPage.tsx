@@ -43,7 +43,7 @@ export default function TrashPage({ className = "" }: TrashPageProps) {
       <PageHeader
         eyebrow="Nothing lost backstage"
         title="A second chance."
-        description="Conferences and editions deleted in the last 90 days. Anyone in the crew can bring them back."
+        description="Conferences and editions deleted in the last 90 days. Admins can restore them."
       />
       {mutation.error && (
         <Notice tone="error" className="mb-5">

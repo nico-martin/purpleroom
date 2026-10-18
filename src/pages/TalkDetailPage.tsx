@@ -1,13 +1,13 @@
 import { ArrowLeft, LockKeyhole, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { api } from "../api";
+import SubmissionEditionLink from "../components/SubmissionEditionLink";
 import SubmissionStatusSelect from "../components/SubmissionStatusSelect";
 import TalkEditor from "../components/TalkEditor";
 import useApi from "../hooks/useApi";
 import useMutation from "../hooks/useMutation";
-import { editionLabel } from "../lib/format";
 import {
   Button,
   ButtonLink,
@@ -72,12 +72,10 @@ export default function TalkDetailPage({
             {data.submissions.length ? (
               data.submissions.map((s) => (
                 <ListRow key={s.id} className="flex-col items-stretch">
-                  <Link
-                    to={`/editions/${s.edition_id}`}
+                  <SubmissionEditionLink
+                    submission={s}
                     className="font-heading text-base font-semibold hover:text-green"
-                  >
-                    {editionLabel(s.edition, s.conference?.name)}
-                  </Link>
+                  />
                   <SubmissionStatusSelect submission={s} onSaved={refresh} />
                 </ListRow>
               ))

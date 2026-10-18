@@ -24,7 +24,7 @@ function paper(int $id): array {
     return one('SELECT * FROM papers WHERE id=? AND owner_id=?', [$id, require_login()['id']]) ?? fail(404, 'not_found', 'Talk not found.');
 }
 function review_summary(int $id): array {
-    $reviews = all('SELECT * FROM reviews WHERE conference_id=?', [$id]);
+    $reviews = visible_reviews($id);
     $counts = []; $yes = 0; $no = 0;
     foreach ($reviews as $review) {
         foreach (json_decode($review['tags'], true) as $tag) $counts[$tag] = ($counts[$tag] ?? 0) + 1;
@@ -33,33 +33,24 @@ function review_summary(int $id): array {
     }
     return ['review_count' => count($reviews), 'tag_counts' => (object) $counts, 'would_submit_again' => ['yes' => $yes, 'no' => $no]];
 }
+function visible_reviews(int $id): array {
+    $ids = visible_user_ids();
+    return all('SELECT * FROM reviews WHERE conference_id=? AND user_id IN (' . id_placeholders($ids) . ') ORDER BY updated_at DESC', [$id,...$ids]);
+}
 function conference_summary(array $row): array {
     return [...$row, ...review_summary((int) $row['id']), 'next_edition' => one('SELECT * FROM editions WHERE conference_id=? AND deleted_at IS NULL AND starts_on >= ? ORDER BY starts_on LIMIT 1', [$row['id'], gmdate('Y-m-d')])];
 }
-function comments_for(string $target, int $id): array {
-    return array_map(fn($row) => [...$row, 'user' => user_by_id((int) $row['user_id'])], all("SELECT * FROM comments WHERE $target=? ORDER BY created_at", [$id]));
-}
-function public_submissions(int $edition_id): array {
-    $viewer = require_login()['id'];
-    return array_map(function ($row) use ($viewer) {
-        return ['id' => $row['id'], 'status' => $row['status'], 'user' => user_by_id((int) $row['owner_id']), 'paper_title' => $row['hide_title'] && $row['owner_id'] !== $viewer ? null : $row['title'], 'updated_at' => $row['updated_at']];
-    }, all('SELECT s.*, p.title, p.owner_id FROM submissions s JOIN papers p ON p.id=s.paper_id WHERE s.edition_id=? ORDER BY s.created_at', [$edition_id]));
-}
 function attendance_for(int $id): array {
-    return array_map(fn($row) => [...$row, 'user' => user_by_id((int) $row['user_id'])], all('SELECT * FROM attendance WHERE edition_id=?', [$id]));
+    $ids = visible_user_ids();
+    return array_map(fn($row) => [...$row, 'user' => user_by_id((int) $row['user_id'])], all('SELECT * FROM attendance WHERE edition_id=? AND user_id IN (' . id_placeholders($ids) . ')', [$id,...$ids]));
 }
 function people_for(int $id): array {
-    $speaking = []; $going = []; $maybe = [];
-    foreach (public_submissions($id) as $s) {
-        if (in_array($s['status'], ['accepted', 'confirmed', 'attended'], true)) $speaking[] = ['user' => $s['user'], 'status' => $s['status']];
-        if (in_array($s['status'], ['confirmed', 'attended'], true)) $going[$s['user']['id']] = $s['user'];
-        if ($s['status'] === 'accepted') $maybe[$s['user']['id']] = $s['user'];
-    }
+    $going = []; $maybe = [];
     foreach (attendance_for($id) as $a) {
         if ($a['status'] === 'going') $going[$a['user']['id']] = $a['user'];
         else $maybe[$a['user']['id']] = $a['user'];
     }
-    return ['speaking' => $speaking, 'going' => array_values($going), 'maybe' => array_values(array_diff_key($maybe, $going))];
+    return ['going' => array_values($going), 'maybe' => array_values($maybe)];
 }
 function validate_edition(array $data): void {
     if (isset($data['title']) && preg_match_all('/./us', $data['title']) > 500) fail(422, 'validation', 'Keep the edition title under 500 characters.', ['title' => 'too_long']);

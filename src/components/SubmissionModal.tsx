@@ -8,7 +8,6 @@ import useMutation from "../hooks/useMutation";
 import { SUBMISSION_STATUS_OPTIONS } from "../lib/constants";
 import {
   Button,
-  Checkbox,
   Field,
   Input,
   LoadingState,
@@ -36,7 +35,6 @@ export default function SubmissionModal({
   const [mode, setMode] = useState("existing");
   const [paperId, setPaperId] = useState("");
   const [title, setTitle] = useState("");
-  const [hideTitle, setHideTitle] = useState(false);
   const [status, setStatus] = useState<SubmissionStatus>("interested");
   const mutation = useMutation();
   function submit(event: FormEvent) {
@@ -57,7 +55,6 @@ export default function SubmissionModal({
             paper_id: id,
             edition_id: editionId,
             status,
-            hide_title: hideTitle,
           },
         });
       },
@@ -127,11 +124,9 @@ export default function SubmissionModal({
               ))}
             </Select>
           </Field>
-          <Checkbox
-            label="Hide talk title from the crew"
-            checked={hideTitle}
-            onChange={(e) => setHideTitle(e.target.checked)}
-          />
+          <p className="text-xs text-muted">
+            Talk titles and submission statuses are always private.
+          </p>
           {mutation.error && <Notice tone="error">{mutation.error}</Notice>}
           <div className="flex justify-end gap-2 border-t border-divider pt-5">
             <Button onClick={onClose}>Cancel</Button>

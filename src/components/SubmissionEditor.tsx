@@ -3,7 +3,7 @@ import type { FormEvent } from "react";
 
 import { api } from "../api";
 import useMutation from "../hooks/useMutation";
-import { Button, Checkbox, Field, Input, Modal, Notice } from "../theme";
+import { Button, Field, Input, Modal, Notice } from "../theme";
 import type { Submission } from "../types";
 
 interface SubmissionEditorProps {
@@ -17,7 +17,6 @@ export default function SubmissionEditor({
   onSaved,
   onClose,
 }: SubmissionEditorProps) {
-  const [hide, setHide] = useState(!!submission.hide_title);
   const [date, setDate] = useState(submission.submitted_on ?? "");
   const { busy, error, run } = useMutation();
   function submit(event: FormEvent) {
@@ -27,7 +26,6 @@ export default function SubmissionEditor({
         api(`/submissions/${submission.id}`, {
           method: "PATCH",
           body: {
-            hide_title: hide,
             submitted_on: date || null,
           },
         }),
@@ -47,11 +45,9 @@ export default function SubmissionEditor({
             onChange={(e) => setDate(e.target.value)}
           />
         </Field>
-        <Checkbox
-          label="Hide talk title from the crew"
-          checked={hide}
-          onChange={(e) => setHide(e.target.checked)}
-        />
+        <p className="text-xs text-muted">
+          Talk titles and submission statuses are always private.
+        </p>
         {error && <Notice tone="error">{error}</Notice>}
         <div className="flex justify-end gap-2 border-t border-divider pt-5">
           <Button onClick={onClose}>Cancel</Button>

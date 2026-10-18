@@ -2,16 +2,14 @@
 declare(strict_types=1);
 define('GREEN_ROOM', true);
 $config = require __DIR__ . '/config.php';
-foreach (['db', 'http', 'auth', 'router', 'constants', 'mail', 'domain', 'ics', 'migrations', 'remote', 'logos', 'invite-links'] as $file) require __DIR__ . '/lib/' . $file . '.php';
+foreach (['db', 'http', 'auth', 'router', 'constants', 'mail', 'domain', 'social', 'migrations', 'remote', 'logos'] as $file) require __DIR__ . '/lib/' . $file . '.php';
 header('X-Content-Type-Options: nosniff');
 try {
     route('GET', '/health', fn() => json_response(['ok' => true]), true);
-    foreach (['setup', 'auth', 'users', 'invites', 'conferences', 'logos', 'editions', 'reviews', 'papers', 'submissions', 'attendance', 'comments', 'dashboard', 'calendar'] as $file) require __DIR__ . '/routes/' . $file . '.php';
+    foreach (['setup', 'auth', 'users', 'crew', 'admin', 'conferences', 'logos', 'editions', 'reviews', 'papers', 'submissions', 'attendance', 'dashboard'] as $file) require __DIR__ . '/routes/' . $file . '.php';
     dispatch();
 } catch (ConferenceLogoException $error) {
     fail($error->status, 'logo_error', $error->getMessage(), ['logo_url' => 'invalid']);
-} catch (InviteLinkStorageException $error) {
-    fail(503, 'invite_storage_unavailable', $error->getMessage());
 } catch (PDOException $error) {
     error_log((string) $error);
     if (str_contains($error->getMessage(), 'no such table:')) fail(503, 'setup_required', 'The database schema is missing. The site owner must complete /setup before signing in. Existing installations may need a database migration.');

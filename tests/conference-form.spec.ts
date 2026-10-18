@@ -10,7 +10,7 @@ test("stored conference logos can be kept or removed without invalid URL fields 
     reviews: [], editions: [], comments: [],
   };
   const saved: Record<string, unknown>[] = [];
-  await page.route("**/api/me", (route) => route.fulfill({ json: { user: { id: 1, name: "Nico", email: "test@example.com", avatar_url: null }, cal_url: "https://example.com/calendar" } }));
+  await page.route("**/api/me", (route) => route.fulfill({ json: { user: { id: 1, name: "Nico", email: "test@example.com", avatar_url: null, role: "admin", profile_complete: 1 } } }));
   await page.route("**/api/conference-logos/77/*.png", (route) => route.fulfill({ contentType: "image/png", body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aAt8AAAAASUVORK5CYII=", "base64") }));
   await page.route("**/api/conferences/77", async (route) => {
     if (route.request().method() === "PATCH") saved.push(route.request().postDataJSON() as Record<string, unknown>);

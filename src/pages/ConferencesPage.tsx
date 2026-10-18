@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import ConferenceCard from "../components/ConferenceCard";
 import useApi from "../hooks/useApi";
+import useSession from "../hooks/useSession";
 import {
   ButtonLink,
   Card,
@@ -22,6 +23,7 @@ export default function ConferencesPage({
 }: ConferencesPageProps) {
   const { data, loading, error } = useApi<ConferenceSummary[]>("/conferences");
   const [search, setSearch] = useState("");
+  const isAdmin = useSession().user.role === "admin";
   const filtered =
     data?.filter((c) =>
       `${c.name} ${c.description ?? ""}`
@@ -35,10 +37,12 @@ export default function ConferencesPage({
         title="Good stages, worth sharing."
         description="Every conference here has a reason to be here. Someone in the crew put it on the map."
         action={
-          <ButtonLink to="/conferences/new" variant="primary">
-            <Plus size={16} />
-            Add a conference
-          </ButtonLink>
+          isAdmin && (
+            <ButtonLink to="/conferences/new" variant="primary">
+              <Plus size={16} />
+              Add a conference
+            </ButtonLink>
+          )
         }
       />
       <div className="mb-7 flex flex-wrap items-center justify-between gap-4">
@@ -86,10 +90,12 @@ export default function ConferencesPage({
                 : "Know a conference that treats its speakers well? That's a great place to start."
             }
             action={
-              <ButtonLink to="/conferences/new" variant="dashed">
-                <Plus size={16} />
-                Add a conference
-              </ButtonLink>
+              isAdmin && (
+                <ButtonLink to="/conferences/new" variant="dashed">
+                  <Plus size={16} />
+                  Add a conference
+                </ButtonLink>
+              )
             }
           />
         </Card>

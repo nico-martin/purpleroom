@@ -20,11 +20,16 @@ function start_session(): void {
 }
 function current_user(): ?array {
     start_session();
-    return isset($_SESSION['user_id']) ? one('SELECT * FROM users WHERE id = ?', [$_SESSION['user_id']]) : null;
+    $user = isset($_SESSION['user_id']) ? one('SELECT * FROM users WHERE id = ?', [$_SESSION['user_id']]) : null;
+    if (!$user || ($user['suspended'] ?? 0) || ($_SESSION['session_version'] ?? 0) !== ($user['session_version'] ?? 0)) return null;
+    return $user;
 }
 function require_login(): array { return current_user() ?? fail(401, 'unauthenticated', 'Please sign in to purpleroom.'); }
-function login(int $id): void { start_session(); session_regenerate_id(true); $_SESSION['user_id'] = $id; }
+function login(int $id): void {
+    $user = one('SELECT * FROM users WHERE id=? AND suspended=0', [$id]);
+    if (!$user) fail(401, 'unauthenticated', 'This account cannot sign in.');
+    start_session(); session_regenerate_id(true); $_SESSION = ['user_id' => $id, 'session_version' => (int)$user['session_version']];
+}
 function public_user(array $user): array { return array_intersect_key($user, array_flip(['id', 'name', 'avatar_url'])); }
 function user_by_id(int $id): array { return public_user(one('SELECT id, name, avatar_url FROM users WHERE id = ?', [$id])); }
-function cal_url(array $user): string { global $config; return $config['base_url'] . '/api/cal/' . $user['cal_token'] . '.ics'; }
-function private_user(array $user): array { unset($user['cal_token']); return $user; }
+function private_user(array $user): array { return array_intersect_key($user, array_flip(['id','name','avatar_url','email','role','profile_complete'])); }

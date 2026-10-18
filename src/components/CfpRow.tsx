@@ -46,11 +46,17 @@ export default function CfpRow({ cfp, onSubmit, className = "" }: CfpRowProps) {
           })}
         </span>
       </div>
-      <div className="hidden w-20 justify-center xl:flex">
+      <div className="flex flex-col items-center gap-1">
         {submitters.length ? (
           <AvatarStack users={submitters} max={3} />
         ) : (
-          <span className="text-xs text-muted">Be the first</span>
+          <span className="text-xs text-muted">No friends submitted yet</span>
+        )}
+        {submitters.length > 0 && (
+          <span className="text-xs text-muted">
+            {submitters.length} {submitters.length === 1 ? "friend" : "friends"}{" "}
+            submitted
+          </span>
         )}
       </div>
       <Button onClick={onSubmit} className="ml-auto text-xs">

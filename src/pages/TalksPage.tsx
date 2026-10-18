@@ -9,10 +9,11 @@ import {
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
+import SubmissionEditionLink from "../components/SubmissionEditionLink";
 import SubmissionStatusSelect from "../components/SubmissionStatusSelect";
 import TalkEditor from "../components/TalkEditor";
 import useApi from "../hooks/useApi";
-import { editionLabel, formatDate } from "../lib/format";
+import { formatDate } from "../lib/format";
 import {
   Badge,
   Button,
@@ -108,12 +109,10 @@ export default function TalksPage({ className = "" }: TalksPageProps) {
                             className="flex flex-wrap items-center gap-4 p-5 sm:px-6"
                           >
                             <div className="min-w-0 flex-1">
-                              <Link
-                                to={`/editions/${s.edition_id}`}
+                              <SubmissionEditionLink
+                                submission={s}
                                 className="text-sm font-semibold hover:text-green"
-                              >
-                                {editionLabel(s.edition, s.conference?.name)}
-                              </Link>
+                              />
                               <p className="mt-1 text-xs text-muted">
                                 CFP:{" "}
                                 {s.edition?.cfp_closes_on

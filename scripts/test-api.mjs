@@ -1,246 +1,458 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const directory = await mkdtemp(join(tmpdir(), "green-room-test-"));
+const directory = await mkdtemp(join(tmpdir(), "purpleroom-api-"));
 const setupKey = randomBytes(32).toString("hex");
-const env = { ...process.env, GREEN_ROOM_ENV: "dev", GREEN_ROOM_DB: join(directory, "test.sqlite"), GREEN_ROOM_SETUP_KEY: setupKey };
-let server;
-let failures = "";
+const env = {
+  ...process.env,
+  GREEN_ROOM_ENV: "dev",
+  GREEN_ROOM_DB: join(directory, "test.sqlite"),
+  GREEN_ROOM_SETUP_KEY: setupKey,
+};
 const origin = "http://127.0.0.1:8018";
-function cli(args) {
-  const result = spawnSync("php", args, { env, encoding: "utf8" });
+let server;
+let log = "";
+function cli(code, args = []) {
+  const result = spawnSync(
+    "php",
+    [
+      "-r",
+      "define('GREEN_ROOM',true); $config=require 'api/config.php'; require 'api/lib/db.php'; " +
+        code,
+      ...args,
+    ],
+    { env, encoding: "utf8" }
+  );
   assert.equal(result.status, 0, result.stderr);
   return result.stdout;
 }
 function client() {
   let cookie = "";
-  return async function request(path, method = "GET", body, expected = 200, csrf = true) {
+  return async (path, method = "GET", body, expected = 200, csrf = true) => {
     const response = await fetch(origin + "/api" + path, {
-      method, headers: { "Content-Type": "application/json", ...(csrf ? { "X-Requested-With": "green-room" } : {}), Cookie: cookie },
+      method,
+      headers: {
+        Cookie: cookie,
+        "Content-Type": "application/json",
+        ...(csrf ? { "X-Requested-With": "green-room" } : {}),
+      },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-    if (response.headers.has("set-cookie")) cookie = response.headers.get("set-cookie").split(";")[0];
-    const bytes = Buffer.from(await response.arrayBuffer());
-    const text = bytes.toString("utf8");
-    assert.equal(response.status, expected, `${method} ${path}: ${text}\n${failures}`);
-    if (response.headers.get("content-type")?.startsWith("image/")) {
-      assert.equal(response.headers.get("x-content-type-options"), "nosniff");
-      assert.ok(response.headers.get("cache-control").includes("private"));
-      if (response.headers.get("content-type") === "image/svg+xml") {
-        assert.ok(response.headers.get("content-security-policy").includes("default-src 'none'"));
-        assert.ok(response.headers.get("content-security-policy").includes("sandbox"));
-      }
-      return bytes;
-    }
-    return response.headers.get("content-type")?.includes("application/json") && text ? JSON.parse(text) : text;
+    if (response.headers.has("set-cookie"))
+      cookie = response.headers.get("set-cookie").split(";")[0];
+    const text = await response.text();
+    assert.equal(
+      response.status,
+      expected,
+      `${method} ${path}: ${text}\n${log}`
+    );
+    if (
+      text &&
+      response.headers.get("content-type")?.includes("application/json")
+    )
+      return JSON.parse(text);
+    return text;
   };
 }
+async function signup(request, email, name) {
+  const before = Number(
+    cli("echo one('SELECT COUNT(*) AS n FROM users')['n'];")
+  );
+  const result = await request("/auth/request", "POST", { email });
+  assert.ok(result.link);
+  assert.equal(
+    Number(cli("echo one('SELECT COUNT(*) AS n FROM users')['n'];")),
+    before,
+    "Requesting email must not create an account"
+  );
+  const token = result.link.split("/").at(-1);
+  const verified = await request("/auth/verify", "POST", { token });
+  assert.equal(verified.user.role, "member");
+  assert.equal(verified.user.profile_complete, 0);
+  await request("/users", "GET", undefined, 403);
+  await request("/papers", "POST", { title: "Not onboarded" }, 403);
+  await request("/me", "PATCH", { name: " " }, 422);
+  const complete = await request("/me", "PATCH", { name });
+  assert.equal(complete.user.profile_complete, 1);
+  await client()("/auth/verify", "POST", { token }, 422);
+  return complete.user;
+}
 try {
-  server = spawn("php", ["-S", "127.0.0.1:8018", "-t", ".", "api/dev-router.php"], { env, stdio: ["ignore", "ignore", "pipe"] });
-  server.stderr.on("data", (chunk) => { failures += chunk; });
-  for (let attempts = 0; attempts < 50; attempts++) {
-    try { if ((await fetch(origin + "/api/health")).ok) break; } catch { /* server starting */ }
+  server = spawn(
+    "php",
+    ["-S", "127.0.0.1:8018", "-t", ".", "api/dev-router.php"],
+    { env, stdio: ["ignore", "ignore", "pipe"] }
+  );
+  server.stderr.on("data", (chunk) => {
+    log += chunk;
+  });
+  for (let attempt = 0; attempt < 50; attempt++) {
+    try {
+      if ((await fetch(origin + "/api/health")).ok) break;
+    } catch {
+      /* starting */
+    }
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  const owner = client(); const other = client(); const anonymous = client();
-  const missingSchema = await anonymous("/auth/request", "POST", { email: "speaker@example.com" }, 503);
-  assert.equal(missingSchema.error.code, "setup_required");
-  await anonymous("/setup", "POST", { setup_key: setupKey, name: "Test Speaker", email: "speaker@example.com" }, 403, false);
-  await anonymous("/setup", "POST", { setup_key: "wrong-key", name: "Test Speaker", email: "speaker@example.com" }, 403);
-  await anonymous("/setup", "POST", { setup_key: setupKey, name: "Test Speaker", email: "not-an-email" }, 422);
-  const bootstrap = await owner("/setup", "POST", { setup_key: setupKey, name: "Test Speaker", email: "speaker@example.com" }, 201);
-  assert.equal(bootstrap.user.email, "speaker@example.com");
-  assert.equal((await owner("/me")).user.id, bootstrap.user.id);
-  assert.equal((await owner("/users")).length, 1);
-  await anonymous("/setup", "POST", { setup_key: setupKey, name: "Intruder", email: "intruder@example.com" }, 409);
-  assert.equal((await owner("/users")).length, 1);
-  cli(["api/db/migrate.php"]);
-  cli(["api/db/migrate.php"]);
-  const seed = cli(["api/db/seed.php", "Test Speaker", "speaker@example.com"]);
-  const token = seed.match(/\/auth\/([a-f0-9]{64})/)[1];
-  await owner("/auth/logout", "POST", undefined, 204);
-  await anonymous("/me", "GET", undefined, 401);
-  await anonymous("/auth/request", "POST", { email: "nobody@example.com" }, 403, false);
-  assert.deepEqual(await anonymous("/auth/request", "POST", { email: "nobody@example.com" }), { ok: true });
-  const me = await owner("/auth/verify", "POST", { token });
-  await anonymous("/auth/verify", "POST", { token }, 422);
-  assert.equal(me.user.email, "speaker@example.com");
-  assert.equal(me.user.cal_token, undefined);
-  const conference = await owner("/conferences", "POST", { name: "JSNation", website: "https://jsnation.com", description: "JavaScript, together." }, 201);
-  await owner("/conferences", "POST", { name: "Private image", logo_url: "http://127.0.0.1/logo.png" }, 422);
-  assert.equal((await owner("/conferences")).length, 1, "Failed logo download must not create a conference");
-  const logoUrl = cli(["-r", `
-    define('GREEN_ROOM', true);
-    $config = require 'api/config.php';
-    foreach (['db', 'logos'] as $file) require 'api/lib/' . $file . '.php';
-    $bytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aAt8AAAAASUVORK5CYII=');
-    $url = store_conference_logo((int)$argv[1], 'JSNation', ['bytes' => $bytes, 'extension' => 'png']);
-    update('conferences', (int)$argv[1], ['logo_url' => $url]);
-    echo $url;
-  `, String(conference.id)]).trim();
-  const logo = await owner(logoUrl.slice(4));
-  assert.ok(Buffer.isBuffer(logo) && logo[0] === 0x89);
-  await anonymous(logoUrl.slice(4), "GET", undefined, 401);
-  await owner(`/db/logos/${conference.id}/${logoUrl.split("/").at(-1)}`, "GET", undefined, 403);
-  const savedLogo = await owner(`/conferences/${conference.id}`, "PATCH", { name: "JSNation", logo_url: logoUrl });
-  assert.equal(savedLogo.logo_url, logoUrl);
-  await owner(`/conferences/${conference.id}`, "PATCH", { logo_url: logoUrl.replace(`/conference-logos/${conference.id}/`, "/conference-logos/999/") }, 422);
-  await owner(`/conferences/${conference.id}`, "PATCH", { name: "Do not save", logo_url: "http://127.0.0.1/logo.png" }, 422);
-  assert.equal((await owner(`/conferences/${conference.id}`)).name, "JSNation");
-  const svgFixture = JSON.parse(cli(["-r", `
-    define('GREEN_ROOM', true); $config = require 'api/config.php';
-    foreach (['db', 'logos'] as $file) require 'api/lib/' . $file . '.php';
-    $id = insert('conferences', ['name' => 'SVG conference', 'created_by' => (int)$argv[1]]);
-    $extension = validate_logo_image('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" onload="alert(1)"><style>.brand{fill:#2f6b52}</style><rect class="brand" width="40" height="40"/><script>alert(2)</script></svg>', $safe);
-    $url = store_conference_logo($id, 'SVG conference', ['bytes' => $safe, 'extension' => $extension]);
-    update('conferences', $id, ['logo_url' => $url]);
-    echo json_encode(['id' => $id, 'url' => $url]);
-  `, String(me.user.id)]));
-  const svgImage = await owner(svgFixture.url.slice(4));
-  assert.ok(svgImage.toString("utf8").includes("<svg"));
-  assert.ok(!svgImage.toString("utf8").includes("onload") && !svgImage.toString("utf8").includes("<script"));
-  await anonymous(svgFixture.url.slice(4), "GET", undefined, 401);
-  await owner("/conferences", "POST", { name: "Unsafe", website: "javascript:alert(1)" }, 422);
-  await owner("/conferences/metadata", "POST", { url: "http://127.0.0.1" }, 422);
-  const future = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
-  const edition = await owner("/editions", "POST", { conference_id: conference.id, year: 2027, city: "Amsterdam", country: "NL", starts_on: future, ends_on: future, cfp_closes_on: future }, 201);
-  await owner(`/editions/${edition.id}`, "PATCH", { ends_on: "2000-01-01" }, 422);
-  const paper = await owner("/papers", "POST", { title: "A private idea", abstract: "SECRET ABSTRACT", notes: "SECRET NOTES" }, 201);
-  const editedPaper = await owner(`/papers/${paper.id}`, "PATCH", { title: paper.title, notes: "Updated private notes" });
-  assert.equal(editedPaper.abstract, "SECRET ABSTRACT", "Editing the simplified talk form must preserve the stored abstract");
-  const submission = await owner("/submissions", "POST", { paper_id: paper.id, edition_id: edition.id, status: "submitted", hide_title: true, abstract_override: "SECRET OVERRIDE" }, 201);
-  assert.ok(submission.submitted_on);
-  await owner("/submissions", "POST", { paper_id: paper.id, edition_id: edition.id }, 409);
-  await owner(`/conferences/${conference.id}/review`, "PUT", { tags: ["made_up"] }, 422);
-  await owner(`/conferences/${conference.id}/review`, "PUT", { tags: ["covers_travel", "great_speaker_care"], text: "Lovely people.", would_submit_again: 1 });
-  await owner(`/conferences/${conference.id}/review`, "PUT", { tags: [], text: "Updated take", would_submit_again: null });
-  await owner(`/editions/${edition.id}/attendance`, "PUT", { status: "going" });
-  const comment = await owner("/comments", "POST", { edition_id: edition.id, text: "See you there." }, 201);
-  await owner("/comments", "POST", { conference_id: conference.id, edition_id: edition.id, text: "Ambiguous" }, 422);
-  const invitation = await owner("/invites", "POST", { email: "friend@example.com" }, 201);
-  const inviteToken = invitation.url.split("/").at(-1);
-  const listedInvite = (await owner("/invites")).find((invite) => invite.email === "friend@example.com");
-  assert.equal(listedInvite.url, invitation.url);
-  assert.equal(listedInvite.token_hash, undefined);
-  assert.equal((await anonymous(`/invites/${inviteToken}`)).valid, true);
-  await other(`/invites/${inviteToken}/accept`, "POST", { name: "Friend", email: "friend@example.com" }, 201);
-  await anonymous(`/invites/${inviteToken}/accept`, "POST", { name: "Another", email: "another@example.com" }, 422);
-  await owner(`/invites/${listedInvite.id}`, "DELETE", undefined, 404);
-  await owner(`/invites/${listedInvite.id}/regenerate`, "POST", undefined, 404);
-
-  const revocable = await owner("/invites", "POST", { email: "revoke@example.com" }, 201);
-  const revocableToken = revocable.url.split("/").at(-1);
-  const open = (await other("/invites")).find((invite) => invite.email === "revoke@example.com");
-  assert.equal(open.url, revocable.url, "Another member must be able to copy the same link without changing it");
-  const inviteDirectory = join(directory, "invite-links");
-  const payloads = (await readdir(inviteDirectory)).filter((file) => file.endsWith(".json"));
-  assert.equal(payloads.length, 1, "Accepted links should no longer retain encrypted payloads");
-  const payloadPath = join(inviteDirectory, payloads[0]);
-  const encrypted = await readFile(payloadPath, "utf8");
-  assert.ok(!encrypted.includes(revocableToken), "Raw invite tokens must not be stored in plaintext");
-  assert.equal((await stat(payloadPath)).mode & 0o777, 0o600);
-  assert.equal((await stat(join(inviteDirectory, "key.bin"))).mode & 0o777, 0o600);
-  const damaged = JSON.parse(encrypted);
-  const ciphertext = Buffer.from(damaged.ciphertext, "base64"); ciphertext[0] ^= 1;
-  damaged.ciphertext = ciphertext.toString("base64");
-  await writeFile(payloadPath, JSON.stringify(damaged));
-  assert.equal((await owner("/invites")).find((invite) => invite.id === open.id).url, null, "Tampered ciphertext must not be returned");
-  assert.equal((await anonymous(`/invites/${revocableToken}`)).valid, true, "Payload damage must not invalidate an already shared link");
-  await writeFile(payloadPath, encrypted);
-  await anonymous(`/invites/${open.id}`, "DELETE", undefined, 401);
-  await owner(`/invites/${open.id}`, "DELETE", undefined, 403, false);
-  await other(`/invites/${open.id}`, "DELETE", undefined, 204);
-  assert.equal((await anonymous(`/invites/${revocableToken}`)).valid, false);
-  await anonymous(`/invites/${revocableToken}/accept`, "POST", { name: "Revoked", email: "revoked@example.com" }, 422);
-  await owner(`/invites/${open.id}`, "DELETE", undefined, 404);
-  assert.ok(!(await readdir(inviteDirectory)).includes(payloads[0]));
-
-  const legacyToken = randomBytes(32).toString("hex");
-  const legacyId = Number(cli(["-r", `
-    define('GREEN_ROOM', true); $config = require 'api/config.php'; require 'api/lib/db.php';
-    echo insert('invites', ['token_hash' => hash('sha256', $argv[1]), 'invited_by' => (int)$argv[2], 'expires_at' => gmdate('Y-m-d\\TH:i:s\\Z', time()+86400)]);
-  `, legacyToken, String(me.user.id)]));
-  const legacy = (await owner("/invites")).find((invite) => invite.id === legacyId);
-  assert.equal(legacy.url, null, "An old one-way token hash cannot be recovered");
-  assert.equal((await anonymous(`/invites/${legacyToken}`)).valid, true);
-  await owner(`/invites/${legacyId}/regenerate`, "POST", undefined, 403, false);
-  await anonymous(`/invites/${legacyId}/regenerate`, "POST", undefined, 401);
-  const replaced = await other(`/invites/${legacyId}/regenerate`, "POST");
-  assert.equal(replaced.expires_at, legacy.expires_at);
-  assert.equal((await anonymous(`/invites/${legacyToken}`)).valid, false);
-  assert.equal((await anonymous(`/invites/${replaced.url.split("/").at(-1)}`)).valid, true);
-  assert.equal((await owner("/invites")).find((invite) => invite.id === legacyId).url, replaced.url);
-
-  const keyPath = join(inviteDirectory, "key.bin");
-  const key = await readFile(keyPath);
-  const beforeStorageFailure = (await owner("/invites")).length;
-  await writeFile(keyPath, "damaged key");
-  await owner("/invites", "POST", { email: "should-not-save@example.com" }, 503);
-  assert.equal((await owner("/invites")).length, beforeStorageFailure, "Storage failure must roll back the new invitation");
-  await writeFile(keyPath, key);
-  assert.equal((await other("/papers")).length, 0);
-  await other(`/papers/${paper.id}`, "GET", undefined, 404);
-  await other(`/papers/${paper.id}`, "PATCH", { title: "Nope" }, 404);
-  await other(`/submissions/${submission.id}`, "PATCH", { status: "accepted" }, 403);
-  await other(`/comments/${comment.id}`, "DELETE", undefined, 403);
-  await other("/submissions", "POST", { paper_id: paper.id, edition_id: edition.id }, 404);
-  const publicEdition = await other(`/editions/${edition.id}`);
-  assert.equal(publicEdition.submissions[0].paper_title, null);
-  assert.equal(publicEdition.submissions[0].user.email, undefined);
-  assert.ok(!JSON.stringify(publicEdition).includes("SECRET"));
-  assert.ok(!JSON.stringify(await other("/dashboard")).includes("SECRET"));
-  assert.equal((await other("/users"))[0].email, undefined);
-  const confirmed = await owner(`/submissions/${submission.id}`, "PATCH", { status: "confirmed", hide_title: true });
-  assert.equal(confirmed.abstract_override, "SECRET OVERRIDE", "Editing submission details must preserve the stored abstract override");
-  const detailed = await owner(`/editions/${edition.id}`);
-  assert.equal(detailed.going.length, 1, "Going users are deduplicated");
-  assert.equal(detailed.speaking.length, 1);
-  for (let index = 0; index < 12; index++) await owner("/comments", "POST", { edition_id: edition.id, text: `Activity limit fixture ${index}` }, 201);
-  const dashboard = await owner("/dashboard");
-  assert.equal(dashboard.open_cfps.length, 1);
-  assert.equal(dashboard.recent_activity.length, 10);
-  for (let index = 1; index < dashboard.recent_activity.length; index++) assert.ok(dashboard.recent_activity[index - 1].at >= dashboard.recent_activity[index].at, "Recent activity must be newest first");
-  const feed = (await owner("/me")).cal_url;
-  const calendar = await anonymous(new URL(feed).pathname.slice(4));
-  assert.ok(calendar.includes("CFP closes: JSNation"));
-  assert.ok(calendar.includes("🎤 JSNation"));
-  assert.ok(calendar.includes("\r\n"));
-  for (const line of calendar.split("\r\n")) assert.ok(Buffer.byteLength(line) <= 75);
-  await owner(`/conferences/${conference.id}`, "DELETE", undefined, 204);
-  await owner(logoUrl.slice(4), "GET", undefined, 404);
-  await other(`/editions/${edition.id}`, "GET", undefined, 404);
-  assert.equal((await owner("/dashboard")).open_cfps.length, 0);
-  assert.equal((await owner("/papers"))[0].submissions.length, 0);
-  assert.equal((await owner("/trash")).conferences.length, 1);
-  await other(`/conferences/${conference.id}/restore`, "POST");
-  assert.ok(Buffer.isBuffer(await other(logoUrl.slice(4))), "Restoring a conference must retain its image");
-  await other(`/editions/${edition.id}`, "DELETE", undefined, 204);
-  await owner(`/editions/${edition.id}/restore`, "POST");
-  const rotated = await owner("/me/cal-token", "POST");
-  assert.notEqual(rotated.cal_url, feed);
-  await anonymous(new URL(feed).pathname.slice(4), "GET", undefined, 404);
-  for (const secret of ["/db/db.sqlite", "/db/schema.sql", "/db/invite-links/key.bin", "/lib/db.php", "/config.php", "/config.local.php"]) await anonymous(secret, "GET", undefined, 403);
-  await owner(`/papers/${paper.id}`, "DELETE", undefined, 204);
-  assert.equal((await owner(`/editions/${edition.id}`)).submissions.length, 0);
-  const persistentInvite = await owner("/invites", "POST", { email: "persistent@example.com" }, 201);
-  await owner("/auth/logout", "POST", undefined, 204);
-  await owner("/me", "GET", undefined, 401);
-  server.kill("SIGTERM");
-  await new Promise((resolve) => server.once("exit", resolve));
-  server = spawn("php", ["-S", "127.0.0.1:8018", "-t", ".", "api/dev-router.php"], { env: { ...env, GREEN_ROOM_SETUP_KEY: "" }, stdio: ["ignore", "ignore", "pipe"] });
-  server.stderr.on("data", (chunk) => { failures += chunk; });
-  for (let attempts = 0; attempts < 50; attempts++) {
-    try { if ((await fetch(origin + "/api/health")).ok) break; } catch { /* server starting */ }
-    await new Promise((resolve) => setTimeout(resolve, 50));
+  const admin = client(),
+    alice = client(),
+    bob = client(),
+    stranger = client(),
+    anonymous = client();
+  await anonymous(
+    "/auth/request",
+    "POST",
+    { email: "missing@example.com" },
+    503
+  );
+  await anonymous(
+    "/setup",
+    "POST",
+    { setup_key: "wrong", name: "Nico", email: "mail@nico.dev" },
+    403
+  );
+  const owner = (
+    await admin(
+      "/setup",
+      "POST",
+      { setup_key: setupKey, name: "Nico", email: "mail@nico.dev" },
+      201
+    )
+  ).user;
+  assert.equal(owner.role, "admin");
+  await anonymous(
+    "/setup",
+    "POST",
+    { setup_key: setupKey, name: "Other", email: "other@example.com" },
+    409
+  );
+  for (const path of [
+    "/me",
+    "/users",
+    "/crew",
+    "/conferences",
+    "/editions",
+    "/dashboard",
+    "/papers",
+    "/admin/users",
+    "/trash",
+  ])
+    await anonymous(path, "GET", undefined, 401);
+  for (const path of ["/invites", "/cal/legacy.ics"])
+    await anonymous(path, "GET", undefined, 404);
+  await admin("/me/cal-token", "POST", undefined, 404);
+  await admin("/comments", "POST", { conference_id: 1, text: "No notes" }, 404);
+  assert.equal((await admin("/me")).cal_url, undefined);
+  const a = await signup(alice, "alice@example.com", "Alice");
+  const b = await signup(bob, "bob@example.com", "Bob");
+  const s = await signup(stranger, "stranger@example.com", "Stranger");
+  assert.equal((await alice("/users")).length, 4);
+  assert.ok((await alice("/users")).every((u) => !u.email && !u.cal_token));
+  await alice("/me", "PATCH", {
+    name: "Alice",
+    role: "admin",
+    suspended: false,
+  });
+  assert.equal((await alice("/me")).user.role, "member");
+  for (const [path, method, body] of [
+    ["/conferences", "POST", { name: "No" }],
+    ["/editions", "POST", { conference_id: 1 }],
+    ["/conferences/metadata", "POST", { url: "https://example.com" }],
+    ["/trash", "GET"],
+    ["/admin/users", "GET"],
+    [`/admin/users/${a.id}`, "PATCH", { role: "admin" }],
+  ])
+    await alice(path, method, body, 403);
+  await admin("/conferences", "POST", { name: "CSRF" }, 403, false);
+  const c = await admin(
+    "/conferences",
+    "POST",
+    { name: "JSNation", website: "https://jsnation.com" },
+    201
+  );
+  await admin(
+    "/conferences",
+    "POST",
+    { name: "Unsafe", website: "javascript:alert(1)" },
+    422
+  );
+  await admin(
+    "/conferences",
+    "POST",
+    { name: "Private logo", logo_url: "http://127.0.0.1/a.png" },
+    422
+  );
+  await admin(
+    "/conferences/metadata",
+    "POST",
+    { url: "http://127.0.0.1" },
+    422
+  );
+  const future = (days) =>
+    new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
+  const e = await admin(
+    "/editions",
+    "POST",
+    {
+      conference_id: c.id,
+      title: "JSNation Berlin 26",
+      starts_on: future(30),
+      ends_on: future(31),
+      cfp_closes_on: future(5),
+    },
+    201
+  );
+  for (const [path, method, body] of [
+    [`/conferences/${c.id}`, "PATCH", { name: "No" }],
+    [`/conferences/${c.id}`, "DELETE"],
+    [`/conferences/${c.id}/restore`, "POST"],
+    [`/editions/${e.id}`, "PATCH", { title: "No" }],
+    [`/editions/${e.id}`, "DELETE"],
+    [`/editions/${e.id}/restore`, "POST"],
+  ])
+    await alice(path, method, body, 403);
+  for (const [path, method] of [
+    [`/conferences/${c.id}suffix`, "PATCH"],
+    [`/conferences/${c.id}suffix/restore`, "POST"],
+    [`/editions/${e.id}suffix`, "DELETE"],
+  ])
+    await alice(path, method, { name: "No" }, 403);
+  await admin(`/editions/${e.id}`, "PATCH", { ends_on: "2000-01-01" }, 422);
+  const paper = await bob(
+    "/papers",
+    "POST",
+    {
+      title: "SECRET TITLE",
+      abstract: "SECRET ABSTRACT",
+      notes: "SECRET NOTES",
+    },
+    201
+  );
+  const paper2 = await bob("/papers", "POST", { title: "SECOND SECRET" }, 201);
+  const sub = await bob(
+    "/submissions",
+    "POST",
+    {
+      paper_id: paper.id,
+      edition_id: e.id,
+      status: "submitted",
+      abstract_override: "SECRET OVERRIDE",
+    },
+    201
+  );
+  const sub2 = await bob(
+    "/submissions",
+    "POST",
+    { paper_id: paper2.id, edition_id: e.id, status: "interested" },
+    201
+  );
+  await bob(
+    "/submissions",
+    "POST",
+    { paper_id: paper.id, edition_id: e.id },
+    409
+  );
+  for (const request of [admin, alice, stranger]) {
+    await request(`/papers/${paper.id}`, "GET", undefined, 404);
+    await request(`/papers/${paper.id}`, "PATCH", { title: "No" }, 404);
+    await request(
+      `/submissions/${sub.id}`,
+      "PATCH",
+      { status: "confirmed" },
+      403
+    );
+    const detail = await request(`/editions/${e.id}`);
+    assert.equal(detail.submissions, undefined);
+    assert.equal(detail.speaking, undefined);
+    assert.equal(detail.comments, undefined);
+    assert.equal(detail.submitted_friends.length, 0);
+    assert.equal(detail.attendance.length, 0);
+    assert.ok(!JSON.stringify(detail).includes("SECRET"));
   }
-  const disabled = await anonymous("/setup", "POST", { setup_key: setupKey, name: "Intruder", email: "intruder@example.com" }, 404);
-  assert.equal(disabled.error.code, "not_found");
-  assert.equal((await other("/invites")).find((invite) => invite.email === "persistent@example.com").url, persistentInvite.url, "Invite links must remain copyable across PHP server restarts");
-  console.log("API integration checks passed: one-time web setup, disabled setup, missing-schema diagnostics, authentication, CSRF, validation, CRUD, privacy, ownership, invites, dashboard, calendar, soft delete/restore, and protected files.");
+  await bob(`/conferences/${c.id}/review`, "PUT", {
+    tags: ["covers_travel"],
+    text: "FRIENDS REVIEW",
+    would_submit_again: 1,
+  });
+  assert.equal(
+    (await admin(`/conferences/${c.id}`)).review_count,
+    0,
+    "Admin does not bypass privacy"
+  );
+  await bob(`/editions/${e.id}/attendance`, "PUT", { status: "going" });
+  assert.equal((await alice(`/users/${b.id}`)).plans.length, 0);
+  await alice(`/crew/${a.id}/request`, "POST", undefined, 422);
+  await alice(`/crew/${b.id}/request`, "POST");
+  await alice(`/crew/${b.id}/request`, "POST");
+  assert.equal((await bob("/crew")).incoming.length, 1);
+  assert.equal(
+    (await alice(`/editions/${e.id}`)).submitted_friends.length,
+    0,
+    "Pending request grants no access"
+  );
+  await alice(`/crew/${b.id}/accept`, "POST", undefined, 404);
+  // Crossed requests are instant acceptance, not a second pending request.
+  assert.equal(
+    (await bob(`/crew/${a.id}/request`, "POST")).relationship,
+    "friend"
+  );
+  assert.equal((await bob("/crew")).incoming.length, 0);
+  assert.equal((await alice(`/editions/${e.id}`)).submitted_friends.length, 1);
+  assert.equal((await alice(`/users/${b.id}`)).plans.length, 1);
+  let detail = await alice(`/conferences/${c.id}`);
+  assert.equal(detail.review_count, 1);
+  assert.equal(detail.tag_counts.covers_travel, 1);
+  assert.equal(detail.reviews[0].text, "FRIENDS REVIEW");
+  assert.equal((await stranger(`/conferences/${c.id}`)).review_count, 0);
+  for (const status of [
+    "submitted",
+    "accepted",
+    "rejected",
+    "waitlisted",
+    "confirmed",
+    "declined",
+    "attended",
+  ]) {
+    await bob(`/submissions/${sub.id}`, "PATCH", { status });
+    detail = await alice(`/editions/${e.id}`);
+    assert.equal(detail.submitted_friends.length, 1);
+    assert.equal(detail.going.length, 1);
+    assert.equal(detail.maybe.length, 0);
+    assert.ok(!JSON.stringify(detail).includes("SECRET"));
+    assert.deepEqual(Object.keys(detail.submitted_friends[0]).sort(), [
+      "avatar_url",
+      "id",
+      "name",
+    ]);
+  }
+  await bob(`/submissions/${sub2.id}`, "PATCH", { status: "rejected" });
+  assert.equal(
+    (await alice(`/editions/${e.id}`)).submitted_friends.length,
+    1,
+    "Two submissions still count once"
+  );
+  await bob(`/submissions/${sub.id}`, "PATCH", { status: "interested" });
+  await bob(`/submissions/${sub2.id}`, "PATCH", { status: "interested" });
+  assert.equal((await alice(`/editions/${e.id}`)).submitted_friends.length, 0);
+  await bob(`/submissions/${sub.id}`, "PATCH", { status: "declined" });
+  await bob(`/editions/${e.id}/attendance`, "DELETE", undefined, 204);
+  detail = await alice(`/editions/${e.id}`);
+  assert.equal(detail.going.length, 0);
+  assert.equal(detail.maybe.length, 0);
+  assert.equal(detail.submitted_friends.length, 1);
+  await alice(`/editions/${e.id}/attendance`, "PUT", { status: "maybe" });
+  detail = await alice(`/editions/${e.id}`);
+  assert.equal(detail.maybe[0].id, a.id, "Attendance does not require a talk");
+  const dashboard = await alice("/dashboard");
+  assert.equal(dashboard.open_cfps[0].submitters.length, 1);
+  assert.ok(!JSON.stringify(dashboard).includes("SECRET"));
+  assert.ok(
+    dashboard.recent_activity.every(
+      (x) => !["submission_status", "comment"].includes(x.type)
+    )
+  );
+  await alice(`/crew/${b.id}`, "DELETE", undefined, 204);
+  assert.equal((await alice(`/editions/${e.id}`)).submitted_friends.length, 0);
+  assert.equal((await alice(`/conferences/${c.id}`)).review_count, 0);
+  assert.equal((await alice(`/users/${b.id}`)).plans.length, 0);
+  await alice(`/crew/${b.id}/request`, "POST");
+  await bob(`/crew/${a.id}/accept`, "POST");
+  await bob(`/crew/${a.id}/block`, "POST", undefined, 204);
+  assert.ok(!(await alice("/users")).some((u) => u.id === b.id));
+  await alice(`/users/${b.id}`, "GET", undefined, 404);
+  await alice(`/crew/${b.id}/request`, "POST", undefined, 404);
+  assert.equal((await alice(`/editions/${e.id}`)).submitted_friends.length, 0);
+  await bob(`/crew/${a.id}/block`, "DELETE", undefined, 204);
+  assert.equal((await alice(`/users/${b.id}`)).relationship, "none");
+  await alice(`/crew/${b.id}/request`, "POST");
+  await bob(`/crew/${a.id}`, "DELETE", undefined, 204);
+  assert.equal(
+    (await alice("/crew")).outgoing.length,
+    0,
+    "Decline removes pending request"
+  );
+  await alice(`/crew/${b.id}/request`, "POST");
+  await alice(`/crew/${b.id}`, "DELETE", undefined, 204);
+  await admin(`/admin/users/${owner.id}`, "PATCH", { role: "member" }, 409);
+  await admin(`/admin/users/${owner.id}`, "PATCH", { suspended: true }, 409);
+  await admin(`/admin/users/${a.id}`, "PATCH", { role: "admin" });
+  assert.equal((await alice("/me")).user.role, "admin");
+  await alice(`/admin/users/${owner.id}`, "PATCH", { role: "member" });
+  await admin("/conferences", "POST", { name: "Demoted admin" }, 403);
+  await alice(`/admin/users/${owner.id}`, "PATCH", { role: "admin" });
+  await alice(`/crew/${b.id}/request`, "POST");
+  await bob(`/crew/${a.id}/accept`, "POST");
+  const pendingLogin = await anonymous("/auth/request", "POST", {
+    email: "bob@example.com",
+  });
+  await admin(`/admin/users/${b.id}`, "PATCH", { suspended: true });
+  await bob("/me", "GET", undefined, 401);
+  assert.ok(!(await alice("/users")).some((u) => u.id === b.id));
+  assert.equal((await alice(`/editions/${e.id}`)).submitted_friends.length, 0);
+  await anonymous(
+    "/auth/verify",
+    "POST",
+    { token: pendingLogin.link.split("/").at(-1) },
+    401
+  );
+  assert.deepEqual(
+    await anonymous("/auth/request", "POST", { email: "bob@example.com" }),
+    { ok: true }
+  );
+  await admin(`/admin/users/${b.id}`, "PATCH", { suspended: false });
+  await bob("/me", "GET", undefined, 401);
+  const login = await bob("/auth/request", "POST", {
+    email: "BOB@example.com",
+  });
+  await bob("/auth/verify", "POST", { token: login.link.split("/").at(-1) });
+  assert.equal((await bob("/me")).user.id, b.id);
+  assert.equal(
+    (await alice(`/editions/${e.id}`)).submitted_friends.length,
+    1,
+    "Suspension retains friendships/data"
+  );
+  const limited = client();
+  for (let i = 0; i < 5; i++)
+    await limited("/auth/request", "POST", { email: "throttle@example.com" });
+  assert.deepEqual(
+    await limited("/auth/request", "POST", { email: "throttle@example.com" }),
+    { ok: true }
+  );
+  const own = await bob(`/editions/${e.id}`);
+  assert.equal(own.my_submissions[0].abstract_override, "SECRET OVERRIDE");
+  await admin(`/conferences/${c.id}`, "DELETE", undefined, 204);
+  await alice(`/editions/${e.id}`, "GET", undefined, 404);
+  assert.equal(
+    (await bob("/papers"))[0].submissions.length,
+    1,
+    "Owners retain archived submissions"
+  );
+  assert.equal(
+    (await bob("/papers"))[0].submissions[0].conference.deleted_at !== null,
+    true
+  );
+  await admin(`/conferences/${c.id}/restore`, "POST");
+  await bob(`/submissions/${sub.id}`, "DELETE", undefined, 204);
+  assert.equal((await alice(`/editions/${e.id}`)).submitted_friends.length, 0);
+  await bob(`/papers/${paper.id}`, "DELETE", undefined, 204);
+  for (const secret of [
+    "/db/db.sqlite",
+    "/db/schema.sql",
+    "/db/invite-links/key.bin",
+    "/lib/db.php",
+    "/config.php",
+    "/config.local.php",
+  ])
+    await anonymous(secret, "GET", undefined, 403);
+  await admin("/auth/logout", "POST", undefined, 204);
+  await admin("/me", "GET", undefined, 401);
+  console.log(
+    "API checks passed: verified public signup, onboarding, roles, ownership, friend requests/crossed acceptance, unique submitter privacy, manual attendance, review visibility, unfriend/block, suspension/session revocation, last-admin safeguards, retired endpoints, rate limits, archive preservation, and protected files."
+  );
 } finally {
   if (server) {
     server.kill("SIGTERM");

@@ -1,5 +1,7 @@
 # purpleroom — Build Spec
 
+> The social restructure is specified in [`app-locig-social.md`](app-locig-social.md). Its signup, roles, privacy, friendship, attendance, and retired-feature rules supersede the original flat-group behaviour below. This file remains historical/reference documentation for unchanged features.
+
 Brand: purpleroom, an homage to CSS `rebeccapurple` (`#663399`). Repository: `git@github.com:nico-martin/purpleroom.git`. Legacy internal identifiers and calendar UIDs remain stable for compatibility. Deployment origins below are legacy examples; `APP_BASE_URL` controls the live origin.
 
 > A private app for a small crew (5–10 people) of conference speakers to share hand-picked conferences, CFP deadlines, speaker-perspective reviews, and who is submitting to / going where.

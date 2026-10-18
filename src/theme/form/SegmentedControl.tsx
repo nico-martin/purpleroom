@@ -20,7 +20,10 @@ export default function SegmentedControl<T extends string>({
     <div
       role="group"
       aria-label={label}
-      className={cn("inline-flex rounded-xl bg-divider p-1", className)}
+      className={cn(
+        "inline-flex max-w-full flex-wrap rounded-xl bg-divider p-1",
+        className
+      )}
     >
       {options.map((option) => (
         <button

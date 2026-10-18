@@ -1,202 +1,168 @@
-import { Link2, Plus, Users } from "lucide-react";
 import { useState } from "react";
-import type { FormEvent } from "react";
+import { Link } from "react-router-dom";
 
 import { api } from "../api";
-import OpenInviteRow from "../components/OpenInviteRow";
+import CrewActions from "../components/CrewActions";
 import useApi from "../hooks/useApi";
 import useMutation from "../hooks/useMutation";
-import useSession from "../hooks/useSession";
-import { formatDate } from "../lib/format";
 import {
   Avatar,
-  Badge,
   Button,
   Card,
-  CopyField,
-  Field,
+  EmptyState,
   Input,
   LoadingState,
-  Modal,
   Notice,
   PageHeader,
   SectionHeader,
+  SegmentedControl,
 } from "../theme";
-import type { Invite, User } from "../types";
+import type { CrewRequests, Member } from "../types";
 
-interface CrewPageProps {
-  className?: string;
-}
-export default function CrewPage({ className = "" }: CrewPageProps) {
-  const { user } = useSession();
-  const members = useApi<User[]>("/users");
-  const invites = useApi<Invite[]>("/invites");
-  const [creating, setCreating] = useState(false);
-  const [email, setEmail] = useState("");
-  const [link, setLink] = useState<{ url: string; expires_at: string } | null>(
-    null
-  );
+export default function CrewPage({ className = "" }: { className?: string }) {
+  const members = useApi<Member[]>("/users");
+  const requests = useApi<CrewRequests>("/crew");
   const mutation = useMutation();
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    mutation.run(
-      () =>
-        api<{ url: string; expires_at: string }>("/invites", {
-          method: "POST",
-          body: { email: email || null },
-        }),
-      (result) => {
-        setLink(result);
-        invites.refresh();
-      }
-    );
+  const [tab, setTab] = useState("friends");
+  const [search, setSearch] = useState("");
+  const incoming = requests.data?.incoming.length ?? 0;
+  function refresh() {
+    members.refresh();
+    requests.refresh();
   }
+  const shown =
+    members.data?.filter(
+      (u) =>
+        (tab === "directory" ||
+          (tab === "friends" && u.relationship === "friend") ||
+          (tab === "requests" &&
+            ["incoming", "outgoing"].includes(u.relationship))) &&
+        u.name.toLowerCase().includes(search.toLowerCase())
+    ) ?? [];
   return (
     <div className={className}>
       <PageHeader
-        eyebrow="The people behind the talks"
-        title="Your kind of company."
-        description="A small crew of speakers. A lot of collective experience. No strangers, just friends of friends."
-        action={
-          <Button
-            variant="primary"
-            onClick={() => {
-              setCreating(true);
-              setLink(null);
-              setEmail("");
-            }}
-          >
-            <Plus size={16} />
-            Invite a friend
-          </Button>
-        }
+        eyebrow="Your people, your crew"
+        title="Good company."
+        description="Find members, connect with friends, and see where your crew is heading."
       />
-      <div className="grid gap-9 xl:grid-cols-3">
-        <section className="xl:col-span-2">
-          <SectionHeader title="The crew" count={members.data?.length} />
-          {members.loading ? (
-            <LoadingState />
-          ) : members.error ? (
-            <Notice tone="error">{members.error}</Notice>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {members.data?.map((person) => (
-                <Card padded key={person.id}>
-                  <div className="flex items-center gap-4">
-                    <Avatar
-                      name={person.name}
-                      src={person.avatar_url}
-                      size="lg"
-                    />
-                    <div>
-                      <h2 className="text-lg">{person.name}</h2>
-                      <p className="mt-1 text-xs text-muted">
-                        Part of the crew
-                      </p>
-                    </div>
-                    {person.id === user.id && (
-                      <Badge tone="positive" className="ml-auto">
-                        You
-                      </Badge>
-                    )}
-                  </div>
+      <div className="mb-7 flex flex-wrap items-center justify-between gap-4">
+        <SegmentedControl
+          label="Crew view"
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: "friends", label: "My crew" },
+            { value: "directory", label: "All members" },
+            {
+              value: "requests",
+              label: `Requests${incoming ? ` (${incoming})` : ""}`,
+            },
+            { value: "blocked", label: "Blocked" },
+          ]}
+        />
+        <Input
+          className="sm:max-w-xs"
+          aria-label="Search members"
+          placeholder="Find a member…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+      {members.loading || requests.loading ? (
+        <LoadingState />
+      ) : members.error || requests.error ? (
+        <Notice tone="error">{members.error || requests.error}</Notice>
+      ) : tab === "blocked" ? (
+        <section>
+          <SectionHeader title="Blocked members" />
+          <Card padded>
+            {requests.data?.blocked.length ? (
+              requests.data.blocked.map((u) => (
+                <div
+                  key={u.id}
+                  className="flex flex-wrap items-center justify-between gap-3 border-b border-divider py-4 last:border-0"
+                >
+                  <span>{u.name}</span>
+                  <Button
+                    disabled={mutation.busy}
+                    onClick={() =>
+                      mutation.run(
+                        () => api(`/crew/${u.id}/block`, { method: "DELETE" }),
+                        refresh
+                      )
+                    }
+                  >
+                    Unblock
+                  </Button>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted">No blocked members.</p>
+            )}
+            {mutation.error && <Notice tone="error">{mutation.error}</Notice>}
+          </Card>
+        </section>
+      ) : (
+        <section>
+          <SectionHeader
+            title={
+              tab === "friends"
+                ? "My crew"
+                : tab === "requests"
+                  ? "Pending requests"
+                  : "Member directory"
+            }
+            count={shown.length}
+          />
+          {shown.length ? (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {shown.map((u) => (
+                <Card padded key={u.id}>
+                  <Link
+                    to={`/members/${u.id}`}
+                    className="mb-4 flex items-center gap-3"
+                  >
+                    <Avatar name={u.name} src={u.avatar_url} />
+                    <span>
+                      <span className="block font-heading text-lg hover:text-purple">
+                        {u.name}
+                      </span>
+                      <span className="text-xs text-muted">
+                        {u.relationship === "friend"
+                          ? "In your crew"
+                          : u.relationship === "incoming"
+                            ? "Wants to join your crew"
+                            : u.relationship === "outgoing"
+                              ? "Request sent"
+                              : "Member"}
+                      </span>
+                    </span>
+                  </Link>
+                  <CrewActions
+                    id={u.id}
+                    name={u.name}
+                    relationship={u.relationship}
+                    onChanged={refresh}
+                  />
                 </Card>
               ))}
             </div>
+          ) : (
+            <Card>
+              <EmptyState
+                title={
+                  tab === "friends" ? "Find your people." : "All caught up."
+                }
+                description={
+                  tab === "friends"
+                    ? "Browse All members and send a crew request. Only accepted friends can see your plans and reviews."
+                    : "No members match this view."
+                }
+              />
+            </Card>
           )}
         </section>
-        <aside>
-          <SectionHeader title="Room for one more" />
-          <Card padded>
-            <Users size={24} className="mb-4 text-green" strokeWidth={1.4} />
-            <h3 className="text-lg">Good people know good people.</h3>
-            <p className="mt-3 text-sm leading-relaxed text-muted">
-              Invite someone you'd happily share a speaker dinner with. Everyone
-              has the same backstage pass.
-            </p>
-            <p className="mt-3 text-xs leading-relaxed text-muted">
-              Invite links work once and expire after 14 days. Share them
-              however you like.
-            </p>
-            <Button
-              variant="dashed"
-              className="mt-5"
-              onClick={() => {
-                setCreating(true);
-                setLink(null);
-              }}
-            >
-              <Link2 size={15} />
-              Make an invite link
-            </Button>
-          </Card>
-        </aside>
-      </div>
-      <section className="mt-10">
-        <SectionHeader title="Open invitations" count={invites.data?.length} />
-        {invites.error && <Notice tone="error">{invites.error}</Notice>}
-        <Card>
-          {invites.data?.length ? (
-            invites.data.map((invite) => (
-              <OpenInviteRow
-                key={invite.id}
-                invite={invite}
-                onChanged={invites.refresh}
-              />
-            ))
-          ) : (
-            <p className="p-6 text-sm text-muted">
-              No open invitations. All caught up.
-            </p>
-          )}
-        </Card>
-      </section>
-      {creating && (
-        <Modal
-          title="Pull up another chair."
-          onClose={() => setCreating(false)}
-        >
-          {link ? (
-            <div className="space-y-5">
-              <Notice tone="success">
-                Your invite is ready. Share it with a good human.
-              </Notice>
-              <CopyField value={link.url} label="invite link" />
-              <p className="text-xs text-muted">
-                One use only. Good until {formatDate(link.expires_at)}. You can
-                copy this link again from Open invitations while it stays open.
-              </p>
-              <div className="flex justify-end">
-                <Button onClick={() => setCreating(false)}>Done</Button>
-              </div>
-            </div>
-          ) : (
-            <form onSubmit={submit} className="space-y-5">
-              <p className="text-sm leading-relaxed text-muted">
-                No email will be sent. We'll give you a link to share yourself.
-              </p>
-              <Field
-                label="Their email (optional)"
-                hint="Just a prefill for their sign-up form, not a restriction."
-              >
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="friend@example.com"
-                />
-              </Field>
-              {mutation.error && <Notice tone="error">{mutation.error}</Notice>}
-              <div className="flex justify-end gap-2">
-                <Button onClick={() => setCreating(false)}>Cancel</Button>
-                <Button type="submit" variant="primary" loading={mutation.busy}>
-                  <Link2 size={15} />
-                  Create invite link
-                </Button>
-              </div>
-            </form>
-          )}
-        </Modal>
       )}
     </div>
   );

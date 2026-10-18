@@ -8,6 +8,11 @@ export interface User {
   avatar_url: string | null;
   email?: string;
 }
+export interface Account extends User {
+  email: string;
+  role: "member" | "admin";
+  profile_complete: number;
+}
 export interface Conference {
   id: number;
   name: string;
@@ -28,7 +33,6 @@ export interface ConferenceSummary extends Conference {
 export interface ConferenceDetail extends ConferenceSummary {
   editions: Edition[];
   reviews: Review[];
-  comments: Comment[];
 }
 export interface Edition {
   id: number;
@@ -52,15 +56,13 @@ export interface Edition {
   deleted_at: string | null;
 }
 export interface People {
-  speaking: { user: User; status: SubmissionStatus }[];
   going: User[];
   maybe: User[];
 }
 export interface EditionDetail extends Edition, People {
   conference: ConferenceSummary;
-  submissions: PublicSubmission[];
+  submitted_friends: User[];
   attendance: Attendance[];
-  comments: Comment[];
   my_submissions: Submission[];
 }
 export interface Review {
@@ -96,36 +98,12 @@ export interface Submission {
   edition?: Edition;
   conference?: Conference;
 }
-export interface PublicSubmission {
-  id: number;
-  status: SubmissionStatus;
-  user: User;
-  paper_title: string | null;
-  updated_at: string;
-}
 export interface Attendance {
   id: number;
   edition_id: number;
   user_id: number;
   status: "maybe" | "going";
   user: User;
-}
-export interface Comment {
-  id: number;
-  user_id: number;
-  user: User;
-  conference_id: number | null;
-  edition_id: number | null;
-  text: string;
-  created_at: string;
-}
-export interface Invite {
-  id: number;
-  email: string | null;
-  invited_by: User;
-  expires_at: string;
-  created_at: string;
-  url: string | null;
 }
 export interface Cfp {
   edition: Edition;
@@ -151,6 +129,19 @@ export interface Dashboard {
   recent_activity: Activity[];
 }
 export interface Me {
-  user: User;
-  cal_url: string;
+  user: Account;
+}
+export type Relationship = "self" | "none" | "incoming" | "outgoing" | "friend";
+export interface Member extends User {
+  relationship: Relationship;
+}
+export interface CrewRequests {
+  incoming: User[];
+  outgoing: User[];
+  blocked: User[];
+}
+export interface AdminUser extends User {
+  role: "member" | "admin";
+  profile_complete: number;
+  suspended: number;
 }

@@ -22,10 +22,10 @@ route('POST', '/setup', function () {
         $usersTable = one("SELECT name FROM sqlite_master WHERE type='table' AND name='users'");
         if ($usersTable && one('SELECT id FROM users LIMIT 1')) {
             db()->exec('ROLLBACK');
-            fail(409, 'setup_complete', 'The first user already exists. Web setup is permanently locked; sign in or ask a crew member for an invite.');
+            fail(409, 'setup_complete', 'The first user already exists. Web setup is permanently locked; sign in with email.');
         }
         apply_database_migrations();
-        $id = insert('users', [...$data, 'cal_token' => bin2hex(random_bytes(32))]);
+        $id = insert('users', [...$data, 'email' => strtolower($data['email']), 'role' => 'admin', 'cal_token' => bin2hex(random_bytes(32))]);
         db()->exec('COMMIT');
     } catch (Throwable $error) {
         db()->exec('ROLLBACK');

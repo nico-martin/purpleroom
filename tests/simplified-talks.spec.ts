@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => {
 
 test("Around the room renders only the newest ten supplied entries", async ({ page }) => {
   const activity = Array.from({ length: 15 }, (_, index) => ({
-    type: "comment", at: new Date(Date.now() - index * 60000).toISOString(),
+    type: "conference", at: new Date(Date.now() - index * 60000).toISOString(),
     user: { id: 1, name: "Nico", avatar_url: null }, summary: `Activity ${String(index + 1).padStart(2, "0")}`, link: `/conferences/${index + 1}`,
   }));
   await page.route("**/api/dashboard", (route) => route.fulfill({ json: { open_cfps: [], upcoming: [], recent_activity: activity } }));
@@ -63,9 +63,9 @@ test("simplified editors preserve legacy abstracts and represent historical atte
   await expect(page.locator('option[value="attended"]')).toHaveCount(0);
   await page.getByRole("button", { name: "Edit submission details", exact: true }).click();
   await expect(page.getByLabel("Abstract for this edition", { exact: true })).toHaveCount(0);
-  await page.getByLabel("Hide talk title from the crew").check();
+   await expect(page.getByLabel("Hide talk title from the crew")).toHaveCount(0);
   await page.getByRole("button", { name: "Save submission", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  expect(submissionWrites.at(-1)).toEqual({ hide_title: true, submitted_on: "2026-01-01" });
+   expect(submissionWrites.at(-1)).toEqual({ submitted_on: "2026-01-01" });
   expect(submission.abstract_override).toBe("Keep my edition abstract.");
 });

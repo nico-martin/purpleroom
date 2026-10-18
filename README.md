@@ -4,7 +4,22 @@ Named in homage to CSS `rebeccapurple` (`#663399`). Repository: `git@github.com:
 
 The rename preserves existing storage, sessions, invitation encryption, calendar UIDs, `GREEN_ROOM_*` environment variables, and internal browser/request identifiers. The current production hostname and deployment destination are unchanged; set `APP_BASE_URL` and `FTP_DEPLOY_PATH` in GitHub when moving to a new domain. Set `APP_MAIL_FROM` if an existing secret still uses the old sender name.
 
-A private backstage room for a small crew of conference speakers. React 18, TypeScript, Vite, Tailwind v4, and a dependency-free PHP/SQLite API. No demo sign-in or fabricated conference data.
+A members-only social platform for conference speakers: private proposals, personal crews, manual attendance, and friends-only speaker reviews. React 18, TypeScript, Vite, Tailwind v4, and a dependency-free PHP/SQLite API. No demo sign-in or fabricated conference data. Product rules are recorded in [`app-locig-social.md`](app-locig-social.md), which supersedes the original flat-group specification.
+
+## Social platform and migration
+
+- Anyone can request an email sign-in link. The account is created only after verification, and a display name is required before directory listing. All content requires login.
+- **Members** manage their own profiles, proposals, submissions, attendance, and crew. **Admins** additionally manage conferences, editions, trash, roles, and suspensions. Admins cannot read other members' private proposals or submission statuses.
+- **The crew** has My crew, All members, Requests, and Blocked views. Requests can be accepted/declined/cancelled; crossed requests accept instantly. Unfriend/block revoke access. Requests are in-app only.
+- Attendance is explicitly Going/Maybe/none on each edition and is never inferred from CFP outcomes.
+- Friends may see who submitted, but never proposal content, individual submission totals, or outcomes. Every status except `interested` qualifies; each friend counts once.
+- Reviews, tags, and review aggregates are scoped to the viewer and their accepted friends.
+- Calendar subscriptions, signup invitations, and “Notes from the crew” comments are disabled, including their API routes. Historical data and storage remain intact.
+- Signup mail is limited to five requests per email/hour and 30 per IP/hour; crew sends to 30/member/hour. Limits are stored as hashed keys in SQLite. Production never returns development sign-in links.
+
+**Back up the live SQLite database and protected runtime directories before deployment.** Migration `003_social.sql` runs automatically on an initialized installation's next API request, preserving existing records and IDs. Only the existing account with email **`mail@nico.dev`** becomes admin; all others remain members. Verify that this account exists before deployment. There is no automatic first-public-signup promotion and no automatic friendship between existing users. Fresh installations still use protected `/setup` to create the initial admin.
+
+Admins use **Manage members** to promote/demote, suspend, and restore access. The last active admin cannot be demoted/suspended. Suspension invalidates all prior sessions (even after restoration) and hides social data while preserving friendships and records. Blocking hides both members from each other's directory; unblocking does not restore friendship. Proposals retain the owner's read access to submissions linked to deleted catalog items.
 
 ## Run locally
 
@@ -20,10 +35,10 @@ pnpm dev
 In another terminal, create the first member and print a one-use login URL:
 
 ```bash
-GREEN_ROOM_ENV=dev php api/db/seed.php "Nico" nico@example.com
+GREEN_ROOM_ENV=dev php api/db/seed.php "Nico" mail@nico.dev
 ```
 
-Open the printed URL. Future logins use the email form; in development it shows the magic link, without sending email. Invite friends from **The crew**. No content is automatically seeded.
+Open the printed URL. Future logins and signups use the email form; in development it shows the magic link without sending email. Connect with members from **The crew → All members**. No conference content is automatically seeded.
 
 To customize configuration, copy `api/config.example.php` to `api/config.local.php`. This ignored local file overrides defaults. Set `base_url` if you change the Vite port. Never use `env => dev` on a public deployment.
 
@@ -31,9 +46,9 @@ To customize configuration, copy `api/config.example.php` to `api/config.local.p
 
 - `src/theme/`: reusable, business-logic-free UI primitives, always exported through `src/theme/index.ts`. Includes the design template's buttons, fields, checkboxes, segmented control, tag pills, status chips, deadline badges, avatar stacks, logo tiles, cards, and list rows, plus navigation, dialogs, and feedback components.
 - `src/index.css`: the design system's **named Tailwind colour tokens**, font families, and light/dark overrides. Nunito headings stay at 600; Nunito Sans handles body copy; JetBrains Mono handles dates/countdowns. Fonts load from Google Fonts, with local fallbacks.
-- `src/components/`: domain-specific forms, submissions, reviews, and discussions.
+- `src/components/`: domain-specific forms, submissions, reviews, crew actions, and onboarding.
 - `src/pages/`: routed views. `src/hooks/`: small fetch/mutation/session hooks.
-- `api/`: PHP front controller, route modules, prepared SQLite queries, native sessions, hashed single-use tokens, and an iCalendar feed.
+- `api/`: PHP front controller, role/privacy-aware route modules, prepared SQLite queries, native sessions, and hashed single-use email tokens.
 
 ### Browser appearance preference
 
@@ -43,7 +58,7 @@ The choice is stored only in a host-only `gr_theme` cookie (`Path=/`, `SameSite=
 
 ### Edition titles and same-year editions
 
-Each edition has its own **Edition title**, separate from its parent **Conference** and date range. Selecting a conference prefills its name; you can change it to e.g. **“JSNation Berlin 26”**. Titles are displayed exactly as entered throughout the UI, activity, and calendar feeds—no year is appended automatically. Custom titles are preserved when switching the selected conference or changing dates. There is no one-edition-per-year restriction: dates, submissions, attendance, and discussions remain tied to each edition's independent ID. Reviews remain shared at the conference level.
+Each edition has its own **Edition title**, separate from its parent **Conference** and date range. Selecting a conference prefills its name; admins can change it to e.g. **“JSNation Berlin 26”**. Titles are displayed exactly as entered—no year is appended automatically. Custom titles are preserved when switching the selected conference or changing dates. There is no one-edition-per-year restriction: dates, submissions, and attendance remain tied to each edition's independent ID. Reviews remain at the conference level, visible only to the author and friends.
 
 There is **no separate Year input**. First/last-day fields provide the calendar year, and date displays include it where useful. When starting from a previous edition, location/links can be reused, but dates are left for you to enter. Calendar event UIDs stay unchanged. The existing SQLite `year` column is retained only for compatibility and is derived from the first day (or last day when only that date is known); it is never appended to the title or used for edition ordering. Undated editions retain legacy metadata or use the current UTC year internally. Older API clients may still supply a year, but known dates take precedence. No additional schema migration or title rewrite is required for this change.
 
@@ -69,15 +84,9 @@ Logo downloads require PHP **cURL**. Supported formats are PNG, JPEG, GIF, WebP,
 
 Make `api/db/` writable by PHP; the logo subdirectories are created automatically. Both the FTP workflow and manual SSH deployment exclude `api/db/logos/` from upload/deletion. Include that directory alongside SQLite in server backups; it is intentionally not committed or bundled.
 
-### Copying and revoking invitations
+### Retired invitations and calendar
 
-In **The crew → Open invitations**, any signed-in member can **Copy link** or **Delete** an open invitation. Deleting requires confirmation and immediately invalidates the shared URL. Accepted invitations cannot be deleted or regenerated this way. Copying a current link does not rotate it. Clipboard restrictions fall back to a dialog with a selectable URL.
-
-New invite tokens remain hashed in SQLite for verification, with an additional **AES-256-GCM encrypted copy** in protected **`api/db/invite-links/`** for copying later. A random 32-byte server key is generated automatically as `key.bin`, under a file lock, with owner-only permissions. Each payload is authenticated against its invitation ID and token hash; tokens and keys are never stored in plaintext JSON, committed, bundled, or written to logs. PHP OpenSSL and writable `api/db/` storage are required. No extra GitHub secret or schema migration is needed.
-
-Old invitations only have irreversible token hashes. Their existing links continue to work; clicking Copy link asks before **creating a replacement**, which invalidates the old link but preserves the expiry date. A replacement is not generated if you cancel. Removing or accepting an invite also removes its encrypted copy.
-
-Both deployment methods preserve `api/db/invite-links/`. Back up the **entire directory, including `key.bin`**, with SQLite. Losing the key does not revoke already shared links, but makes them unrecoverable for copying; they then require explicitly confirmed regeneration. Never expose, commit, or replace the runtime encryption key during deployments.
+Existing invitation and calendar URLs no longer serve their former functionality. Their routes are not registered, and neither links nor controls appear in the app. Existing invitation rows, encrypted payloads/key, calendar tokens, and historical comments are retained, not deleted. Both deployment methods still preserve `api/db/invite-links/`; include the entire directory, including `key.bin`, in backups. Never expose or replace the runtime encryption key during deployments.
 
 ## Checks
 
@@ -95,7 +104,7 @@ pnpm exec playwright install chromium
 pnpm test:ui
 ```
 
-API tests use an isolated temporary SQLite database and PHP on port 8018. Browser tests use isolated temporary data, PHP on 8019 and Vite on 5179, without interrupting the usual dev server. They exercise first-user web setup, login, talks, conferences, reviews, editions, submissions, attendance, comments, mobile layout, and profile saving. Screenshots and traces go to ignored `test-results/`.
+API tests use an isolated temporary SQLite database and PHP on port 8018. Browser tests use isolated temporary data, PHP on 8019 and Vite on 5179, without interrupting the usual dev server. They exercise setup, signup/login, onboarding, roles, proposals, conferences, friend-only reviews/counts/plans, crew requests, unfriend/block, suspension, retired endpoints, mobile layout, and profile saving. Edition tests on port 8020 verify preserved legacy data and repeat-safe upgrades. Screenshots and traces go to ignored `test-results/`.
 
 ## Deploy to cyon
 
@@ -132,11 +141,11 @@ Deleting `APP_SETUP_KEY` and redeploying writes `setup_key => null`, explicitly 
 3. Deploy the latest frontend and API files using GitHub Actions. The workflow generates and uploads the production config automatically.
 4. Make `api/db/` writable by the PHP process using the hosting panel's ownership/permissions controls. If `db.sqlite` already exists, it must also be writable. Avoid world-writable (`777`) permissions.
 5. Open **https://greenroom.nico.dev/setup**. Enter your setup key, your name, and your email (for example `mail@nico.dev`). This creates the schema and first user and signs you in immediately, without sending email.
-6. Delete `APP_SETUP_KEY` from GitHub secrets and redeploy; changing secrets alone does not update the server. The setup endpoint also refuses all further bootstraps as soon as any user exists, even if you forget to remove the key. Future members join via invites.
+6. Delete `APP_SETUP_KEY` from GitHub secrets and redeploy; changing secrets alone does not update the server. The setup endpoint also refuses all further bootstraps as soon as any user exists, even if you forget to remove the key. Future members join through verified email signup.
 
 Setup is disabled by default, requires the same CSRF header as other writes, checks the secret before accessing the database, and uses a write transaction to prevent concurrent bootstraps. It does not reset or overwrite existing data. It can also create the first user when the schema exists but no users have been added yet.
 
-If setup succeeds but future sign-in emails do not arrive, check PHP `mail()` delivery and the sender domain's SPF/DKIM in your hosting panel. Keep the production `base_url` set to your actual domain so magic links and calendar URLs point to the right site.
+If setup succeeds but future sign-in emails do not arrive, check PHP `mail()` delivery and the sender domain's SPF/DKIM in your hosting panel. Keep the production `base_url` set to your actual domain so magic links point to the right site.
 
 ### Troubleshooting API errors
 
@@ -153,7 +162,7 @@ The JSON `server_error` response means PHP received the request but encountered 
 2. Set `DEPLOY_HOST` (and optionally `DEPLOY_DEST`) and run `bash deploy.sh`.
 3. On the server, create an ignored `api/config.local.php` with `env => production`, `base_url => https://greenroom.nico.dev`, and the desired `mail_from`.
 4. Ensure PHP can write `api/db/` and `api/db/sessions/`. These paths are blocked by Apache. Sessions live in this protected directory to support 180-day sessions on shared hosting.
-5. Run `php api/db/seed.php "Nico" nico@example.com` over SSH, then open the link.
+5. Run `php api/db/seed.php "Nico" mail@nico.dev` over SSH, then open the link.
 6. Configure SPF/DKIM for cyon's outgoing mail service. Magic links use PHP `mail()` in production.
 
 Manual SSH deployment preserves the live database, SQLite sidecar files, stored logos, encrypted invite links and their key, sessions, and local config. It builds static assets, uploads frontend and API separately, and runs CLI migrations. No Node process is needed in production.
@@ -166,10 +175,10 @@ curl -I https://greenroom.nico.dev/api/config.local.php
 curl https://greenroom.nico.dev/api/me
 ```
 
-The first two must return **403**; the third must return **401 JSON** when signed out. Check `/talks` loads the SPA directly. Test real magic-link mail delivery and a calendar subscription on the deployed host.
+The first two must return **403**; the third must return **401 JSON** when signed out. Check `/talks` redirects to sign-in, test real magic-link delivery/new signup, and verify member/admin permissions on the deployed host.
 
 ## Privacy and security
 
-Papers, notes, and abstract overrides are owner-only. Shared submissions expose public member data, title (unless hidden), and status—never abstracts. Shared entities are soft-deleted; private talk deletion is permanent and confirms first. Writes require the `X-Requested-With: green-room` header. Production sessions use Secure/HttpOnly/SameSite=Lax cookies; Secure is disabled only for local HTTP development.
+Proposals, titles, notes, abstracts, submission IDs/details, and outcomes are owner-only, including from admins. Friends only see distinct participating friends and manual attendance. Reviews and aggregates are friend-scoped. Catalog mutations/restoration and account administration require admin permissions in the API. Catalog entities are soft-deleted; private talk deletion is permanent and confirms first. Writes require the `X-Requested-With: green-room` header. Production sessions use Secure/HttpOnly/SameSite=Lax cookies; Secure is disabled only for local HTTP development.
 
 Metadata and logo fetching reject private/reserved addresses, pin DNS using cURL, revalidate every redirect, and limit response size and time. Metadata is best-effort; fields always remain editable. Logo content is validated before storage and is never executed or served directly from its filesystem path.

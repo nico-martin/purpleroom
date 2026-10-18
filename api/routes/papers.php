@@ -1,7 +1,7 @@
 <?php
 if (!defined('GREEN_ROOM')) exit;
 function paper_with_submissions(array $p): array {
-    $p['submissions'] = array_map(fn($s) => [...$s, 'edition' => edition((int) $s['edition_id']), 'conference' => conference((int) $s['conference_id'])], all('SELECT s.*,e.conference_id FROM submissions s JOIN editions e ON e.id=s.edition_id JOIN conferences c ON c.id=e.conference_id WHERE s.paper_id=? AND e.deleted_at IS NULL AND c.deleted_at IS NULL ORDER BY e.starts_on', [$p['id']]));
+    $p['submissions'] = array_map(fn($s) => [...$s, 'edition' => one('SELECT * FROM editions WHERE id=?',[$s['edition_id']]), 'conference' => one('SELECT * FROM conferences WHERE id=?',[$s['conference_id']])], all('SELECT s.*,e.conference_id FROM submissions s JOIN editions e ON e.id=s.edition_id WHERE s.paper_id=? ORDER BY e.starts_on', [$p['id']]));
     return $p;
 }
 route('GET', '/papers', fn() => json_response(array_map('paper_with_submissions', all('SELECT * FROM papers WHERE owner_id=? ORDER BY updated_at DESC', [require_login()['id']]))));

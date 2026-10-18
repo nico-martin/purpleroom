@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarDays, Mic2, Plus } from "lucide-react";
+import { ArrowRight, CalendarDays, Plus } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -52,10 +52,12 @@ export default function DashboardPage({ className = "" }: DashboardPageProps) {
         title={`${greeting}, ${user.name.split(" ")[0]}.`}
         description="Your next stage might be in here. Let's take a look."
         action={
-          <ButtonLink to="/conferences/new" variant="primary">
-            <Plus size={17} />
-            Add a conference
-          </ButtonLink>
+          user.role === "admin" && (
+            <ButtonLink to="/conferences/new" variant="primary">
+              <Plus size={17} />
+              Add a conference
+            </ButtonLink>
+          )
         }
       />
       <div className="mb-9 flex flex-wrap items-center gap-x-7 gap-y-3 border-y border-border py-4 text-sm">
@@ -101,26 +103,18 @@ export default function DashboardPage({ className = "" }: DashboardPageProps) {
               ) : (
                 <EmptyState
                   title="Your next stage is out there."
-                  description="Found a conference worth sharing? Add it and its CFP so the crew can get in on it."
+                  description="Explore conferences to find your next opportunity. Admins manage the conference catalog."
                   action={
-                    <ButtonLink to="/conferences/new" variant="dashed">
-                      <Plus size={15} />
-                      Add the first conference
-                    </ButtonLink>
+                    user.role === "admin" && (
+                      <ButtonLink to="/conferences/new" variant="dashed">
+                        <Plus size={15} />
+                        Add the first conference
+                      </ButtonLink>
+                    )
                   }
                 />
               )}
             </Card>
-            <p className="mt-3 flex items-center gap-2 text-xs text-muted">
-              <CalendarDays size={13} />
-              Don't miss a deadline.{" "}
-              <Link
-                to="/settings"
-                className="text-green underline underline-offset-4"
-              >
-                Subscribe to your calendar
-              </Link>
-            </p>
           </section>
           <section>
             <SectionHeader
@@ -138,76 +132,64 @@ export default function DashboardPage({ className = "" }: DashboardPageProps) {
             />
             <Card>
               {data.upcoming.length ? (
-                data.upcoming.map(
-                  ({ edition, conference, speaking, going, maybe }) => (
-                    <ListRow key={edition.id}>
-                      <div className="flex w-14 shrink-0 flex-col items-center border-r border-divider pr-4">
-                        <span className="font-mono text-xs uppercase text-muted">
-                          {formatDate(edition.starts_on, { month: "short" })}
-                        </span>
-                        <span className="mt-0.5 font-heading text-2xl">
-                          {formatDate(edition.starts_on, { day: "2-digit" })}
-                        </span>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <Link
-                          to={`/editions/${edition.id}`}
-                          className="font-heading text-base font-semibold hover:text-green"
-                        >
-                          {editionLabel(edition, conference.name)}
-                        </Link>
-                        <p className="mt-1 text-xs text-muted">
-                          {location(edition)} · {dateRange(edition)}
-                        </p>
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          {speaking.length > 0 && (
-                            <Badge tone="positive">
-                              <Mic2 size={11} />
-                              {speaking.length} speaking
-                            </Badge>
-                          )}
-                          {going.length > 0 && (
-                            <span className="text-xs text-muted">
-                              {going.length} going
-                            </span>
-                          )}
-                          {maybe.length > 0 && (
-                            <span className="text-xs text-muted">
-                              {maybe.length} maybe
-                            </span>
-                          )}
-                          {!speaking.length &&
-                            !going.length &&
-                            !maybe.length && (
-                              <span className="text-xs text-muted">
-                                Anyone heading this way?
-                              </span>
-                            )}
-                        </div>
-                      </div>
-                      <AvatarStack
-                        users={[
-                          ...new Map(
-                            [...speaking.map((s) => s.user), ...going].map(
-                              (u) => [u.id, u]
-                            )
-                          ).values(),
-                        ]}
-                      />
+                data.upcoming.map(({ edition, conference, going, maybe }) => (
+                  <ListRow key={edition.id}>
+                    <div className="flex w-14 shrink-0 flex-col items-center border-r border-divider pr-4">
+                      <span className="font-mono text-xs uppercase text-muted">
+                        {formatDate(edition.starts_on, { month: "short" })}
+                      </span>
+                      <span className="mt-0.5 font-heading text-2xl">
+                        {formatDate(edition.starts_on, { day: "2-digit" })}
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1">
                       <Link
-                        aria-label={`View ${editionLabel(edition, conference.name)}`}
                         to={`/editions/${edition.id}`}
-                        className="flex size-11 items-center justify-center text-muted hover:text-green"
+                        className="font-heading text-base font-semibold hover:text-green"
                       >
-                        <ArrowRight size={17} />
+                        {editionLabel(edition, conference.name)}
                       </Link>
-                    </ListRow>
-                  )
-                )
+                      <p className="mt-1 text-xs text-muted">
+                        {location(edition)} · {dateRange(edition)}
+                      </p>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        {going.length > 0 && (
+                          <span className="text-xs text-muted">
+                            {going.length} going
+                          </span>
+                        )}
+                        {maybe.length > 0 && (
+                          <span className="text-xs text-muted">
+                            {maybe.length} maybe
+                          </span>
+                        )}
+                        {!going.length && !maybe.length && (
+                          <span className="text-xs text-muted">
+                            Anyone heading this way?
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <AvatarStack
+                      users={[
+                        ...new Map(
+                          [...going, ...maybe].map((u) => [u.id, u])
+                        ).values(),
+                      ]}
+                    />
+                    <Link
+                      aria-label={`View ${editionLabel(edition, conference.name)}`}
+                      to={`/editions/${edition.id}`}
+                      className="flex size-11 items-center justify-center text-muted hover:text-green"
+                    >
+                      <ArrowRight size={17} />
+                    </Link>
+                  </ListRow>
+                ))
               ) : (
                 <EmptyState
                   title="Nothing on the horizon. Yet."
-                  description="Add an edition to a conference and it will find its way here."
+                  description="Set Going or Maybe on an edition, or connect with friends to see their plans here."
                   icon={<CalendarDays size={22} strokeWidth={1.5} />}
                 />
               )}
@@ -280,7 +262,7 @@ export default function DashboardPage({ className = "" }: DashboardPageProps) {
               variant="ghost"
               className="-ml-4 mt-2 text-green"
             >
-              Invite them in <ArrowRight size={15} />
+              Find your crew <ArrowRight size={15} />
             </ButtonLink>
           </div>
         </aside>

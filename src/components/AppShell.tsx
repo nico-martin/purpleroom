@@ -30,6 +30,7 @@ import {
 } from "../theme";
 import type { Me } from "../types";
 import cn from "../utils/classnames";
+import ProfileOnboarding from "./ProfileOnboarding";
 
 interface AppShellProps {
   className?: string;
@@ -59,6 +60,8 @@ export default function AppShell({ className = "" }: AppShellProps) {
     { to: "/talks", label: "My talks", icon: Mic2 },
     { to: "/crew", label: "The crew", icon: Users },
   ];
+  if (data.user.profile_complete === 0)
+    return <ProfileOnboarding onSaved={refresh} />;
   return (
     <div className={cn("min-h-screen", className)}>
       <aside
@@ -101,7 +104,7 @@ export default function AppShell({ className = "" }: AppShellProps) {
             onClick={() => setMenu(false)}
             className="mt-3 inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-green"
           >
-            Invite a friend <ArrowUpRight size={14} />
+            Find your crew <ArrowUpRight size={14} />
           </Link>
         </div>
         <div className="mt-auto space-y-1 pt-8" onClick={() => setMenu(false)}>
@@ -111,9 +114,19 @@ export default function AppShell({ className = "" }: AppShellProps) {
           >
             Settings
           </NavItem>
-          <NavItem to="/trash" icon={<Trash2 size={18} strokeWidth={1.6} />}>
-            Recently deleted
-          </NavItem>
+          {data.user.role === "admin" && (
+            <>
+              <NavItem to="/admin" icon={<Users size={18} strokeWidth={1.6} />}>
+                Manage members
+              </NavItem>
+              <NavItem
+                to="/trash"
+                icon={<Trash2 size={18} strokeWidth={1.6} />}
+              >
+                Recently deleted
+              </NavItem>
+            </>
+          )}
         </div>
         <div className="mt-5 border-t border-border pt-5">
           <Link
