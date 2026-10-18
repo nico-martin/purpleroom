@@ -30,6 +30,7 @@ import {
 } from "../theme";
 import type { Me } from "../types";
 import cn from "../utils/classnames";
+import AppFooter from "./AppFooter";
 import ProfileOnboarding from "./ProfileOnboarding";
 
 interface AppShellProps {
@@ -207,10 +208,7 @@ export default function AppShell({ className = "" }: AppShellProps) {
               context={{ ...data, refreshMe: refresh } satisfies AppContext}
             />
           </div>
-          <footer className="mt-14 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5 text-xs text-muted">
-            <span>Hand-picked conferences. First-hand experience.</span>
-            <span className="font-heading">See you backstage.</span>
-          </footer>
+          <AppFooter className="mt-14" showVersion />
         </main>
       </div>
     </div>

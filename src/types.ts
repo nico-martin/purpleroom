@@ -1,4 +1,5 @@
 import type { REVIEW_TAGS, SUBMISSION_STATUSES } from "./lib/constants";
+import type { ProfileLinks } from "./lib/profile";
 
 export type ReviewTag = keyof typeof REVIEW_TAGS;
 export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number];
@@ -8,7 +9,7 @@ export interface User {
   avatar_url: string | null;
   email?: string;
 }
-export interface Account extends User {
+export interface Account extends User, ProfileLinks {
   email: string;
   role: "member" | "admin";
   profile_complete: number;

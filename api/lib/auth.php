@@ -32,4 +32,4 @@ function login(int $id): void {
 }
 function public_user(array $user): array { return array_intersect_key($user, array_flip(['id', 'name', 'avatar_url'])); }
 function user_by_id(int $id): array { return public_user(one('SELECT id, name, avatar_url FROM users WHERE id = ?', [$id])); }
-function private_user(array $user): array { return array_intersect_key($user, array_flip(['id','name','avatar_url','email','role','profile_complete'])); }
+function private_user(array $user): array { return array_intersect_key($user, array_flip(['id','name','avatar_url','email','role','profile_complete',...PROFILE_LINK_FIELDS])); }

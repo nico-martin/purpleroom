@@ -9,6 +9,7 @@ import {
 } from "react-router-dom";
 
 import { api } from "../api";
+import AppFooter from "../components/AppFooter";
 import useMutation from "../hooks/useMutation";
 import {
   Brand,
@@ -169,9 +170,7 @@ export default function AuthPage({
             )}
           </Card>
         </main>
-        <footer className="border-t border-border pt-5 text-xs text-muted">
-          purpleroom © {new Date().getFullYear()}
-        </footer>
+        <AppFooter showVersion />
       </div>
     </div>
   );

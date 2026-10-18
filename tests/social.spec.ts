@@ -29,6 +29,23 @@ test("public signup requires verification and a display name; members cannot acc
   await expect(
     page.getByRole("heading", { name: "Welcome to the room." })
   ).toBeVisible();
+  const footer = page.locator("footer");
+  await expect(footer.getByLabel("App version", { exact: true })).toHaveText(
+    "dev"
+  );
+  await expect(
+    footer.getByRole("link", { name: "Nico Martin", exact: true })
+  ).toHaveAttribute("href", "https://nico.dev");
+  await expect(
+    footer.getByRole("link", { name: "Open source on GitHub", exact: true })
+  ).toHaveAttribute("href", "https://github.com/nico-martin/purpleroom/");
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth
+    )
+  ).toBe(true);
+  await expect(footer.getByLabel("App version", { exact: true })).toBeVisible();
   await page
     .getByLabel("Email address")
     .fill(`onboarding-${Date.now()}@example.com`);

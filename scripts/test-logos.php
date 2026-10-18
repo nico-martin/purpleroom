@@ -3,7 +3,7 @@ declare(strict_types=1);
 if (PHP_SAPI !== 'cli' || !getenv('GREEN_ROOM_DB')) exit(1);
 define('GREEN_ROOM', true);
 $config = require dirname(__DIR__) . '/api/config.php';
-foreach (['db', 'http', 'migrations', 'remote', 'logos'] as $file) require dirname(__DIR__) . '/api/lib/' . $file . '.php';
+foreach (['db', 'http', 'migrations', 'remote', 'logos', 'profiles'] as $file) require dirname(__DIR__) . '/api/lib/' . $file . '.php';
 function check(bool $value, string $message): void { if (!$value) throw new RuntimeException($message); }
 function rejects(callable $action, string $class): Throwable {
     try { $action(); } catch (Throwable $error) { check($error instanceof $class, 'Unexpected error: ' . $error->getMessage()); return $error; }
@@ -45,6 +45,30 @@ rejects(fn() => prepare_conference_logo($read($id)['logo_url'], null), Conferenc
 check(logo_filename('/api/conference-logos/' . $id . '/../secret.png', $id) === null, 'Traversal accepted.');
 check(logo_filename('/api/conference-logos/' . $id . '/logo.php', $id) === null, 'Executable extension accepted.');
 
+// Profile images share the logo validator/transport but have independent, member-owned storage.
+$profile = fn(): array => one('SELECT * FROM users WHERE id=?',[$uid]);
+$beforeAvatars = count($downloads);
+persist_profile(['avatar_url'=>'https://images.example/avatar.png','homepage_url'=>'https://example.com'], $profile(), $fetcher);
+$avatar = $profile()['avatar_url'];
+check(str_starts_with($avatar,'/api/avatars/' . $uid . '/avatar-'), 'Avatar was not stored locally.');
+check(file_get_contents(avatar_directory() . '/' . $uid . '/' . avatar_filename($avatar,$uid))===$png, 'Stored avatar bytes differ.');
+persist_profile(profile_fields(['name'=>'New name','avatar_url'=>$avatar],$profile()),$profile(),$fetcher);
+check(count($downloads)===$beforeAvatars+1 && $profile()['avatar_url']===$avatar, 'Saved avatar was unnecessarily downloaded or renamed.');
+check($profile()['homepage_url']==='https://example.com', 'Omitted profile links were lost.');
+rejects(fn()=>profile_fields(['avatar_url'=>str_replace('/avatars/'.$uid.'/','/avatars/999/',$avatar)],$profile()),AvatarException::class);
+rejects(fn()=>prepare_avatar('/api/avatars/999/avatar-'.str_repeat('a',16).'.png',$profile()),AvatarException::class);
+check(avatar_filename('/api/avatars/'.$uid.'/../secret.png',$uid)===null, 'Avatar traversal accepted.');
+check(avatar_filename('/api/avatars/'.$uid.'/avatar-'.str_repeat('a',16).'.php',$uid)===null, 'Avatar executable extension accepted.');
+rejects(fn()=>persist_profile(['name'=>'Do not save','avatar_url'=>'https://offline.example/avatar.png'],$profile(),function(){throw new RemoteResourceException('Unavailable');}),AvatarException::class);
+check($profile()['name']==='New name' && $profile()['avatar_url']===$avatar, 'Failed avatar import changed the profile.');
+rejects(fn()=>persist_profile(['name'=>'Still do not save','avatar_url'=>'https://images.example/html'],$profile(),fn()=>['body'=>'<html>not an image</html>']),AvatarException::class);
+check($profile()['name']==='New name', 'Invalid avatar changed profile fields.');
+persist_profile(['avatar_url'=>null],$profile(),function(){throw new RuntimeException('Removing an avatar must not fetch.');});
+check($profile()['avatar_url']===null && is_file(avatar_directory().'/'.$uid.'/'.avatar_filename($avatar,$uid)), 'Avatar removal must clear the URL without purging retained files.');
+update('users',$uid,['avatar_url'=>'https://legacy.example/avatar.png']);
+persist_profile(['name'=>'Migrated avatar'],$profile(),$fetcher);
+check($profile()['avatar_url']===$avatar && count($downloads)===$beforeAvatars+2, 'Legacy avatar did not migrate on an unrelated profile save.');
+
 foreach (['<html>Not an image</html>', '<svg><broken></svg>', str_repeat('a', LOGO_LIMIT + 1), substr_replace($png, pack('N', 9000), 16, 4)] as $invalid) rejects(fn() => validate_logo_image($invalid), ConferenceLogoException::class);
 $ico = pack('vvv', 0, 1, 1) . pack('CCCCvvVV', 1, 1, 0, 0, 1, 32, strlen($png), 22) . $png;
 check(validate_logo_image($ico) === 'ico', 'Valid ICO rejected.');
@@ -71,6 +95,8 @@ check(!str_contains($safeSvg, 'attacker.example') && !str_contains($safeSvg, 'ja
 check(!str_contains($safeSvg, '<script') && !str_contains($safeSvg, 'foreignObject') && !str_contains($safeSvg, '<animate') && !str_contains($safeSvg, '<set ') && !str_contains($safeSvg, 'onclick') && !str_contains($safeSvg, 'onload'), 'Active SVG elements/attributes survived.');
 check(str_contains($safeSvg, 'linearGradient') && str_contains($safeSvg, 'url(#brand)') && str_contains($safeSvg, 'clipPath') && str_contains($safeSvg, 'href="#shape"') && str_contains($safeSvg, 'class="brand"') && str_contains($safeSvg, 'viewBox="0 0 120 40"'), 'Ordinary logo artwork/styling was lost.');
 check(sanitize_svg_logo($safeSvg) === $safeSvg, 'SVG sanitization is not idempotent.');
+$svgAvatar = prepare_avatar('https://images.example/avatar.svg',$profile(),fn()=>['body'=>$svg]);
+check($svgAvatar['extension']==='svg' && $svgAvatar['bytes']===$safeSvg, 'Avatar SVGs must share the logo sanitizer.');
 check(svg_safe_value('url(#brand)') === 'url(#brand)', 'Local paint reference rejected.');
 foreach (['url(https://attacker.example/)', 'u/**/rl(https://attacker.example/)', 'u\\72l(https://attacker.example/)', 'expression(alert(1))', 'url(&quot;javascript:alert(1)&quot;)'] as $unsafeValue) check(svg_safe_value($unsafeValue) === null, 'Obfuscated external/active CSS survived.');
 check(svg_safe_stylesheet('@import "https://attacker.example/evil.css"; .x{fill:red}') === '', 'CSS imports survived.');

@@ -37,7 +37,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build production app
-        run: pnpm build
+        run: VITE_APP_VERSION="$(git rev-parse --short=7 HEAD)" pnpm build
 
       - name: Prepare and verify deployment bundle
         shell: bash
@@ -51,6 +51,7 @@ jobs:
             --exclude='db/db.sqlite*' \
             --exclude='db/sessions/' \
             --exclude='db/logos/' \
+            --exclude='db/avatars/' \
             --exclude='db/invite-links/' \
             --exclude='dev-router.php' \
             api/ "$bundle/api/"
@@ -63,10 +64,12 @@ jobs:
           test -s "$bundle/api/db/.htaccess"
           test -s "$bundle/api/db/schema.sql"
           test -s "$bundle/api/db/migrations/002_edition_titles.sql"
+          test -s "$bundle/api/db/migrations/004_profile_links.sql"
           test ! -e "$bundle/api/config.local.php"
           test ! -e "$bundle/api/db/db.sqlite"
           test ! -d "$bundle/api/db/sessions"
           test ! -d "$bundle/api/db/logos"
+          test ! -d "$bundle/api/db/avatars"
           test ! -d "$bundle/api/db/invite-links"
           echo "Frontend assets, PHP backend, and Apache protection files are ready."
 
@@ -121,6 +124,8 @@ jobs:
             api/db/sessions/**
             api/db/logos
             api/db/logos/**
+            api/db/avatars
+            api/db/avatars/**
             api/db/invite-links
             api/db/invite-links/**
             api/dev-router.php
@@ -133,5 +138,5 @@ jobs:
       - name: Deployment complete
         run: |
           echo "### Production files deployed" >> "$GITHUB_STEP_SUMMARY"
-          echo "Frontend bundles, PHP backend, and generated production config uploaded. Live database, sessions, stored logos, and encrypted invite-link storage were excluded." >> "$GITHUB_STEP_SUMMARY"
+          echo "Frontend bundles, PHP backend, and generated production config uploaded. Live database, sessions, stored logos/avatars, and encrypted invite-link storage were excluded." >> "$GITHUB_STEP_SUMMARY"
           echo 'First deployment: set APP_SETUP_KEY and visit /setup to initialize the database and first user. Delete APP_SETUP_KEY and redeploy after setup. Existing installations apply bundled database migrations automatically on the next API request.' >> "$GITHUB_STEP_SUMMARY"

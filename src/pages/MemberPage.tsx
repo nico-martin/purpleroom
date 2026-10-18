@@ -1,8 +1,11 @@
+import { ExternalLink } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 
 import CrewActions from "../components/CrewActions";
 import useApi from "../hooks/useApi";
 import { formatDate } from "../lib/format";
+import { PROFILE_LINKS } from "../lib/profile";
+import type { ProfileLinks } from "../lib/profile";
 import {
   Avatar,
   Badge,
@@ -17,7 +20,7 @@ import {
 import type { Relationship, User } from "../types";
 
 interface MemberProfile {
-  user: User;
+  user: User & ProfileLinks;
   relationship: Relationship;
   plans: {
     id: number;
@@ -55,6 +58,30 @@ export default function MemberPage() {
           onChanged={refresh}
         />
       </div>
+      {PROFILE_LINKS.some(({ field }) => data.user[field]) && (
+        <section className="mb-8">
+          <SectionHeader title="Find me online" />
+          <Card padded>
+            <div className="flex flex-wrap gap-x-6 gap-y-2">
+              {PROFILE_LINKS.map(
+                ({ field, label }) =>
+                  data.user[field] && (
+                    <a
+                      key={field}
+                      href={data.user[field]!}
+                      target="_blank"
+                      rel="noreferrer me"
+                      className="inline-flex min-h-11 items-center gap-2 text-sm text-purple hover:underline"
+                    >
+                      {label}
+                      <ExternalLink size={14} />
+                    </a>
+                  )
+              )}
+            </div>
+          </Card>
+        </section>
+      )}
       {["self", "friend"].includes(data.relationship) ? (
         <section>
           <SectionHeader title="Conference plans" />

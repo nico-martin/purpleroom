@@ -1,10 +1,11 @@
-import { Save } from "lucide-react";
+import { Save, X } from "lucide-react";
 import { useState } from "react";
 import type { FormEvent } from "react";
 
 import { api } from "../api";
 import useMutation from "../hooks/useMutation";
 import useSession from "../hooks/useSession";
+import { PROFILE_LINKS, profileLinkValues } from "../lib/profile";
 import {
   Avatar,
   Button,
@@ -16,6 +17,7 @@ import {
   PageHeader,
   SectionHeader,
 } from "../theme";
+import type { Account } from "../types";
 
 export default function SettingsPage({
   className = "",
@@ -25,17 +27,27 @@ export default function SettingsPage({
   const { user, refreshMe } = useSession();
   const [name, setName] = useState(user.name);
   const [avatar, setAvatar] = useState(user.avatar_url ?? "");
+  const [links, setLinks] = useState(() => profileLinkValues(user));
+  const storedAvatar = avatar.startsWith("/api/avatars/");
   const [saved, setSaved] = useState(false);
   const mutation = useMutation();
   function submit(event: FormEvent) {
     event.preventDefault();
     mutation.run(
       () =>
-        api("/me", {
+        api<{ user: Account }>("/me", {
           method: "PATCH",
-          body: { name, avatar_url: avatar || null },
+          body: {
+            name,
+            avatar_url: avatar || null,
+            ...Object.fromEntries(
+              PROFILE_LINKS.map(({ field }) => [field, links[field] || null])
+            ),
+          },
         }),
-      () => {
+      (result) => {
+        setAvatar(result.user.avatar_url ?? "");
+        setLinks(profileLinkValues(result.user));
         setSaved(true);
         refreshMe();
       }
@@ -67,7 +79,11 @@ export default function SettingsPage({
         <Card padded>
           <form onSubmit={submit} className="space-y-5">
             <div className="flex items-center gap-4">
-              <Avatar name={name || user.name} src={avatar} size="lg" />
+              <Avatar
+                name={name || user.name}
+                src={storedAvatar ? avatar : avatar ? user.avatar_url : null}
+                size="lg"
+              />
               <div>
                 <p className="font-heading text-lg">{name || user.name}</p>
                 <p className="text-xs text-muted">{user.email} · private</p>
@@ -85,13 +101,37 @@ export default function SettingsPage({
                 autoComplete="name"
               />
             </Field>
+            {avatar && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-3">
+                <p className="text-sm text-muted">
+                  {storedAvatar
+                    ? "Stored with purpleroom"
+                    : "Image will be downloaded when you save."}
+                </p>
+                <Button
+                  variant="ghost"
+                  aria-label="Remove profile image"
+                  onClick={() => {
+                    setAvatar("");
+                    setSaved(false);
+                  }}
+                >
+                  <X size={15} />
+                  Remove image
+                </Button>
+              </div>
+            )}
             <Field
-              label="Avatar URL (optional)"
-              hint="No image? Initials look good on you, too."
+              label={
+                storedAvatar
+                  ? "Replace profile image from URL (optional)"
+                  : "Avatar URL (optional)"
+              }
+              hint="Downloaded on save and stored with purpleroom. PNG, JPEG, GIF, WebP, AVIF, ICO or sanitised SVG, up to 5 MB. No image? We'll use initials."
             >
               <Input
                 type="url"
-                value={avatar}
+                value={storedAvatar ? "" : avatar}
                 onChange={(e) => {
                   setAvatar(e.target.value);
                   setSaved(false);
@@ -99,6 +139,32 @@ export default function SettingsPage({
                 placeholder="https://…"
               />
             </Field>
+            <div className="space-y-5 border-t border-divider pt-5">
+              <h3 className="text-lg">Homepage and socials</h3>
+              <p className="text-sm text-muted">
+                Optional links shown on your profile to signed-in members. Enter
+                full URLs; Mastodon supports any instance.
+              </p>
+              <div className="grid gap-5 sm:grid-cols-2">
+                {PROFILE_LINKS.map(({ field, label, placeholder }) => (
+                  <Field key={field} label={label}>
+                    <Input
+                      type="url"
+                      maxLength={2048}
+                      value={links[field]}
+                      placeholder={placeholder}
+                      onChange={(e) => {
+                        setLinks((current) => ({
+                          ...current,
+                          [field]: e.target.value,
+                        }));
+                        setSaved(false);
+                      }}
+                    />
+                  </Field>
+                ))}
+              </div>
+            </div>
             {mutation.error && <Notice tone="error">{mutation.error}</Notice>}
             {saved && (
               <Notice tone="success">

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -9,6 +9,55 @@ import {
   productionConfig,
   renderConfig,
 } from "./generate-production-config.mjs";
+
+test("profile image runtime storage is protected from Git and FTP deployments", async () => {
+  const workflow = await readFile(".github/workflows/deploy.yml", "utf8");
+  assert.ok(workflow.includes("--exclude='db/avatars/'"));
+  assert.ok(workflow.includes('test ! -d "$bundle/api/db/avatars"'));
+  assert.ok(workflow.includes("            api/db/avatars\n"));
+  assert.ok(workflow.includes("            api/db/avatars/**"));
+  assert.ok(
+    (await readFile(".gitignore", "utf8"))
+      .split("\n")
+      .includes("api/db/avatars/")
+  );
+});
+
+test("PURPLEROOM_ENV selects runtime mode and local config keeps precedence", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "purpleroom-runtime-config-"));
+  try {
+    const path = join(directory, "config.php");
+    await writeFile(path, await readFile("api/config.php", "utf8"));
+    function load(value) {
+      const result = spawnSync(
+        "php",
+        [
+          "-r",
+          "define('GREEN_ROOM', true); echo json_encode(require $argv[1]);",
+          path,
+        ],
+        {
+          env: { ...process.env, PURPLEROOM_ENV: value },
+          encoding: "utf8",
+        }
+      );
+      assert.equal(result.status, 0, result.stderr);
+      return JSON.parse(result.stdout);
+    }
+    assert.equal(load("dev").env, "dev");
+    assert.equal(load("dev").base_url, "http://localhost:5173");
+    assert.equal(load("").env, "production");
+    assert.equal(load("production").base_url, "https://greenroom.nico.dev");
+    await writeFile(
+      join(directory, "config.local.php"),
+      "<?php return ['env' => 'production', 'base_url' => 'https://example.com'];"
+    );
+    assert.equal(load("dev").env, "production");
+    assert.equal(load("dev").base_url, "https://example.com");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 
 test("production defaults disable setup and normalize the origin", () => {
   assert.deepEqual(

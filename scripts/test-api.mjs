@@ -9,7 +9,7 @@ const directory = await mkdtemp(join(tmpdir(), "purpleroom-api-"));
 const setupKey = randomBytes(32).toString("hex");
 const env = {
   ...process.env,
-  GREEN_ROOM_ENV: "dev",
+  PURPLEROOM_ENV: "dev",
   GREEN_ROOM_DB: join(directory, "test.sqlite"),
   GREEN_ROOM_SETUP_KEY: setupKey,
 };
@@ -44,12 +44,22 @@ function client() {
     });
     if (response.headers.has("set-cookie"))
       cookie = response.headers.get("set-cookie").split(";")[0];
-    const text = await response.text();
+    const bytes = Buffer.from(await response.arrayBuffer());
+    const text = bytes.toString("utf8");
     assert.equal(
       response.status,
       expected,
       `${method} ${path}: ${text}\n${log}`
     );
+    if (response.headers.get("content-type")?.startsWith("image/")) {
+      assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+      assert.equal(response.headers.get("cache-control"), "private, no-store");
+      assert.equal(response.headers.get("vary"), "Cookie");
+      assert.ok(
+        response.headers.get("content-security-policy").includes("sandbox")
+      );
+      return bytes;
+    }
     if (
       text &&
       response.headers.get("content-type")?.includes("application/json")
@@ -150,6 +160,81 @@ try {
   const a = await signup(alice, "alice@example.com", "Alice");
   const b = await signup(bob, "bob@example.com", "Bob");
   const s = await signup(stranger, "stranger@example.com", "Stranger");
+  const links = {
+    homepage_url: "https://bob.example",
+    github_url: "https://github.com/bob",
+    linkedin_url: "https://www.linkedin.com/in/bob",
+    x_url: "https://x.com/bob",
+    bluesky_url: "https://bsky.app/profile/bob.example",
+    instagram_url: "https://www.instagram.com/bob",
+    youtube_url: "https://www.youtube.com/@bob",
+    mastodon_url: "https://any-instance.example/@bob",
+  };
+  const linked = (await bob("/me", "PATCH", links)).user;
+  for (const [key, value] of Object.entries(links))
+    assert.equal(linked[key], value);
+  const memberProfile = await alice(`/users/${b.id}`);
+  assert.equal(memberProfile.user.email, undefined);
+  for (const [key, value] of Object.entries(links))
+    assert.equal(
+      memberProfile.user[key],
+      value,
+      "Profile links are visible to signed-in non-friends"
+    );
+  await bob("/me", "PATCH", { name: "Bob" });
+  assert.equal(
+    (await bob("/me")).user.github_url,
+    links.github_url,
+    "Unrelated edits retain links"
+  );
+  for (const value of [
+    "javascript:alert(1)",
+    "data:text/html,hi",
+    "ftp://example.com/a",
+    "https://user:password@example.com",
+    "https://example.com/" + "a".repeat(2048),
+    {},
+    23,
+  ])
+    await bob("/me", "PATCH", { github_url: value }, 422);
+  await bob(
+    "/me",
+    "PATCH",
+    {
+      name: "Do not save",
+      avatar_url: "http://127.0.0.1/avatar.png",
+      github_url: "https://github.com/changed",
+    },
+    422
+  );
+  assert.equal((await bob("/me")).user.name, "Bob");
+  assert.equal(
+    (await bob("/me")).user.github_url,
+    links.github_url,
+    "Failed avatar import must not save other profile changes"
+  );
+  const avatarPath = cli(
+    `
+    foreach (['http','remote','logos','profiles'] as $file) require 'api/lib/' . $file . '.php';
+    $svg='<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" onload="alert(1)"><rect width="40" height="40" fill="rebeccapurple"/><script>alert(2)</script></svg>';
+    $extension=validate_logo_image($svg,$safe);
+    $path=store_avatar((int)$argv[1],['bytes'=>$safe,'extension'=>$extension]);
+    update('users',(int)$argv[1],['avatar_url'=>$path]); echo $path;
+  `,
+    [String(b.id)]
+  ).trim();
+  const avatarBytes = await alice(avatarPath.slice(4));
+  assert.ok(avatarBytes.toString("utf8").includes("<svg"));
+  assert.ok(
+    !avatarBytes.toString("utf8").includes("onload") &&
+      !avatarBytes.toString("utf8").includes("<script")
+  );
+  await anonymous(avatarPath.slice(4), "GET", undefined, 401);
+  await alice("/me", "PATCH", { avatar_url: avatarPath }, 422);
+  await bob("/me", "PATCH", { avatar_url: avatarPath, name: "Bob" });
+  assert.equal((await bob("/me")).user.avatar_url, avatarPath);
+  await bob("/me", "PATCH", { mastodon_url: "" });
+  assert.equal((await bob("/me")).user.mastodon_url, null);
   assert.equal((await alice("/users")).length, 4);
   assert.ok((await alice("/users")).every((u) => !u.email && !u.cal_token));
   await alice("/me", "PATCH", {
@@ -362,6 +447,7 @@ try {
   await alice(`/crew/${b.id}/request`, "POST");
   await bob(`/crew/${a.id}/accept`, "POST");
   await bob(`/crew/${a.id}/block`, "POST", undefined, 204);
+  await alice(avatarPath.slice(4), "GET", undefined, 404);
   assert.ok(!(await alice("/users")).some((u) => u.id === b.id));
   await alice(`/users/${b.id}`, "GET", undefined, 404);
   await alice(`/crew/${b.id}/request`, "POST", undefined, 404);
@@ -390,6 +476,7 @@ try {
     email: "bob@example.com",
   });
   await admin(`/admin/users/${b.id}`, "PATCH", { suspended: true });
+  await stranger(avatarPath.slice(4), "GET", undefined, 404);
   await bob("/me", "GET", undefined, 401);
   assert.ok(!(await alice("/users")).some((u) => u.id === b.id));
   assert.equal((await alice(`/editions/${e.id}`)).submitted_friends.length, 0);
@@ -439,10 +526,13 @@ try {
   await bob(`/submissions/${sub.id}`, "DELETE", undefined, 204);
   assert.equal((await alice(`/editions/${e.id}`)).submitted_friends.length, 0);
   await bob(`/papers/${paper.id}`, "DELETE", undefined, 204);
+  await bob("/me", "PATCH", { avatar_url: null });
+  await bob(avatarPath.slice(4), "GET", undefined, 404);
   for (const secret of [
     "/db/db.sqlite",
     "/db/schema.sql",
     "/db/invite-links/key.bin",
+    "/db/avatars/1/avatar.png",
     "/lib/db.php",
     "/config.php",
     "/config.local.php",

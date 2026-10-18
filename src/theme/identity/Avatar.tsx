@@ -21,7 +21,7 @@ export default function Avatar({
   size = "md",
   className = "",
 }: AvatarProps) {
-  const [failed, setFailed] = useState(false);
+  const [failedSource, setFailedSource] = useState<string | null>(null);
   return (
     <span
       title={name}
@@ -37,12 +37,12 @@ export default function Avatar({
         className
       )}
     >
-      {src && !failed ? (
+      {src && failedSource !== src ? (
         <img
           src={src}
           alt={name}
           className="size-full object-cover"
-          onError={() => setFailed(true)}
+          onError={() => setFailedSource(src)}
           referrerPolicy="no-referrer"
         />
       ) : (

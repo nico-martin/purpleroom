@@ -2,7 +2,7 @@ import { spawn, spawnSync } from "node:child_process";
 
 const migration = spawnSync("php", ["api/db/migrate.php"], { stdio: "inherit" });
 if (migration.status !== 0) process.exit(migration.status ?? 1);
-const env = { ...process.env, GREEN_ROOM_ENV: "dev" };
+const env = { ...process.env, PURPLEROOM_ENV: "dev" };
 const apiPort = process.env.GREEN_ROOM_API_PORT || "8000";
 const children = [
   spawn("php", ["-S", `127.0.0.1:${apiPort}`, "-t", ".", "api/dev-router.php"], { stdio: "inherit", env }),

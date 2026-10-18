@@ -8,7 +8,7 @@ import { join } from "node:path";
 const directory = await mkdtemp(join(tmpdir(), "green-room-editions-"));
 const env = {
   ...process.env,
-  GREEN_ROOM_ENV: "dev",
+  PURPLEROOM_ENV: "dev",
   GREEN_ROOM_DB: join(directory, "db.sqlite"),
 };
 const origin = "http://127.0.0.1:8020";
@@ -113,9 +113,10 @@ try {
     )
   );
   assert.deepEqual(
-    preserved.users.map(
-      ({ role, suspended, profile_complete, session_version, ...legacy }) =>
-        legacy
+    preserved.users.map((user, index) =>
+      Object.fromEntries(
+        Object.keys(fixture.users[index]).map((key) => [key, user[key]])
+      )
     ),
     fixture.users
   );

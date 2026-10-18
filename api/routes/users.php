@@ -2,13 +2,14 @@
 if (!defined('GREEN_ROOM')) exit;
 route('GET', '/me', function () { json_response(['user' => private_user(require_login())]); });
 route('PATCH', '/me', function () {
-    $data = fields(body(), ['name', 'avatar_url']);
+    $user = require_login();
+    $data = profile_fields(body(), $user);
     if (array_key_exists('name', $data)) required($data, ['name']);
     if (isset($data['name'])) {
         if (strlen($data['name']) > 200) fail(422, 'validation', 'Keep your display name under 200 characters.');
         $data['profile_complete'] = 1;
     }
-    update('users', (int) require_login()['id'], $data);
+    persist_profile($data, $user);
     json_response(['user' => private_user(require_login())]);
 });
 route('GET', '/users', function () {
@@ -22,5 +23,5 @@ route('GET', '/users/{id}', function ($p) {
     if (in_array($state, ['self','friend'], true)) {
         $plans = all('SELECT a.status,e.id,e.title,e.starts_on,e.ends_on,e.city,e.country,e.online,e.conference_id FROM attendance a JOIN editions e ON e.id=a.edition_id JOIN conferences c ON c.id=e.conference_id WHERE a.user_id=? AND e.deleted_at IS NULL AND c.deleted_at IS NULL ORDER BY e.starts_on', [$user['id']]);
     }
-    json_response(['user'=>public_user($user), 'relationship'=>$state, 'plans'=>$plans]);
+    json_response(['user'=>profile_details($user), 'relationship'=>$state, 'plans'=>$plans]);
 });

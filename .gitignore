@@ -3,6 +3,7 @@ dist/
 api/db/db.sqlite*
 api/db/sessions/
 api/db/logos/
+api/db/avatars/
 api/db/invite-links/
 api/config.local.php
 *.log
