@@ -32,7 +32,7 @@ export default function Badge({
           "bg-soon text-soon-ink": tone === "soon",
           "bg-info text-info-ink": tone === "info",
           "bg-declined text-declined-ink": tone === "declined",
-          "bg-green text-surface": tone === "solid",
+          "bg-green text-on-purple": tone === "solid",
           "bg-ink text-surface": tone === "ink",
           "font-mono": mono,
         },

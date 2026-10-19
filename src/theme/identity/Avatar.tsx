@@ -13,7 +13,7 @@ const colors = [
   "bg-avatar-purple",
   "bg-avatar-orange",
   "bg-avatar-blue",
-  "bg-green",
+  "bg-avatar-brand",
 ];
 export default function Avatar({
   name,

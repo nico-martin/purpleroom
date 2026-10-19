@@ -18,6 +18,7 @@
   --color-purple: #663399;
   --color-purple-deep: #3d1f5c;
   --color-purple-soft: #eee5f5;
+  --color-on-purple: #ffffff;
   /* Compatibility aliases for existing shared utility classes. */
   --color-green: var(--color-purple);
   --color-green-deep: var(--color-purple-deep);
@@ -32,8 +33,9 @@
   --color-declined: #f1edec;
   --color-declined-ink: #6b4a45;
   --color-avatar-purple: #8953ad;
-  --color-avatar-orange: #bf5b32;
+  --color-avatar-orange: #b8562f;
   --color-avatar-blue: #33759e;
+  --color-avatar-brand: #663399;
 }
 
 @layer base {
@@ -91,6 +93,7 @@
   --color-purple: #c49ae8;
   --color-purple-deep: #e7d2f5;
   --color-purple-soft: #443052;
+  --color-on-purple: #201827;
   --color-urgent: #4d2c29;
   --color-urgent-ink: #ffb1a9;
   --color-soon: #483d25;
