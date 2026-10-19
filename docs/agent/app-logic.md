@@ -186,6 +186,7 @@ The crew screen provides **My crew**, **All members**, **Requests**, and **Block
 - “Around the room” shows at most the latest ten catalog additions and viewer-visible review updates, newest first. Catalog-addition activity excludes suspended/blocked authors; the shared catalog itself remains available.
 - Activity never exposes submission outcomes, proposal titles, per-member proposal totals, or retired comments.
 - Light, Dark, and System appearance modes are browser-specific. The preference survives reload/sign-out in a cookie, not in the member account or local storage. System mode follows OS appearance, and the preference is applied before the app renders.
+- Solid purple controls use a dedicated contrasting foreground (white in light mode, deep ink in dark mode). Initials avatars keep dark, theme-independent backgrounds with white text. These text/background pairs meet WCAG AA normal-text contrast (at least 4.5:1), including primary-control hover states.
 
 ## 10. Deletion, restoration, and retained data
 

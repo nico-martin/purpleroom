@@ -17,7 +17,7 @@ export default function ButtonLink({
       className={cn(
         "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors",
         {
-          "border border-green bg-green text-surface hover:bg-green-deep":
+          "border border-green bg-green text-on-purple hover:bg-green-deep":
             variant === "primary",
           "border border-field bg-surface hover:bg-ground":
             variant === "secondary",
