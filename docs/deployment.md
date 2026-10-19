@@ -7,14 +7,23 @@ For product behaviour, see [app logic](agent/app-logic.md). For local developmen
 ## Hosting requirements
 
 - HTTPS and Apache with `.htaccess` rewrites enabled.
-- PHP 8.3+ with PDO SQLite. Enable PHP cURL for metadata/logo downloads and DOM for metadata parsing and SVG sanitisation.
+- PHP 8.3+ with PDO SQLite. Enable PHP cURL for SMTP (with SMTP/SMTPS and TLS support) and metadata/logo downloads, and DOM for metadata parsing and SVG sanitisation.
 - PHP can write `api/db/`, the SQLite file/sidecars, and private runtime subdirectories. Use appropriate ownership/permissions; avoid world-writable `777` directories.
-- Working PHP `mail()` delivery, with sender-domain SPF/DKIM configured in the hosting panel.
+- Either authenticated SMTP delivery or working host PHP `mail()` delivery. Configure the sender domain's SPF/DKIM with your mail provider and use a permitted/verified sender address.
 - A document root containing the built frontend and `api/`. Direct access to database files, config, libraries, and routes must remain denied.
 
 ## GitHub configuration
 
-[The workflow](../.github/workflows/deploy.yml) deploys on pushes to `main` or manual **Run workflow**. Configure repository Actions secrets:
+[The workflow](../.github/workflows/deploy.yml) deploys on pushes to `main` or manual **Run workflow**. Configure these repository **Actions variables** (not secrets):
+
+| Variable | Purpose |
+| --- | --- |
+| `APP_BASE_URL` | Required HTTPS origin, without a path, query, credentials, or fragment. |
+| `APP_MAIL_FROM` | Optional sender; defaults to `purpleroom <noreply@nico.dev>`. |
+| `SMTP_HOST` | Optional SMTP hostname only, e.g. `smtp.example.com`; do not include a scheme or port. Required together with username/password to enable SMTP. |
+| `SMTP_USERNAME` | SMTP authentication username. |
+
+Configure these repository **Actions secrets**:
 
 | Secret | Purpose |
 | --- | --- |
@@ -22,23 +31,32 @@ For product behaviour, see [app logic](agent/app-logic.md). For local developmen
 | `FTP_USERNAME` | FTP account username. |
 | `FTP_PASSWORD` | FTP account password. |
 | `FTP_DEPLOY_PATH` | App document root relative to the FTP account; must end with `/`. |
-| `APP_BASE_URL` | Required HTTPS origin, without a path, query, credentials, or fragment. |
-| `APP_MAIL_FROM` | Optional sender; defaults to `purpleroom <noreply@nico.dev>`. |
 | `APP_SETUP_KEY` | Optional unique secret of at least 32 characters, used only for first-admin setup. |
+| `SMTP_PASSWORD` | SMTP authentication password or provider app password. |
+| `SMTP_PORT` | Optional port, default `587` for `tls`, `465` for `ssl`. |
+| `SMTP_ENCRYPTION` | Optional `tls` for required STARTTLS (default), or `ssl` for implicit TLS. Plaintext SMTP is not supported. |
 
 Default transport is explicit FTPS on port 21 with strict certificate verification. Optional Actions variables `FTP_PROTOCOL` (`ftps`, `ftps-legacy`, or `ftp`) and `FTP_PORT` can match the host. Prefer encrypted FTPS; plain FTP exposes credentials and files in transit.
 
 The deployed origin and FTP destination come from configuration, not the repository name. Do not change them simply because branding changes.
 
+### Email delivery
+
+Set `SMTP_HOST`, `SMTP_USERNAME`, and `SMTP_PASSWORD` to use your SMTP provider. Port 587 with `SMTP_ENCRYPTION=tls` is the default; for implicit TLS on port 465 set `SMTP_ENCRYPTION=ssl`. Set `APP_MAIL_FROM` to a sender your provider allows. PHP cURL handles authentication and TLS with certificate/hostname verification and bounded timeouts; no Composer installation is required on the server.
+
+If no SMTP settings are set, sign-in emails use PHP `mail()`. Partial or invalid SMTP settings fail configuration generation before upload. A delivery failure after deployment is logged safely and does **not** cause an automatic downgrade to PHP mail or unencrypted SMTP. Removing all SMTP variables and secrets and redeploying explicitly restores the PHP transport.
+
+Emails contain a selectable six-digit sign-in code in branded HTML and a plain-text alternative, not an authentication link; neither format loads remote images. Codes expire after 15 minutes and work only in the browser request that issued them. Local development displays codes without sending mail, even if SMTP is configured. For manual local configuration, use the commented `smtp_*` keys in `api/config.example.php`. An optional locally configured `smtp_ca_file` can trust a private CA bundle; TLS verification must remain enabled.
+
 ## What a deployment does
 
 1. Installs locked dependencies with pnpm and builds the React frontend, injecting the checked-out commit's short hash as `VITE_APP_VERSION`. The footer displays `version: dev-HASH` (or `version: dev-local` for local builds without metadata); it identifies the deployed frontend, not the latest remote commit after deployment.
 2. Stages the frontend output and PHP API, including Apache protection files and SQL migrations; excludes runtime data, local config, and the development router.
-3. Generates `api/config.local.php` from `APP_*` secrets, with production mode forced on. Invalid required settings stop deployment before upload.
+3. Generates `api/config.local.php` from `APP_*` and `SMTP_*` variables and secrets, with production mode forced on. Invalid required settings stop deployment before upload.
 4. Uploads incrementally through `SamKirkland/FTP-Deploy-Action`, with deployments serialised and `dangerous-clean-slate` disabled.
 5. Removes the generated config from the runner, including on failure.
 
-**GitHub secrets are the source of truth for production config. Each deployment overwrites manual edits to the server config.** Changing a secret alone does not change the host until the workflow deploys again. Secrets must never enter frontend bundles, uploaded artifacts, or logs. The workflow builds/deploys; run the documented test suites before releasing changes.
+**GitHub Actions variables and secrets are the source of truth for production config. Each deployment overwrites manual edits to the server config.** Changing a variable or secret alone does not change the host until the workflow deploys again. Secrets must never enter frontend bundles, uploaded artifacts, or logs. The workflow builds/deploys; run the documented test suites before releasing changes.
 
 ## First installation without server CLI access
 
@@ -63,6 +81,7 @@ Initialised databases apply bundled numbered migrations automatically on the nex
 - Migration 005 adds directly owned, optionally talk-linked submissions for “Topic to be agreed”. It rebuilds the submissions table transactionally, backfills owners, and retains IDs, statuses, dates, and legacy fields. Back up the database before deployment; no manual SQL or server CLI step is required.
 - Migration 006 adds optional private submission notes. Existing rows start with empty notes; all other fields are retained.
 - Migration 007 adds conference topic tags, initialising existing conferences to an empty tag list without changing their other data.
+- Migration 008 adds hashed, request-bound login codes and attempt counts without changing accounts or existing tokens. Already-issued email/CLI links remain usable; new public requests send codes instead.
 - Historical data remains stored even when its feature is retired. Existing invitation and calendar URLs no longer provide functionality.
 - Rollback planning must account for the database schema as well as uploaded files; restoring an older frontend alone does not undo a migration.
 
@@ -104,8 +123,8 @@ Test real email signup/login, required profile completion, initial-admin access,
 | `database_unavailable` (503) | PDO SQLite is enabled for the site's PHP version. |
 | `storage_unavailable` (503) | Database, `api/db/`, WAL sidecars, and session-directory ownership/write permissions. |
 | Generic `server_error` (500) | Hosting-panel PHP logs; database/session errors and extension availability. Details are intentionally not sent to visitors. |
-| Email link never arrives | PHP `mail()` delivery, sender/SPF/DKIM, spam filtering, request rate limits, and suspension status. |
-| Wrong origin in email links | `APP_BASE_URL`, then redeploy the generated config. |
+| Sign-in code never arrives | Selected SMTP/PHP transport, SMTP host/port/encryption/credentials, certificate trust, allowed sender/SPF/DKIM, spam filtering, request rate limits, and suspension status. Redeploy after changing settings. |
+| Code rejected | Use the newest email's code in the browser/tab that requested it. Codes expire after 15 minutes and lock after five wrong guesses; request a new one. |
 | Setup still enabled after secret removal | Run a new deployment; changing the secret alone does not rewrite server config. |
 | Logo/avatar import fails | PHP cURL/DOM, image validity/size, reachable public URL, and logo/avatar-storage permissions. Failed imports leave the corresponding catalog/profile data unchanged. |
 

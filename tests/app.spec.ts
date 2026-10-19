@@ -13,10 +13,11 @@ test("the crew can take a conference from shortlist to stage", async ({ page }) 
   await page.goto("/talks");
   await expect(page.getByRole("heading", { name: "Welcome to the room." })).toBeVisible();
   await page.getByLabel("Email address").fill("ui-test@example.com");
-  await page.getByRole("button", { name: "Send me a sign-in link" }).click();
+  await page.getByRole("button", { name: "Send me a code" }).click();
   await expect(page.getByText("Check your inbox.")).toBeVisible();
-  const link = await page.getByRole("link", { name: "Open your sign-in link" }).getAttribute("href");
-  await page.goto(new URL(link!).pathname);
+  const code = await page.getByTestId("dev-login-code").textContent();
+  await page.getByLabel("Sign-in code", { exact: true }).fill(code!);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Ideas looking for a stage." })).toBeVisible();
   await page.getByRole("button", { name: "New talk", exact: true }).click();
   await page.getByLabel("Talk title", { exact: true }).fill("The web is for everyone");

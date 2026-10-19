@@ -53,7 +53,7 @@ PURPLEROOM_ENV=dev php api/db/seed.php "Nico" mail@nico.dev
 
 The seed grants admin on creation only for `mail@nico.dev`; arbitrary seeded/publicly registered addresses are members. It does not reset an existing account's role. The protected `/setup` route is the first-admin path for fresh hosted installations; see the deployment guide.
 
-- Email signup/login exposes the sign-in link only in development; production uses PHP `mail()`.
+- Email signup/login sends six-digit codes; only development responses expose the code (never log it). Production uses authenticated TLS SMTP when the `SMTP_*` settings are complete, otherwise PHP `mail()`; both send multipart HTML/plain-text messages. Local CLI seed links and already-issued links remain supported, but public requests never issue new links.
 - `api/config.local.php` is ignored and overrides defaults. Never switch a public site to development mode.
 - Use `PURPLEROOM_ENV` for runtime mode (`dev` locally; production by default). Other environment names remain `GREEN_ROOM_DB`, `GREEN_ROOM_API_PORT`, and `GREEN_ROOM_SETUP_KEY`. Use an isolated database/ports for tests; do not run migrations against user data just to inspect it.
 
@@ -82,7 +82,8 @@ The seed grants admin on creation only for `mail@nico.dev`; arbitrary seeded/pub
 - Submissions have their own `owner_id`; `paper_id` is nullable for “Topic to be agreed”. Do not infer submission ownership or participation through an inner join to `papers`: that drops unassigned opportunities. Validate any linked proposal against the owner. Keep owner-only lists, edition/dashboard data, and friend counts consistent. Attaching a talk must update the existing submission without resetting its status/date or creating a placeholder library entry.
 - Submission `notes` are owner-only and distinct from proposal notes. Preserve them on status-only updates and talk attachment; never add them to shared participation/attendance/activity payloads. They are edited through `SubmissionEditor` for linked and unassigned submissions alike.
 - Use transactions/constraints for verification, crossed requests, blocking, migrations, and last-admin safeguards. Suspension increments session versions so old sessions remain invalid after restoration.
-- Preserve throttling: email requests 5/address/hour and 30/IP/hour; verification 100/IP/hour; crew request actions 30/member/hour. Rate-limit keys are hashed. Never expose production sign-in links or tokens in client responses/logs.
+- Preserve throttling: email requests 5/address/hour and 30/IP/hour; verification 100/IP/hour; crew request actions 30/member/hour. Rate-limit keys are hashed. Login codes expire in 15 minutes, allow at most five wrong guesses, and require the high-entropy request ID. Store only request/code hashes, atomically increment attempts/consume codes, and invalidate older codes on resend. Never expose production codes, sign-in links, or tokens in client responses/logs. Keep pending email/request IDs (not codes) only in tab-scoped session storage.
+- Email rendering and transport live in `api/lib/mail.php`. Use inline-styled, purple-branded HTML with a plain-text MIME alternative, no remote tracking assets, and a selectable six-digit code (validate strictly before rendering). SMTP uses PHP cURL, required STARTTLS/implicit TLS, certificate/hostname verification, TLS 1.2+, and bounded timeouts. Never add plaintext/verification-off fallbacks or verbose SMTP logging. Failed delivery discards the pending code while preserving the generic public auth response. Validate complete SMTP settings in the production config generator and keep secrets out of frontend build environments.
 - Metadata/logo fetching must retain private/reserved-IP rejection, pinned DNS, redirect revalidation, size/time limits, and no forwarded cookies/credentials. Logo imports allow validated image formats, at most 5 MB and 20 megapixels for raster images. SVGs require allowlist sanitisation, no active/external content, and restrictive CSP/sandbox/nosniff serving headers. See `api/lib/remote.php`, `logos.php`, and `svg.php` before changing this boundary.
 - Avatar imports reuse that same image validator and transport. `api/lib/profiles.php` handles member-owned, hash-named local storage and lazy remote-avatar migration. Reject another member's stored path; validate before updating any profile fields. `api/routes/avatars.php` checks member/block/suspension visibility and serves only the current avatar with private/no-store image headers. Do not expose stored avatars directly or fetch profile social URLs server-side.
 
@@ -105,6 +106,7 @@ The seed grants admin on creation only for `mail@nico.dev`; arbitrary seeded/pub
 - Migration 005 rebuilds `submissions` with explicit ownership and an optional proposal, backfilling owners and retaining every existing ID/field. It preserves unique proposal/edition pairs, permits one unassigned row per owner/edition, and enforces matching proposal ownership with triggers. Retain linked-proposal cascade deletion, but do not delete unassigned opportunities when unrelated talks are removed.
 - Migration 006 adds nullable per-submission private notes without rewriting existing submission data.
 - Migration 007 adds conference topic tags with an empty-array default, preserving existing catalog records. Only admins may change tags; omission must not clear stored values.
+- Migration 008 adds request-bound login codes with expiry/attempt limits. Preserve accounts and previously issued legacy tokens; do not repurpose short codes as legacy URL tokens.
 - Existing `gr_session`, `gr_theme`, `green-room` request/browser identifiers, and legacy environment variables are intentional compatibility details, not unfinished branding work.
 
 ## Checks
@@ -118,6 +120,7 @@ pnpm test:api
 pnpm test:editions
 pnpm test:logos
 pnpm test:deploy
+pnpm test:mail
 pnpm exec playwright install chromium  # first browser-test setup
 pnpm test:ui
 ```
@@ -131,6 +134,7 @@ pnpm test:ui
 | UI | Temporary data, PHP port 8019 and Vite port 5179; actual user flows, authorisation, crew, appearance, and responsive layouts. |
 | Logos | Isolated logo/avatar storage and transport fixtures; import validation, SVG safety, SSRF/redirect constraints, lazy migration, and rollback. |
 | Deployment config | Generated PHP configuration, validation, secret handling, and defaults. |
+| Mail | Isolated local SMTP fixtures and an OpenSSL-generated test certificate; HTML/plain codes, STARTTLS/implicit TLS, certificate/auth failures, PHP mail fallback via a recorder, generic auth failure/code cleanup, and successful production delivery without response/log disclosure on PHP port 8022. Requires the `openssl` command and SMTP-enabled PHP cURL; sends no external emails. |
 
 Do not interrupt the normal backend on port 8000 to run tests. Browser screenshots/traces are generated in ignored `test-results/`. Do not claim checks passed unless actually run; documentation-only edits normally need link/path checks and `git diff --check`, not a full application test run.
 
@@ -138,6 +142,6 @@ Do not interrupt the normal backend on port 8000 to run tests. Browser screensho
 
 Production uses the GitHub Actions FTP/FTPS workflow, not an SSH deployment script. Preserve incremental state tracking, serialised uploads, strict FTPS defaults, and protected runtime exclusions. Do not enable `dangerous-clean-slate`, add Matomo/`repository_dispatch`, or introduce server-CLI requirements.
 
-GitHub secrets generate production `api/config.local.php` on every deployment; manual server edits are overwritten. `APP_BASE_URL` controls live links; do not invent a new production domain or FTP target from the project name. Removing `APP_SETUP_KEY` requires redeployment. Only built frontend assets and the PHP backend are uploaded—not these docs or the development server.
+GitHub `APP_*` and optional `SMTP_*` settings generate production `api/config.local.php` on every deployment; manual server edits are overwritten. `APP_BASE_URL`, `APP_MAIL_FROM`, `SMTP_HOST`, and `SMTP_USERNAME` use Actions variables; `APP_SETUP_KEY` and `SMTP_PASSWORD` remain secrets. `APP_BASE_URL` controls live links; do not invent a new production domain or FTP target from the project name. Removing `APP_SETUP_KEY` or SMTP settings requires redeployment. Only built frontend assets and the PHP backend are uploaded—not these docs or the development server.
 
 For secrets, first-admin setup, backups, upgrade checks, and hosting diagnostics, follow [docs/deployment.md](docs/deployment.md). Never expose secrets to frontend bundles or logs, overwrite live storage, or deploy without authorisation.

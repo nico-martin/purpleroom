@@ -16,7 +16,8 @@
     "test:ui": "playwright test",
     "test:deploy": "node --test scripts/test-production-config.mjs",
     "test:logos": "node scripts/test-logos.mjs",
-    "test:editions": "node scripts/test-editions.mjs"
+    "test:editions": "node scripts/test-editions.mjs",
+    "test:mail": "node scripts/test-mail.mjs"
   },
   "dependencies": {
     "lucide-react": "latest",

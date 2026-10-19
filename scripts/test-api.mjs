@@ -73,14 +73,14 @@ async function signup(request, email, name) {
     cli("echo one('SELECT COUNT(*) AS n FROM users')['n'];")
   );
   const result = await request("/auth/request", "POST", { email });
-  assert.ok(result.link);
+  assert.match(result.code, /^[0-9]{6}$/);
   assert.equal(
     Number(cli("echo one('SELECT COUNT(*) AS n FROM users')['n'];")),
     before,
     "Requesting email must not create an account"
   );
-  const token = result.link.split("/").at(-1);
-  const verified = await request("/auth/verify", "POST", { token });
+  const credentials = { request_id: result.request_id, code: result.code };
+  const verified = await request("/auth/verify", "POST", credentials);
   assert.equal(verified.user.role, "member");
   assert.equal(verified.user.profile_complete, 0);
   await request("/users", "GET", undefined, 403);
@@ -88,7 +88,7 @@ async function signup(request, email, name) {
   await request("/me", "PATCH", { name: " " }, 422);
   const complete = await request("/me", "PATCH", { name });
   assert.equal(complete.user.profile_complete, 1);
-  await client()("/auth/verify", "POST", { token }, 422);
+  await client()("/auth/verify", "POST", credentials, 422);
   return complete.user;
 }
 try {
@@ -618,19 +618,24 @@ try {
   await anonymous(
     "/auth/verify",
     "POST",
-    { token: pendingLogin.link.split("/").at(-1) },
-    401
+    { request_id: pendingLogin.request_id, code: pendingLogin.code },
+    422
   );
-  assert.deepEqual(
-    await anonymous("/auth/request", "POST", { email: "bob@example.com" }),
-    { ok: true }
-  );
+  const suspendedRequest = await anonymous("/auth/request", "POST", {
+    email: "bob@example.com",
+  });
+  assert.equal(suspendedRequest.ok, true);
+  assert.match(suspendedRequest.request_id, /^[a-f0-9]{64}$/);
+  assert.equal(suspendedRequest.code, undefined);
   await admin(`/admin/users/${b.id}`, "PATCH", { suspended: false });
   await bob("/me", "GET", undefined, 401);
   const login = await bob("/auth/request", "POST", {
     email: "BOB@example.com",
   });
-  await bob("/auth/verify", "POST", { token: login.link.split("/").at(-1) });
+  await bob("/auth/verify", "POST", {
+    request_id: login.request_id,
+    code: login.code,
+  });
   assert.equal((await bob("/me")).user.id, b.id);
   assert.equal(
     (await alice(`/editions/${e.id}`)).submitted_friends.length,
@@ -640,10 +645,12 @@ try {
   const limited = client();
   for (let i = 0; i < 5; i++)
     await limited("/auth/request", "POST", { email: "throttle@example.com" });
-  assert.deepEqual(
-    await limited("/auth/request", "POST", { email: "throttle@example.com" }),
-    { ok: true }
-  );
+  const throttledRequest = await limited("/auth/request", "POST", {
+    email: "throttle@example.com",
+  });
+  assert.equal(throttledRequest.ok, true);
+  assert.match(throttledRequest.request_id, /^[a-f0-9]{64}$/);
+  assert.equal(throttledRequest.code, undefined);
   const own = await bob(`/editions/${e.id}`);
   const topicEdition = await admin(
     "/editions",
@@ -821,6 +828,131 @@ try {
     await anonymous(secret, "GET", undefined, 403);
   await admin("/auth/logout", "POST", undefined, 204);
   await admin("/me", "GET", undefined, 401);
+
+  // Isolated auth regression checks; normal-flow throttling was exercised above.
+  cli("query('DELETE FROM rate_limits');");
+  const codeClient = client();
+  const requestCode = (email) => codeClient("/auth/request", "POST", { email });
+  const credentials = (result) => ({
+    request_id: result.request_id,
+    code: result.code,
+  });
+  const firstCode = await requestCode("codes@example.com");
+  assert.match(firstCode.code, /^[0-9]{6}$/);
+  assert.equal(
+    firstCode.link,
+    undefined,
+    "New requests must not issue browser links"
+  );
+  const storedCode = JSON.parse(
+    cli(
+      "echo json_encode(one('SELECT * FROM login_codes WHERE email=?',['codes@example.com']));"
+    )
+  );
+  assert.notEqual(storedCode.request_hash, firstCode.request_id);
+  assert.notEqual(storedCode.code_hash, firstCode.code);
+  assert.equal(storedCode.attempts, 0);
+  const secondCode = await requestCode("CODES@example.com");
+  await codeClient("/auth/verify", "POST", credentials(firstCode), 422);
+  await codeClient(
+    "/auth/verify",
+    "POST",
+    { ...credentials(secondCode), request_id: randomBytes(32).toString("hex") },
+    422
+  );
+  const wrong = secondCode.code === "000000" ? "000001" : "000000";
+  for (let i = 0; i < 5; i++)
+    await codeClient(
+      "/auth/verify",
+      "POST",
+      { ...credentials(secondCode), code: wrong },
+      422
+    );
+  await codeClient("/auth/verify", "POST", credentials(secondCode), 422);
+  assert.equal(
+    Number(
+      cli(
+        "echo one('SELECT COUNT(*) AS n FROM users WHERE email=?',['codes@example.com'])['n'];"
+      )
+    ),
+    0,
+    "Wrong guesses must not create an account"
+  );
+  const expired = await requestCode("expiry@example.com");
+  cli(
+    "query('UPDATE login_codes SET expires_at=? WHERE email=?',['2000-01-01T00:00:00Z','expiry@example.com']);"
+  );
+  await codeClient("/auth/verify", "POST", credentials(expired), 422);
+  const leadingZero = await requestCode("leading@example.com");
+  cli(
+    "query('UPDATE login_codes SET code_hash=? WHERE email=?',[hash('sha256',$argv[1] . ':012345'),'leading@example.com']);",
+    [leadingZero.request_id]
+  );
+  for (const code of [123456, "12345", "1234567", "12x456", null])
+    await codeClient(
+      "/auth/verify",
+      "POST",
+      { request_id: leadingZero.request_id, code },
+      422
+    );
+  const signedIn = await codeClient("/auth/verify", "POST", {
+    request_id: leadingZero.request_id,
+    code: "012345",
+  });
+  assert.equal(signedIn.user.email, "leading@example.com");
+  assert.equal(signedIn.user.role, "member");
+  await client()(
+    "/auth/verify",
+    "POST",
+    { request_id: leadingZero.request_id, code: "012345" },
+    422
+  );
+  const concurrent = await requestCode("concurrent@example.com");
+  const results = await Promise.all(
+    [1, 2].map(() =>
+      fetch(origin + "/api/auth/verify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "green-room",
+        },
+        body: JSON.stringify(credentials(concurrent)),
+      })
+    )
+  );
+  assert.deepEqual(
+    results.map((result) => result.status).sort(),
+    [200, 422],
+    "Only one request can consume a code"
+  );
+  const legacyToken = randomBytes(32).toString("hex");
+  cli(
+    "insert('auth_requests',['email'=>'legacy@example.com','token_hash'=>hash('sha256',$argv[1]),'expires_at'=>gmdate('Y-m-d\\TH:i:s\\Z',time()+900)]);",
+    [legacyToken]
+  );
+  assert.equal(
+    (await client()("/auth/verify", "POST", { token: legacyToken })).user.email,
+    "legacy@example.com"
+  );
+  await client()("/auth/verify", "POST", { token: legacyToken }, 422);
+  cli(
+    "query('INSERT OR REPLACE INTO rate_limits(key_hash,window_start,attempts) VALUES(?,?,?)',[hash('sha256','verify-ip:127.0.0.1'),time(),100]);"
+  );
+  await codeClient("/auth/verify", "POST", credentials(concurrent), 429);
+  cli(
+    "query('INSERT OR REPLACE INTO rate_limits(key_hash,window_start,attempts) VALUES(?,?,?)',[hash('sha256','auth-ip:127.0.0.1'),time(),30]);"
+  );
+  const ipLimited = await requestCode("ip-limit@example.com");
+  assert.equal(ipLimited.code, undefined);
+  assert.match(ipLimited.request_id, /^[a-f0-9]{64}$/);
+  assert.equal(
+    Number(
+      cli(
+        "echo one('SELECT COUNT(*) AS n FROM login_codes WHERE email=?',['ip-limit@example.com'])['n'];"
+      )
+    ),
+    0
+  );
   console.log(
     "API checks passed: verified public signup, onboarding, roles, ownership, friend requests/crossed acceptance, unique submitter privacy, manual attendance, review visibility, unfriend/block, suspension/session revocation, last-admin safeguards, retired endpoints, rate limits, archive preservation, and protected files."
   );

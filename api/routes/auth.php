@@ -5,25 +5,47 @@ route('POST', '/auth/request', function () {
     $data = body(); required($data, ['email']);
     if (!is_string($data['email']) || strlen(trim($data['email'])) > 254 || !filter_var(trim($data['email']), FILTER_VALIDATE_EMAIL)) fail(422, 'validation', 'Enter a valid email address.', ['email' => 'invalid']);
     $email = strtolower(trim($data['email']));
-    $result = ['ok' => true];
+    // Return the same shape even when throttled, suspended, or delivery fails.
+    $requestId = bin2hex(random_bytes(32));
+    $result = ['ok' => true, 'request_id' => $requestId];
     $ipAllowed = take_rate_limit('auth-ip:' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'), 30, 3600);
     $emailAllowed = $ipAllowed && take_rate_limit('auth-email:' . $email, 5, 3600);
     $user = one('SELECT * FROM users WHERE email=?', [$email]);
     if ($emailAllowed && $ipAllowed && !($user['suspended'] ?? false)) {
-        $token = bin2hex(random_bytes(32));
-        query('DELETE FROM auth_requests WHERE expires_at<?', [now()]);
-        $id = insert('auth_requests', ['email' => $email, 'token_hash' => hash('sha256', $token), 'expires_at' => gmdate('Y-m-d\TH:i:s\Z', time() + 900)]);
-        $link = $config['base_url'] . '/auth/' . $token;
-        try { send_login_mail($email, $link); }
-        catch (Throwable $error) { query('DELETE FROM auth_requests WHERE id=?', [$id]); throw $error; }
-        if ($config['env'] === 'dev') $result['link'] = $link;
+        $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        db()->exec('BEGIN IMMEDIATE');
+        try {
+            query('DELETE FROM login_codes WHERE expires_at<?', [now()]);
+            query('UPDATE login_codes SET used_at=? WHERE email=? AND used_at IS NULL', [now(), $email]);
+            $id = insert('login_codes', ['email' => $email, 'request_hash' => hash('sha256', $requestId), 'code_hash' => hash('sha256', $requestId . ':' . $code), 'expires_at' => gmdate('Y-m-d\TH:i:s\Z', time() + 900)]);
+            db()->exec('COMMIT');
+        } catch (Throwable $error) { db()->exec('ROLLBACK'); throw $error; }
+        try { send_login_mail($email, $code); }
+        catch (MailDeliveryException $error) {
+            query('DELETE FROM login_codes WHERE id=?',[$id]);
+            // Never log codes, request IDs, or SMTP credentials.
+            error_log('purpleroom: ' . $error->getMessage());
+            json_response($result);
+        }
+        catch (Throwable $error) { query('DELETE FROM login_codes WHERE id=?', [$id]); throw $error; }
+        if ($config['env'] === 'dev') $result['code'] = $code;
     }
     json_response($result);
 }, true);
 route('POST', '/auth/verify', function () {
-    $data = body(); required($data, ['token']);
-    if (!is_string($data['token']) || !preg_match('/^[a-f0-9]{64}$/D', $data['token'])) fail(422, 'validation', 'Invalid token.');
+    $data = body();
     if (!take_rate_limit('verify-ip:' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'), 100, 3600)) fail(429, 'rate_limited', 'Too many attempts. Please try again later.');
+    if (!array_key_exists('token', $data)) {
+        required($data, ['request_id', 'code']);
+        if (!is_string($data['request_id']) || !preg_match('/^[a-f0-9]{64}$/D', $data['request_id']) || !is_string($data['code']) || !preg_match('/^[0-9]{6}$/D', $data['code'])) fail(422, 'validation', 'Enter the six-digit code from your email.');
+        start_session();
+        $user = verify_login_code($data['request_id'], $data['code']);
+        if (!$user) fail(422, 'invalid_code', 'That code is incorrect, expired, or no longer valid. Try again or request a new code.');
+        login((int) $user['id']);
+        json_response(['user' => private_user(require_login())]);
+    }
+    // Compatibility only: previously issued links and local CLI seed links.
+    if (!is_string($data['token']) || !preg_match('/^[a-f0-9]{64}$/D', $data['token'])) fail(422, 'validation', 'Invalid token.');
     start_session();
     db()->exec('BEGIN IMMEDIATE');
     try {

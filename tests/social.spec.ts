@@ -7,11 +7,11 @@ async function login(context: BrowserContext, email: string, name?: string) {
     headers,
     data: { email },
   });
-  const { link } = await response.json();
-  expect(link).toBeTruthy();
+  const { request_id, code } = await response.json();
+  expect(code).toMatch(/^[0-9]{6}$/);
   const verify = await context.request.post("/api/auth/verify", {
     headers,
-    data: { token: link.split("/").at(-1) },
+    data: { request_id, code },
   });
   expect(verify.ok()).toBeTruthy();
   const { user } = await verify.json();
@@ -49,11 +49,10 @@ test("public signup requires verification and a display name; members cannot acc
   await page
     .getByLabel("Email address")
     .fill(`onboarding-${Date.now()}@example.com`);
-  await page.getByRole("button", { name: "Send me a sign-in link" }).click();
-  const link = await page
-    .getByRole("link", { name: "Open your sign-in link" })
-    .getAttribute("href");
-  await page.goto(new URL(link!).pathname);
+  await page.getByRole("button", { name: "Send me a code" }).click();
+  const code = await page.getByTestId("dev-login-code").textContent();
+  await page.getByLabel("Sign-in code", { exact: true }).fill(code!);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "What should we call you?" })
   ).toBeVisible();

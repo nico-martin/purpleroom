@@ -11,13 +11,13 @@ async function signIn(
     headers,
     data: { email },
   });
-  const { link } = await response.json();
-  expect(link).toBeTruthy();
+  const { request_id, code } = await response.json();
+  expect(code).toMatch(/^[0-9]{6}$/);
   expect(
     (
       await request.post("/api/auth/verify", {
         headers,
-        data: { token: link.split("/").at(-1) },
+        data: { request_id, code },
       })
     ).ok()
   ).toBeTruthy();

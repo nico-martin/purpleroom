@@ -10,6 +10,18 @@ import {
   renderConfig,
 } from "./generate-production-config.mjs";
 
+test("deployment reads public mail settings from variables and credentials from secrets", async () => {
+  const workflow = await readFile(".github/workflows/deploy.yml", "utf8");
+  for (const key of ["APP_BASE_URL", "APP_MAIL_FROM", "SMTP_HOST", "SMTP_USERNAME"]) {
+    assert.ok(workflow.includes(`${key}: \${{ vars.${key} }}`));
+    assert.ok(!workflow.includes(`secrets.${key}`));
+  }
+  for (const key of ["APP_SETUP_KEY", "SMTP_PASSWORD"]) {
+    assert.ok(workflow.includes(`${key}: \${{ secrets.${key} }}`));
+    assert.ok(!workflow.includes(`vars.${key}`));
+  }
+});
+
 test("profile image runtime storage is protected from Git and FTP deployments", async () => {
   const workflow = await readFile(".github/workflows/deploy.yml", "utf8");
   assert.ok(workflow.includes("--exclude='db/avatars/'"));
@@ -67,8 +79,27 @@ test("production defaults disable setup and normalize the origin", () => {
       base_url: "https://greenroom.nico.dev",
       mail_from: "purpleroom <noreply@nico.dev>",
       setup_key: null,
+      smtp_host: null,
+      smtp_port: 587,
+      smtp_username: null,
+      smtp_password: null,
+      smtp_encryption: "tls",
     }
   );
+});
+
+test("SMTP requires complete settings and defaults to verified TLS ports", () => {
+  const settings={APP_BASE_URL:"https://purpleroom.example",SMTP_HOST:"smtp.example.com",SMTP_USERNAME:"sender@example.com",SMTP_PASSWORD:"test-only-'\\-password"};
+  const config=productionConfig(settings);
+  assert.equal(config.smtp_host,"smtp.example.com");assert.equal(config.smtp_port,587);assert.equal(config.smtp_encryption,"tls");assert.equal(config.smtp_password,settings.SMTP_PASSWORD);
+  assert.equal(productionConfig({...settings,SMTP_ENCRYPTION:"ssl"}).smtp_port,465);
+  assert.equal(productionConfig({...settings,SMTP_PORT:"2525"}).smtp_port,2525);
+  assert.equal(productionConfig({...settings,SMTP_HOST:"[::1]"}).smtp_host,"[::1]");
+  for(const name of ['SMTP_HOST','SMTP_USERNAME','SMTP_PASSWORD'])assert.throws(()=>productionConfig({...settings,[name]:""}),new RegExp(name));
+  for(const SMTP_HOST of ['smtp://example.com','user@example.com','example.com:587','example.com/path','example.com\r\nInjected: value'])assert.throws(()=>productionConfig({...settings,SMTP_HOST}),/SMTP_HOST/);
+  for(const SMTP_PORT of ['0','65536','587oops','-1'])assert.throws(()=>productionConfig({...settings,SMTP_PORT}),/SMTP_PORT/);
+  for(const SMTP_ENCRYPTION of ['none','starttls','http'])assert.throws(()=>productionConfig({...settings,SMTP_ENCRYPTION}),/SMTP_ENCRYPTION/);
+  assert.throws(()=>productionConfig({APP_BASE_URL:settings.APP_BASE_URL,SMTP_PORT:'587'}),/SMTP_HOST/);
 });
 
 test("invalid settings are rejected without exposing their values", () => {
@@ -116,6 +147,10 @@ test("PHP config safely round-trips quotes, backslashes, and Unicode", () => {
     APP_BASE_URL: "https://greenroom.nico.dev",
     APP_MAIL_FROM: "Nico's \\ Grüne Room <mail@nico.dev>",
     APP_SETUP_KEY: "test-only-'\\'; echo 'not executed'; //".repeat(2),
+    SMTP_HOST:"smtp.example.com",
+    SMTP_PORT:"2525",
+    SMTP_USERNAME:"sender@example.com",
+    SMTP_PASSWORD:"test-only-'\\-password-ü",
   });
   const result = spawnSync(
     "php",
@@ -141,6 +176,9 @@ test("CLI generates only a server-side file, with no secret output", async () =>
       APP_BASE_URL: "https://greenroom.nico.dev",
       APP_MAIL_FROM: "purpleroom <mail@nico.dev>",
       APP_SETUP_KEY: "a".repeat(64),
+      SMTP_HOST:"smtp.example.com",
+      SMTP_USERNAME:"sender@example.com",
+      SMTP_PASSWORD:"test-only-smtp-password",
     };
     const result = spawnSync(
       process.execPath,
@@ -164,6 +202,11 @@ test("CLI generates only a server-side file, with no secret output", async () =>
     assert.ok(
       (await readFile(destination, "utf8")).includes("'setup_key' => null")
     );
+    assert.ok((await readFile(destination,"utf8")).includes("'smtp_password' => 'test-only-smtp-password'"));
+    for(const key of ['SMTP_HOST','SMTP_PORT','SMTP_USERNAME','SMTP_PASSWORD','SMTP_ENCRYPTION'])env[key]='';
+    const noSMTP=spawnSync(process.execPath,['scripts/generate-production-config.mjs',destination],{env,encoding:'utf8'});
+    assert.equal(noSMTP.status,0,noSMTP.stderr);
+    assert.ok((await readFile(destination,'utf8')).includes("'smtp_host' => null"),'Removing SMTP secrets must explicitly disable host-level SMTP defaults');
 
     env.APP_BASE_URL = "invalid-secret-value";
     const invalid = spawnSync(

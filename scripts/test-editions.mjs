@@ -106,6 +106,30 @@ try {
     "Health must not silently initialize or migrate a database"
   );
   await request("/auth/verify", "POST", { token });
+  const loginCode = await request("/auth/request", "POST", {
+    email: "mail@nico.dev",
+  });
+  assert.match(loginCode.code, /^[0-9]{6}$/);
+  assert.equal(loginCode.link, undefined);
+  assert.equal(
+    (
+      await request("/auth/verify", "POST", {
+        request_id: loginCode.request_id,
+        code: loginCode.code,
+      })
+    ).user.email,
+    "mail@nico.dev",
+    "Existing accounts must also sign in with codes after upgrade"
+  );
+  assert.equal(
+    Number(
+      php(
+        bootstrap +
+          "echo one('SELECT COUNT(*) AS n FROM schema_migrations WHERE version=8')['n'];"
+      )
+    ),
+    1
+  );
   const taggedConferences = JSON.parse(
     php(
       bootstrap +

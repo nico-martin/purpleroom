@@ -1,4 +1,5 @@
 import { writeFile } from "node:fs/promises";
+import { isIP } from "node:net";
 import { pathToFileURL } from "node:url";
 
 export function productionConfig(environment) {
@@ -42,16 +43,36 @@ export function productionConfig(environment) {
     );
   }
 
+  const smtpEnabled = ["SMTP_HOST", "SMTP_PORT", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_ENCRYPTION"].some(key => environment[key]);
+  let smtp = { smtp_host: null, smtp_port: 587, smtp_username: null, smtp_password: null, smtp_encryption: "tls" };
+  if (smtpEnabled) {
+    for (const key of ["SMTP_HOST", "SMTP_USERNAME", "SMTP_PASSWORD"]) {
+      if (typeof environment[key] !== "string" || !environment[key] || /[\x00-\x1f\x7f]/.test(environment[key]))
+        throw new Error(`Set ${key} without control characters when configuring SMTP.`);
+    }
+    const host = environment.SMTP_HOST;
+    const ipv6 = host.startsWith("[") && host.endsWith("]") && isIP(host.slice(1,-1)) === 6;
+    if (!ipv6 && !(host.length <= 253 && host.split(".").every(label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label))))
+      throw new Error("SMTP_HOST must be a hostname or IP address, without a scheme, path, credentials, or port.");
+    const encryption = environment.SMTP_ENCRYPTION || "tls";
+    if (!["tls", "ssl"].includes(encryption)) throw new Error("SMTP_ENCRYPTION must be tls (STARTTLS) or ssl (implicit TLS).");
+    const port = environment.SMTP_PORT || (encryption === "ssl" ? "465" : "587");
+    if (!/^\d{1,5}$/.test(port) || Number(port) < 1 || Number(port) > 65535) throw new Error("SMTP_PORT must be between 1 and 65535.");
+    smtp = {smtp_host:host,smtp_port:Number(port),smtp_username:environment.SMTP_USERNAME,smtp_password:environment.SMTP_PASSWORD,smtp_encryption:encryption};
+  }
+
   return {
     env: "production",
     base_url: url.origin,
     mail_from: mailFrom,
     setup_key: setupKey,
+    ...smtp,
   };
 }
 
 function phpLiteral(value) {
   if (value === null) return "null";
+  if (typeof value === "number") return String(value);
   return "'" + value.replaceAll("\\", "\\\\").replaceAll("'", "\\'") + "'";
 }
 

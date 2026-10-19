@@ -165,11 +165,9 @@ export default function AppShell({ className = "" }: AppShellProps) {
               {menu ? <X size={20} /> : <Menu size={20} />}
             </Button>
             <span className="hidden text-xs text-muted sm:block">
-              A quiet corner of the conference circuit.
+              {"{ where speakers swap notes }"}
             </span>
-            <span className="font-heading font-semibold sm:hidden">
-              purpleroom.
-            </span>
+            <Brand compact className="sm:hidden" />
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
             <span className="hidden items-center gap-2 text-xs text-muted md:flex">

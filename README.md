@@ -1,6 +1,6 @@
 # purpleroom
 
-**Good stages. Great company.**
+**{ where speakers swap notes }**
 
 purpleroom is a members-only space for conference speakers to find their next stage, keep track of proposals, and see where their friends are heading. The name is an homage to CSS [`rebeccapurple`](https://developer.mozilla.org/en-US/docs/Web/CSS/named-color#rebeccapurple) (`#663399`).
 
@@ -16,7 +16,7 @@ purpleroom is a members-only space for conference speakers to find their next st
 
 ## Privacy by design
 
-Nothing inside the app is publicly browsable. Anyone can join by verifying an email sign-in link; new members choose a display name before appearing in the directory.
+Nothing inside the app is publicly browsable. Anyone can join by entering a six-digit code from email in the login screen; new members choose a display name before appearing in the directory. Codes work once and expire after 15 minutes—no email link or in-app browser required.
 
 Your crew consists only of accepted friends. They can see your Going/Maybe plans and speaker reviews. They can also see **that you submitted** to an edition, but not your talk titles, how many proposals you submitted, or the results. Three proposals from one friend still count as one friend who submitted.
 
@@ -42,7 +42,7 @@ pnpm install
 pnpm dev
 ```
 
-Open `http://localhost:5173`. One command starts both the React frontend and PHP API and applies local database migrations. In development, the email form shows a one-use sign-in link instead of sending mail. No sample conferences are created automatically.
+Open `http://localhost:5173`. One command starts both the React frontend and PHP API and applies local database migrations. In development, the email form shows the sign-in code instead of sending mail. No sample conferences are created automatically.
 
 With the dev server running, generate a local account and one-use sign-in link in another terminal:
 
@@ -57,6 +57,8 @@ For a local admin account and development checks, see [AGENTS.md](AGENTS.md#loca
 ## Built with
 
 React, TypeScript, Vite, Tailwind CSS, and a framework-free PHP API backed by SQLite. Production runs on PHP/Apache hosting; no Node.js server is required.
+
+Passwordless sign-in emails include branded HTML and a plain-text alternative, delivered through an optional SMTP provider or the host's mail service.
 
 ## Project documentation
 

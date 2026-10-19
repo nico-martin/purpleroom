@@ -33,3 +33,25 @@ function login(int $id): void {
 function public_user(array $user): array { return array_intersect_key($user, array_flip(['id', 'name', 'avatar_url'])); }
 function user_by_id(int $id): array { return public_user(one('SELECT id, name, avatar_url FROM users WHERE id = ?', [$id])); }
 function private_user(array $user): array { return array_intersect_key($user, array_flip(['id','name','avatar_url','email','role','profile_complete',...PROFILE_LINK_FIELDS])); }
+
+function verify_login_code(string $requestId, string $code): ?array {
+    db()->exec('BEGIN IMMEDIATE');
+    try {
+        $pending = one('SELECT * FROM login_codes WHERE request_hash=? AND used_at IS NULL AND expires_at>? AND attempts<5', [hash('sha256', $requestId), now()]);
+        $user = null;
+        if ($pending) {
+            query('UPDATE login_codes SET attempts=attempts+1 WHERE id=?', [$pending['id']]);
+            if (hash_equals($pending['code_hash'], hash('sha256', $requestId . ':' . $code))) {
+                $user = one('SELECT * FROM users WHERE email=?', [$pending['email']]);
+                if (!$user) {
+                    $id = insert('users', ['email'=>$pending['email'], 'name'=>'', 'profile_complete'=>0, 'cal_token'=>bin2hex(random_bytes(32))]);
+                    $user = one('SELECT * FROM users WHERE id=?', [$id]);
+                }
+                query('UPDATE login_codes SET used_at=? WHERE id=?', [now(), $pending['id']]);
+                if ($user['suspended']) $user = null;
+            }
+        }
+        db()->exec('COMMIT');
+        return $user;
+    } catch (Throwable $error) { db()->exec('ROLLBACK'); throw $error; }
+}

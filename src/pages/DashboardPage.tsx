@@ -2,6 +2,7 @@ import { ArrowRight, CalendarDays, Plus } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
+import brandMark from "../../visuals/logo/purpleroom-mark-small.svg";
 import CfpRow from "../components/CfpRow";
 import SubmissionModal from "../components/SubmissionModal";
 import useApi from "../hooks/useApi";
@@ -22,7 +23,6 @@ import {
   EmptyState,
   ListRow,
   LoadingState,
-  LogoTile,
   Notice,
   PageHeader,
   SectionHeader,
@@ -196,7 +196,13 @@ export default function DashboardPage({ className = "" }: DashboardPageProps) {
             </Card>
           </section>
           <div className="flex items-center gap-4 rounded-2xl bg-green-soft p-5">
-            <LogoTile name="purpleroom" className="bg-transparent" />
+            <img
+              src={brandMark}
+              alt=""
+              width={64}
+              height={64}
+              className="size-12 shrink-0"
+            />
             <div>
               <h3 className="text-base text-green-deep">
                 Not a directory. A little collective wisdom.
