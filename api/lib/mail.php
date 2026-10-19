@@ -6,23 +6,20 @@ class MailDeliveryException extends RuntimeException {}
 
 function login_mail_content(string $code): array {
     if (!preg_match('/^[0-9]{6}$/D', $code)) throw new MailDeliveryException('Invalid sign-in code.');
-    $text = "purpleroom\n{ where speakers swap notes }\n\nYour sign-in code:\n\n$code\n\nCopy this code and paste it into the login screen in the browser where you requested it. You don't need to open a link.\n\nThis code expires in 15 minutes and can only be used once. Never share it. If you didn't request it, you can safely ignore this email.\n\nA project by Nico Martin — https://nico.dev\nOpen source — https://github.com/nico-martin/purpleroom/\n";
+    $text = "Purple Room\n\nYour sign-in code:\n\n$code\n\nPaste this code into the login screen in the browser where you requested it.\n\nThis code expires in 15 minutes and can only be used once. Do not share it.\n\nIf you did not request this code, you can ignore this email.\n";
     $html = <<<HTML
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Your purpleroom sign-in code</title></head>
-<body style="margin:0;padding:0;background-color:#f6f3f8;color:#302638;font-family:Arial,Helvetica,sans-serif;">
-<div style="display:none;max-height:0;overflow:hidden;">Your one-time sign-in code. Good for 15 minutes.</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f6f3f8;"><tr><td align="center" style="padding:40px 16px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background-color:#ffffff;border:1px solid #e7dfed;border-top:5px solid #663399;border-radius:16px;">
-<tr><td style="padding:32px 32px 16px;font-size:24px;font-weight:bold;">purpleroom<span style="color:#663399;">.</span></td></tr>
-<tr><td style="padding:8px 32px 32px;">
-<h1 style="margin:0 0 16px;font-size:28px;line-height:1.25;">Your sign-in code.</h1>
-<p style="margin:0 0 24px;color:#6b5c78;font-size:16px;line-height:1.6;">{ where speakers swap notes }</p>
-<p style="margin:0;padding:20px;background-color:#eee5f5;border-radius:8px;color:#663399;font-family:monospace;font-size:36px;font-weight:bold;letter-spacing:8px;text-align:center;">$code</p>
-<p style="margin:24px 0 0;color:#6b5c78;font-size:16px;line-height:1.6;">Copy this code and paste it into the login screen in the browser where you requested it. No link to open.</p>
-<p style="margin:24px 0 0;color:#6b5c78;font-size:14px;line-height:1.6;">This code expires in <strong>15 minutes</strong> and can only be used once. Never share it. If you didn't request it, you can safely ignore this email.</p>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Your Purple Room sign-in code</title></head>
+<body style="margin:0;padding:0;background-color:#ffffff;color:#302638;font-family:Arial,Helvetica,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;"><tr><td>
+<p style="margin:0 0 24px;color:#663399;font-size:18px;font-weight:bold;">Purple Room</p>
+<h1 style="margin:0 0 20px;font-size:24px;line-height:1.3;">Your sign-in code</h1>
+<p style="margin:0;padding:16px;background-color:#eee5f5;color:#663399;font-family:monospace;font-size:32px;font-weight:bold;letter-spacing:6px;text-align:center;">$code</p>
+<p style="margin:20px 0 0;font-size:16px;line-height:1.6;">Paste this code into the login screen in the browser where you requested it.</p>
+<p style="margin:16px 0 0;font-size:14px;line-height:1.6;">This code expires in <strong>15 minutes</strong> and can only be used once. Do not share it.</p>
+<p style="margin:16px 0 0;color:#6b5c78;font-size:14px;line-height:1.6;">If you did not request this code, you can ignore this email.</p>
 </td></tr></table>
-<p style="max-width:560px;margin:20px 0 0;color:#6b5c78;font-size:12px;line-height:1.8;">A project by <a href="https://nico.dev" style="color:#663399;">Nico Martin</a> · <a href="https://github.com/nico-martin/purpleroom/" style="color:#663399;">Open source on GitHub</a></p>
 </td></tr></table></body></html>
 HTML;
     return ['text'=>$text,'html'=>$html];
@@ -52,7 +49,7 @@ function compose_login_mail(string $email, string $code, string $from): array {
         $body.='--' . $boundary . "\r\nContent-Type: $type; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" . chunk_split(base64_encode($content[$key]),76,"\r\n") . "\r\n";
     }
     $body.='--' . $boundary . "--\r\n";
-    $subject='Your purpleroom sign-in code';
+    $subject='Your Purple Room sign-in code';
     $lines=['To: ' . $email,'Subject: ' . $subject];
     foreach ($headers as $key=>$value) $lines[]=$key . ': ' . $value;
     return ['subject'=>$subject,'headers'=>$headers,'body'=>$body,'message'=>implode("\r\n",$lines) . "\r\n\r\n" . $body,'sender'=>$sender['address']];

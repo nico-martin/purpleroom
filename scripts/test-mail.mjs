@@ -259,13 +259,20 @@ try {
       assert.ok(content.html.includes(">" + code + "</p>"));
       assert.ok(!content.html.includes("/auth/"));
       assert.ok(!content.plain.includes("/auth/"));
-      assert.ok(content.html.includes("{ where speakers swap notes }"));
+      for (const body of [content.plain, content.html]) {
+        assert.ok(body.includes("Paste this code into the login screen in the browser where you requested it."));
+        assert.ok(body.includes("can only be used once. Do not share it."));
+        assert.ok(body.includes("If you did not request this code, you can ignore this email."));
+        assert.ok(!body.includes("where speakers swap notes"));
+        assert.ok(!/https?:\/\//i.test(body), "Sign-in emails must not contain unrelated links");
+      }
+      assert.ok(!/<a\b|<img\b|display\s*:\s*none|visibility\s*:\s*hidden/i.test(content.html));
       assert.ok(content.html.includes("#663399"));
       assert.ok(content.html.includes("15 minutes"));
       assert.ok(!content.html.includes("<img"));
       assert.ok(smtp.messages[0].includes("multipart/alternative"));
       assert.ok(
-        smtp.messages[0].includes("Subject: Your purpleroom sign-in code")
+        smtp.messages[0].includes("Subject: Your Purple Room sign-in code")
       );
     } finally {
       await smtp.close();
