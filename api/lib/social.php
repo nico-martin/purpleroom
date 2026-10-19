@@ -36,6 +36,10 @@ function take_rate_limit(string $key, int $maximum, int $seconds): bool {
     query('INSERT INTO rate_limits(key_hash,window_start,attempts) VALUES(?,?,1) ON CONFLICT(key_hash) DO UPDATE SET attempts=CASE WHEN window_start<=? THEN 1 ELSE attempts+1 END, window_start=CASE WHEN window_start<=? THEN excluded.window_start ELSE window_start END', [$hash,$time,$time-$seconds,$time-$seconds]);
     return (int) one('SELECT attempts FROM rate_limits WHERE key_hash=?', [$hash])['attempts'] <= $maximum;
 }
+function rate_limit_reached(string $key, int $maximum, int $seconds): bool {
+    $row = one('SELECT window_start,attempts FROM rate_limits WHERE key_hash=?', [hash('sha256', $key)]);
+    return $row && (int) $row['window_start'] > time() - $seconds && (int) $row['attempts'] >= $maximum;
+}
 function submitted_friends(int $edition): array {
     $ids = friend_ids();
     if (!$ids) return [];

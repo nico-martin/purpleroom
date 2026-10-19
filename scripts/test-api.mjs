@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import { readdirSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -953,6 +954,90 @@ try {
     ),
     0
   );
+
+  // Request quotas: one requester cannot use up an address's whole hourly quota.
+  cli("query('DELETE FROM rate_limits');");
+  const setLimit = (key, attempts) =>
+    cli(
+      "query('INSERT OR REPLACE INTO rate_limits(key_hash,window_start,attempts) VALUES(?,?,?)',[hash('sha256',$argv[1]),time(),(int)$argv[2]]);",
+      [key, String(attempts)]
+    );
+  setLimit("auth-email-ip:split@example.com|203.0.113.9", 5);
+  assert.match((await requestCode("split@example.com")).code, /^[0-9]{6}$/);
+  setLimit("auth-email:split@example.com", 20);
+  assert.equal((await requestCode("split@example.com")).code, undefined);
+
+  // Wrong guesses share one budget per address across request IDs, then lock it.
+  cli("query('DELETE FROM rate_limits');");
+  const failureCount = () =>
+    Number(
+      cli(
+        "echo one('SELECT attempts FROM rate_limits WHERE key_hash=?',[hash('sha256','login-failures:budget@example.com')])['attempts'] ?? 0;"
+      )
+    );
+  const wrongFor = (result) => ({
+    ...credentials(result),
+    code: result.code === "000000" ? "000001" : "000000",
+  });
+  const budgetFirst = await requestCode("budget@example.com");
+  await codeClient("/auth/verify", "POST", wrongFor(budgetFirst), 422);
+  const budgetSecond = await requestCode("BUDGET@example.com");
+  await codeClient("/auth/verify", "POST", wrongFor(budgetSecond), 422);
+  assert.equal(failureCount(), 2);
+  await codeClient("/auth/verify", "POST", credentials(budgetSecond));
+  assert.equal(failureCount(), 2, "Correct codes do not use the budget");
+  const budgetLocked = await requestCode("budget@example.com");
+  setLimit("login-failures:budget@example.com", 19);
+  await codeClient("/auth/verify", "POST", wrongFor(budgetLocked), 422);
+  await codeClient("/auth/verify", "POST", credentials(budgetLocked), 422);
+  const lockedRequest = await requestCode("budget@example.com");
+  assert.equal(lockedRequest.ok, true);
+  assert.match(lockedRequest.request_id, /^[a-f0-9]{64}$/);
+  assert.equal(lockedRequest.code, undefined);
+
+  // Anonymous requests and wrong guesses must not leave session files behind.
+  cli("query('DELETE FROM rate_limits');");
+  const sessionFiles = () =>
+    readdirSync("api/db/sessions").filter((name) => name.startsWith("sess_"))
+      .length;
+  const raw = (path, method = "GET", cookie, body) =>
+    fetch(origin + "/api" + path, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        "X-Requested-With": "green-room",
+        ...(cookie ? { Cookie: cookie } : {}),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  const filesBefore = sessionFiles();
+  const anonymousMe = await raw("/me");
+  assert.equal(anonymousMe.status, 401);
+  assert.equal(anonymousMe.headers.get("set-cookie"), null);
+  const bogusMe = await raw("/me", "GET", "gr_session=" + "a".repeat(32));
+  assert.equal(bogusMe.status, 401);
+  assert.match(bogusMe.headers.get("set-cookie"), /gr_session=;|gr_session=deleted/);
+  const sessionCode = await requestCode("session@example.com");
+  const wrongGuess = await raw(
+    "/auth/verify",
+    "POST",
+    undefined,
+    wrongFor(sessionCode)
+  );
+  assert.equal(wrongGuess.status, 422);
+  assert.equal(wrongGuess.headers.get("set-cookie"), null);
+  const anonymousLogout = await raw("/auth/logout", "POST");
+  assert.equal(anonymousLogout.status, 204);
+  assert.equal(anonymousLogout.headers.get("set-cookie"), null);
+  assert.equal(sessionFiles(), filesBefore, "No anonymous session files");
+  const sessionLogin = await raw(
+    "/auth/verify",
+    "POST",
+    undefined,
+    credentials(sessionCode)
+  );
+  assert.equal(sessionLogin.status, 200);
+  assert.equal(sessionFiles(), filesBefore + 1);
   console.log(
     "API checks passed: verified public signup, onboarding, roles, ownership, friend requests/crossed acceptance, unique submitter privacy, manual attendance, review visibility, unfriend/block, suspension/session revocation, last-admin safeguards, retired endpoints, rate limits, archive preservation, and protected files."
   );

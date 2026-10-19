@@ -8,10 +8,13 @@ route('POST', '/auth/request', function () {
     // Return the same shape even when throttled, suspended, or delivery fails.
     $requestId = bin2hex(random_bytes(32));
     $result = ['ok' => true, 'request_id' => $requestId];
-    $ipAllowed = take_rate_limit('auth-ip:' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'), 30, 3600);
-    $emailAllowed = $ipAllowed && take_rate_limit('auth-email:' . $email, 5, 3600);
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    $ipAllowed = take_rate_limit('auth-ip:' . $ip, 30, 3600);
+    // A per-address/IP quota keeps one requester from using up an address's whole hourly quota.
+    $emailAllowed = $ipAllowed && take_rate_limit('auth-email-ip:' . $email . '|' . $ip, 5, 3600) && take_rate_limit('auth-email:' . $email, 20, 3600);
+    $locked = rate_limit_reached('login-failures:' . $email, LOGIN_FAILURE_LIMIT, LOGIN_FAILURE_WINDOW);
     $user = one('SELECT * FROM users WHERE email=?', [$email]);
-    if ($emailAllowed && $ipAllowed && !($user['suspended'] ?? false)) {
+    if ($emailAllowed && $ipAllowed && !$locked && !($user['suspended'] ?? false)) {
         $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         db()->exec('BEGIN IMMEDIATE');
         try {
@@ -38,7 +41,8 @@ route('POST', '/auth/verify', function () {
     if (!array_key_exists('token', $data)) {
         required($data, ['request_id', 'code']);
         if (!is_string($data['request_id']) || !preg_match('/^[a-f0-9]{64}$/D', $data['request_id']) || !is_string($data['code']) || !preg_match('/^[0-9]{6}$/D', $data['code'])) fail(422, 'validation', 'Enter the six-digit code from your email.');
-        start_session();
+        // Check session storage before consuming a code, without creating a session for wrong guesses.
+        session_directory();
         $user = verify_login_code($data['request_id'], $data['code']);
         if (!$user) fail(422, 'invalid_code', 'That code is incorrect, expired, or no longer valid. Try again or request a new code.');
         login((int) $user['id']);
@@ -72,7 +76,6 @@ route('POST', '/auth/verify', function () {
     json_response(['user' => private_user(require_login())]);
 }, true);
 route('POST', '/auth/logout', function () {
-    start_session(); $_SESSION = []; session_destroy();
-    setcookie('gr_session', '', ['expires' => time() - 3600, 'path' => '/', 'httponly' => true, 'samesite' => 'Lax']);
+    if (isset($_COOKIE['gr_session'])) { start_session(); end_session(); }
     json_response(null, 204);
 }, true);

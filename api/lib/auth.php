@@ -1,12 +1,18 @@
 <?php
 declare(strict_types=1);
 if (!defined('GREEN_ROOM')) exit;
-function start_session(): void {
-    global $config;
-    if (session_status() === PHP_SESSION_ACTIVE) return;
+const LOGIN_FAILURE_LIMIT = 20;
+const LOGIN_FAILURE_WINDOW = 86400;
+function session_directory(): string {
     $directory = dirname(__DIR__) . '/db/sessions';
     if (!is_dir($directory) && !@mkdir($directory, 0700, true) && !is_dir($directory)) fail(503, 'storage_unavailable', 'PHP cannot create its session directory. Check that api/db/ is writable by PHP.');
     if (!is_writable($directory)) fail(503, 'storage_unavailable', 'PHP cannot write sessions. Check the permissions of api/db/sessions/.');
+    return $directory;
+}
+function start_session(): void {
+    global $config;
+    if (session_status() === PHP_SESSION_ACTIVE) return;
+    $directory = session_directory();
     ini_set('session.gc_maxlifetime', '15552000');
     ini_set('session.use_strict_mode', '1');
     session_save_path($directory);
@@ -18,8 +24,16 @@ function start_session(): void {
         fail(503, 'storage_unavailable', 'PHP could not start a session. Check session-directory permissions and PHP session settings.');
     }
 }
+function end_session(): void {
+    global $config;
+    $_SESSION = []; session_destroy();
+    setcookie('gr_session', '', ['expires' => time() - 3600, 'path' => '/', 'secure' => $config['env'] !== 'dev', 'httponly' => true, 'samesite' => 'Lax']);
+}
 function current_user(): ?array {
+    // Anonymous requests must not create session files; only login() starts a new session.
+    if (session_status() !== PHP_SESSION_ACTIVE && !isset($_COOKIE['gr_session'])) return null;
     start_session();
+    if (!isset($_SESSION['user_id'])) { end_session(); return null; }
     $user = isset($_SESSION['user_id']) ? one('SELECT * FROM users WHERE id = ?', [$_SESSION['user_id']]) : null;
     if (!$user || ($user['suspended'] ?? 0) || ($_SESSION['session_version'] ?? 0) !== ($user['session_version'] ?? 0)) return null;
     return $user;
@@ -39,9 +53,12 @@ function verify_login_code(string $requestId, string $code): ?array {
     try {
         $pending = one('SELECT * FROM login_codes WHERE request_hash=? AND used_at IS NULL AND expires_at>? AND attempts<5', [hash('sha256', $requestId), now()]);
         $user = null;
-        if ($pending) {
+        // Every wrong guess for an address counts against one budget, across all of its request IDs.
+        $failures = $pending ? 'login-failures:' . $pending['email'] : null;
+        if ($pending && !rate_limit_reached($failures, LOGIN_FAILURE_LIMIT, LOGIN_FAILURE_WINDOW)) {
             query('UPDATE login_codes SET attempts=attempts+1 WHERE id=?', [$pending['id']]);
-            if (hash_equals($pending['code_hash'], hash('sha256', $requestId . ':' . $code))) {
+            if (!hash_equals($pending['code_hash'], hash('sha256', $requestId . ':' . $code))) take_rate_limit($failures, LOGIN_FAILURE_LIMIT, LOGIN_FAILURE_WINDOW);
+            else {
                 $user = one('SELECT * FROM users WHERE email=?', [$pending['email']]);
                 if (!$user) {
                     $id = insert('users', ['email'=>$pending['email'], 'name'=>'', 'profile_complete'=>0, 'cal_token'=>bin2hex(random_bytes(32))]);
