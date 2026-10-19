@@ -2,6 +2,8 @@
 
 **{ where speakers swap notes }**
 
+> **v0 / early beta:** Expect bugs and rough edges. Your feedback helps shape what comes next.
+
 purpleroom is a members-only space for conference speakers to find their next stage, keep track of proposals, and see where their friends are heading. The name is an homage to CSS [`rebeccapurple`](https://developer.mozilla.org/en-US/docs/Web/CSS/named-color#rebeccapurple) (`#663399`).
 
 ## What you can do
@@ -26,7 +28,7 @@ Attendance is always your choice. A CFP acceptance, rejection, or other status c
 
 ## Getting started
 
-1. Enter your email on the sign-in screen and open the emailed link.
+1. Enter your email on the sign-in screen, then paste the six-digit code from your email into the same screen.
 2. Choose a display name if you're new.
 3. Find friends under **The crew → All members** and send crew requests.
 4. Browse conferences, add talks to editions, and set your attendance independently.

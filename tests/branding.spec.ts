@@ -5,6 +5,8 @@ test("brand artwork follows explicit appearance and the favicon loads", async ({
 }) => {
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/login");
+  await expect(page.getByText("v0 / early beta", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Expect bugs and rough edges/)).toBeVisible();
   await expect(page.getByText("{ where speakers swap notes }", { exact: true })).toBeVisible();
   const brand = page.getByRole("link", {
     name: "purpleroom home",
@@ -14,6 +16,7 @@ test("brand artwork follows explicit appearance and the favicon loads", async ({
   await expect(visibleLogo).toHaveAttribute("src", /purpleroom-logo-dark/);
   await page.getByRole("button", { name: /^Colour theme: System\./ }).click();
   await expect(visibleLogo).toHaveAttribute("src", /purpleroom-logo\.svg/);
+  await expect(page.getByText("v0 / early beta", { exact: true })).toBeVisible();
   expect(
     await visibleLogo.evaluate(
       (image: HTMLImageElement) => image.complete && image.naturalWidth > 0

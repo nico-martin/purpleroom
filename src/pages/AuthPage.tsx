@@ -161,6 +161,13 @@ export default function AuthPage({
             <p className="mt-6 text-sm text-muted">
               Anyone can join. Everything inside is for signed-in members only.
             </p>
+            <Notice className="mt-6 max-w-md">
+              <p className="font-semibold text-ink">v0 / early beta</p>
+              <p className="mt-1">
+                Expect bugs and rough edges. Your feedback helps shape what comes
+                next.
+              </p>
+            </Notice>
           </section>
           <Card padded className="mx-auto w-full max-w-md">
             <Mail className="mb-5 text-purple" />

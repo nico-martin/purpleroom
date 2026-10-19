@@ -176,6 +176,7 @@ The crew screen provides **My crew**, **All members**, **Requests**, and **Block
 ## 9. Dashboard and appearance
 
 - The brand tagline is **{ where speakers swap notes }**, including braces, used in the sign-in screen, desktop app header, page metadata, and sign-in emails.
+- The login/verification screen displays a **v0 / early beta** notice warning about bugs and rough edges and welcoming feedback; it remains visible during code entry. The README carries the same warning.
 - App branding uses the supplied SVG assets in `visuals/logo/`: full light/dark logos for navigation and sign-in/setup/onboarding, the small mark for the mobile header and dashboard callout, and the simplified favicon for browser tabs. Logo variants follow the app's selected appearance, not just the OS setting. Email branding remains text-based without remote images.
 - The footer shows the app version on signed-in and login/verification pages. Development and local builds without version metadata display `version: dev-local`; GitHub Actions builds display `version: dev-HASH`, where HASH is the short commit hash being deployed.
 - Login/verification and signed-in pages share footer credits: “A project by Nico Martin · Open source on GitHub”, linking to `https://nico.dev` and `https://github.com/nico-martin/purpleroom/` respectively.
