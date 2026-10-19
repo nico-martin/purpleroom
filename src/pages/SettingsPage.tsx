@@ -1,8 +1,9 @@
-import { Save, X } from "lucide-react";
+import { Save, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import type { FormEvent } from "react";
 
 import { api } from "../api";
+import DeleteAccountDialog from "../components/DeleteAccountDialog";
 import useMutation from "../hooks/useMutation";
 import useSession from "../hooks/useSession";
 import { PROFILE_LINKS, profileLinkValues } from "../lib/profile";
@@ -30,6 +31,7 @@ export default function SettingsPage({
   const [links, setLinks] = useState(() => profileLinkValues(user));
   const storedAvatar = avatar.startsWith("/api/avatars/");
   const [saved, setSaved] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const mutation = useMutation();
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -178,6 +180,33 @@ export default function SettingsPage({
           </form>
         </Card>
       </section>
+      <section className="mt-9 max-w-3xl" aria-label="Danger">
+        <SectionHeader title="Danger" />
+        <Card padded className="border-urgent-ink/30">
+          <h3 className="text-lg text-urgent-ink">
+            Delete your account permanently
+          </h3>
+          <p className="mt-2 text-sm text-muted">
+            This cannot be undone. Your account and all personal content will be
+            deleted. Shared conferences and editions you created will remain,
+            without your attribution.
+          </p>
+          {user.role === "admin" && (
+            <p className="mt-3 text-sm text-muted">
+              If you are the last active admin, appoint another active admin
+              before deleting your account.
+            </p>
+          )}
+          <Button
+            variant="danger"
+            className="mt-5"
+            onClick={() => setDeleting(true)}
+          >
+            <Trash2 size={15} /> Delete my account
+          </Button>
+        </Card>
+      </section>
+      {deleting && <DeleteAccountDialog onClose={() => setDeleting(false)} />}
     </div>
   );
 }

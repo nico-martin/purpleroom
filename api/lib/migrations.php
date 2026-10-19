@@ -4,6 +4,9 @@ if (!defined('GREEN_ROOM')) exit;
 
 // The caller owns the transaction. Only trusted SQL files bundled with the app are applied.
 function apply_database_migrations(): array {
+    if ((int) one('PRAGMA foreign_keys')['foreign_keys'] === 1 && one("SELECT name FROM sqlite_master WHERE type='table' AND name='users'") && one('SELECT id FROM users LIMIT 1')) {
+        throw new RuntimeException('Populated databases must use the foreign-key-safe migration runner.');
+    }
     $applied = [];
     if (!one("SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations'")) {
         $tables = all("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
@@ -25,15 +28,22 @@ function apply_database_migrations(): array {
 }
 
 function run_database_migrations(): array {
-    db()->exec('BEGIN IMMEDIATE');
+    // SQLite parent-table rebuilds require FK enforcement off before BEGIN, otherwise
+    // dropping the old table can cascade-delete children. Validate the entire graph
+    // before commit, then restore enforcement even if the migration fails.
+    db()->exec('PRAGMA foreign_keys=OFF');
     try {
-        $applied = apply_database_migrations();
-        db()->exec('COMMIT');
-        return $applied;
-    } catch (Throwable $error) {
-        db()->exec('ROLLBACK');
-        throw $error;
-    }
+        db()->exec('BEGIN IMMEDIATE');
+        try {
+            $applied = apply_database_migrations();
+            if (one('PRAGMA foreign_key_check')) throw new PDOException('Migration would leave invalid foreign key references.');
+            db()->exec('COMMIT');
+            return $applied;
+        } catch (Throwable $error) {
+            db()->exec('ROLLBACK');
+            throw $error;
+        }
+    } finally { db()->exec('PRAGMA foreign_keys=ON'); }
 }
 
 function ensure_database_migrations(): void {

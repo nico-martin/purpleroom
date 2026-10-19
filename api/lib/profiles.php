@@ -63,11 +63,12 @@ function persist_profile(array $data, array $existing, ?callable $fetcher = null
     // As with conference logos, migrate a legacy remote image on the next save, never on reads.
     $source = array_key_exists('avatar_url',$data) ? $data['avatar_url'] : ($existing['avatar_url'] ?? null);
     $asset = prepare_avatar($source,$existing,$fetcher);
-    db()->beginTransaction();
+    db()->exec('BEGIN IMMEDIATE');
     try {
+        if (!one('SELECT id FROM users WHERE id=? AND suspended=0 AND session_version=?', [$existing['id'],$existing['session_version']])) throw new AvatarException('Please sign in again before updating your profile.',401);
         $data['avatar_url'] = $asset ? store_avatar((int)$existing['id'],$asset) : null;
         update('users',(int)$existing['id'],$data);
-        db()->commit();
-    } catch(Throwable $error) { db()->rollBack(); throw $error; }
+        db()->exec('COMMIT');
+    } catch(Throwable $error) { db()->exec('ROLLBACK'); throw $error; }
 }
 function profile_details(array $user): array { return [...public_user($user),...array_intersect_key($user,array_flip(PROFILE_LINK_FIELDS))]; }

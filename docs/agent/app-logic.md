@@ -42,7 +42,7 @@ purpleroom helps conference speakers discover opportunities, privately manage pr
 - Avatar serving follows member visibility: signed-in members may see active, completed profiles' images unless blocked in either direction. Suspended profiles and stale/removed image URLs are unavailable. Direct filesystem access is denied.
 - Optional links are **Homepage, GitHub, LinkedIn, X, Bluesky, Instagram, YouTube, and Mastodon**. They require full HTTP(S) URLs without embedded credentials; Mastodon may use any instance. Empty values clear a link; omitted fields retain their values.
 - Saved links appear on member profiles for signed-in viewers, including non-friends; blocked/suspended profile restrictions still apply. These links do not grant access to attendance, reviews, or private submissions. Compact member identity responses need not include the links.
-- The current product does not provide self-service email changes, account deletion, or data export.
+- Members can permanently delete their own account from **Settings → Danger**, after reading an irreversible-deletion warning and typing `DELETE` in a confirmation dialog. The server enforces this confirmation and only deletes the authenticated account; admins cannot delete other members through this action. Self-service email changes and data export are not provided.
 
 ## 3. Roles and ownership
 
@@ -60,7 +60,7 @@ purpleroom helps conference speakers discover opportunities, privately manage pr
 
 - Admin is not a privacy bypass. This is an application/API access rule, not a claim that a hosting operator cannot access server storage.
 - Normal signup always creates a member; users cannot assign themselves roles through profile updates.
-- An admin can manage another admin, but cannot demote or suspend the last active admin. The safeguard applies to self-management too.
+- An admin can manage another admin, but cannot demote or suspend the last active admin. The last active admin also cannot delete their account until another active admin has been appointed. The safeguard applies to self-management and concurrent requests under the same write lock.
 - Suspension immediately denies subsequent authenticated requests and new sign-ins. Restoring access does not make old sessions valid again; the member must sign in afresh.
 - Suspended accounts are hidden from normal directory, crew, review, attendance, and submitted-friend views. Their data and relationships remain stored for restoration. Account administration still lists them; an owner's blocked list can retain a suspended account.
 
@@ -190,6 +190,10 @@ The crew screen provides **My crew**, **All members**, **Requests**, and **Block
 
 ## 10. Deletion, restoration, and retained data
 
+- Account deletion permanently removes the account/profile, owned talks and linked/unassigned submissions (including private notes and abstracts), reviews, attendance, crew requests/friendships/blocks, retired comments, and related historical invitation records. All outstanding code/legacy login requests for that email and user-bound login tokens are removed. Other members' data is preserved.
+- Shared conferences and editions—including their notes, logos, and trash status—remain with their existing IDs and content. Their creator attribution becomes `null`; deleted authors no longer appear in activity. This exception is stated in the confirmation dialog rather than promising to erase shared catalog contributions.
+- Current and other-device sessions stop authenticating after deletion. User IDs are never reused, preventing old sessions from matching a new account. Signing up again creates a new empty member account; it does not restore deleted content or relationships.
+- Profile images (including retained replacements) and related encrypted invitation payloads are queued for physical removal in the deletion transaction and normally removed immediately after commit. They are inaccessible once the account/token is removed; filesystem failures remain in a durable, bounded cleanup queue retried on subsequent normal API requests. Unrelated images, conference logos, invitation payloads, and the shared invitation key are preserved. Existing server backups follow the operator's retention policy; deletion is not a promise to erase every backup immediately.
 - Conferences and editions are soft-deleted, not permanently erased through the app. Only admins can delete or restore them.
 - A deleted conference makes all its editions unavailable in the ordinary catalog without rewriting their individual deletion markers.
 - Restoring a conference reveals its editions except those independently deleted. Restore a parent conference before restoring an edition under it.
@@ -197,7 +201,7 @@ The crew screen provides **My crew**, **All members**, **Requests**, and **Block
 - Personal proposals/submissions, reviews, attendance, stored logos, and relationships retain their IDs and links across catalog soft deletion/restoration.
 - Existing users receive no automatic friendships during upgrades. Explicit attendance is preserved; submission-derived attendance is not materialised.
 - Calendar subscriptions, signup invitations, and conference/edition comments (“Notes from the crew”) are not active features. Their former routes/controls are absent, including old secret calendar feeds and invite acceptance.
-- Historical comments, invitation rows/encrypted storage, calendar tokens, abstracts, and compatibility fields remain stored. Removing a UI feature is not permission to erase its underlying data.
+- Historical comments, invitation rows/encrypted storage, calendar tokens, abstracts, and compatibility fields remain stored except for data explicitly removed by owner-controlled account/content deletion. Removing a UI feature is not permission to erase its underlying data.
 - Private proposal notes and admin edition notes remain active; they are not the removed crew-comments feature.
 
 ## 11. Essential invariants for future changes
@@ -211,11 +215,11 @@ The crew screen provides **My crew**, **All members**, **Requests**, and **Block
 7. Attendance remains entirely independent of CFP outcomes.
 8. Review aggregates and activity follow the same privacy rules as their source data.
 9. Unfriend/block/suspension revoke applicable access, including nested API responses and summaries.
-10. The last active admin remains protected; restored accounts cannot reuse sessions invalidated by suspension.
+10. The last active admin remains protected from demotion, suspension, and deletion; restored accounts cannot reuse sessions invalidated by suspension, and deleted identities cannot be reused by later accounts.
 11. Upgrades and feature removals preserve unrelated stored data and identifiers.
 
 Keep these covered by regression tests when changing affected features. They are behavioural contracts, not permission to broaden scope or change policy silently.
 
 ## 12. Not currently provided
 
-Calendar subscriptions, signup invitations, crew comments, anonymous browsing, named groups, generic social posts, likes, direct messages, public friend lists, mutual-friend counts, profile fields beyond the current identity/links, an independent notifications system, self-service email/account deletion/export, and abuse-reporting workflows are outside the current product. Adding any requires an explicit product decision and an update here; residual schema/helpers do not imply an active feature.
+Calendar subscriptions, signup invitations, crew comments, anonymous browsing, named groups, generic social posts, likes, direct messages, public friend lists, mutual-friend counts, profile fields beyond the current identity/links, an independent notifications system, self-service email changes/data export, and abuse-reporting workflows are outside the current product. Adding any requires an explicit product decision and an update here; residual schema/helpers do not imply an active feature.

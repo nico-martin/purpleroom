@@ -72,7 +72,6 @@ route('POST', '/auth/verify', function () {
     json_response(['user' => private_user(require_login())]);
 }, true);
 route('POST', '/auth/logout', function () {
-    start_session(); $_SESSION = []; session_destroy();
-    setcookie('gr_session', '', ['expires' => time() - 3600, 'path' => '/', 'httponly' => true, 'samesite' => 'Lax']);
+    logout_session();
     json_response(null, 204);
 }, true);

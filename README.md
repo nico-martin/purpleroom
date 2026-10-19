@@ -15,6 +15,7 @@ purpleroom is a members-only space for conference speakers to find their next st
 - **Make plans together.** Mark an edition Going or Maybe, and see your friends' plans—even if you haven't submitted a talk.
 - **Share speaker experience.** Leave conference reviews with practical tags, a return recommendation, and your own take, visible to your friends.
 - **Make your profile yours.** Add a profile image, homepage, and links to GitHub, LinkedIn, X, Bluesky, Instagram, YouTube, and Mastodon. Profile images are saved with purpleroom instead of hotlinked after import.
+- **Leave on your terms.** Permanently delete your account and personal content under **Settings → Danger**. Shared conferences and editions remain without your attribution. The last active admin must appoint another admin first.
 
 ## Privacy by design
 

@@ -34,6 +34,14 @@ function public_user(array $user): array { return array_intersect_key($user, arr
 function user_by_id(int $id): array { return public_user(one('SELECT id, name, avatar_url FROM users WHERE id = ?', [$id])); }
 function private_user(array $user): array { return array_intersect_key($user, array_flip(['id','name','avatar_url','email','role','profile_complete',...PROFILE_LINK_FIELDS])); }
 
+function logout_session(): void {
+    start_session();
+    $_SESSION = [];
+    $cookie = session_get_cookie_params();
+    session_destroy();
+    setcookie('gr_session', '', ['expires'=>time()-3600, 'path'=>'/', 'secure'=>$cookie['secure'], 'httponly'=>true, 'samesite'=>'Lax']);
+}
+
 function verify_login_code(string $requestId, string $code): ?array {
     db()->exec('BEGIN IMMEDIATE');
     try {

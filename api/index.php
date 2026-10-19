@@ -2,12 +2,14 @@
 declare(strict_types=1);
 define('GREEN_ROOM', true);
 $config = require __DIR__ . '/config.php';
-foreach (['db', 'http', 'auth', 'router', 'constants', 'mail', 'domain', 'social', 'migrations', 'remote', 'logos', 'profiles'] as $file) require __DIR__ . '/lib/' . $file . '.php';
+foreach (['db', 'http', 'auth', 'router', 'constants', 'mail', 'domain', 'social', 'migrations', 'remote', 'logos', 'profiles', 'accounts'] as $file) require __DIR__ . '/lib/' . $file . '.php';
 header('X-Content-Type-Options: nosniff');
 try {
     route('GET', '/health', fn() => json_response(['ok' => true]), true);
     foreach (['setup', 'auth', 'users', 'avatars', 'crew', 'admin', 'conferences', 'logos', 'editions', 'reviews', 'papers', 'submissions', 'attendance', 'dashboard'] as $file) require __DIR__ . '/routes/' . $file . '.php';
     dispatch();
+} catch (AccountDeletionException $error) {
+    fail($error->status, $error->reason, $error->getMessage());
 } catch (ConferenceLogoException $error) {
     fail($error->status, 'logo_error', $error->getMessage(), ['logo_url' => 'invalid']);
 } catch (AvatarException $error) {

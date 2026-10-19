@@ -12,6 +12,13 @@ route('PATCH', '/me', function () {
     persist_profile($data, $user);
     json_response(['user' => private_user(require_login())]);
 });
+route('DELETE', '/me', function () {
+    $user = require_login();
+    if ((body()['confirmation'] ?? null) !== 'DELETE') fail(422,'validation','Type DELETE to confirm permanent account deletion.');
+    delete_own_account($user);
+    logout_session();
+    json_response(null,204);
+});
 route('GET', '/users', function () {
     $viewer = (int) require_login()['id'];
     $users = all('SELECT id,name,avatar_url FROM users u WHERE suspended=0 AND profile_complete=1 AND NOT EXISTS(SELECT 1 FROM blocks b WHERE (b.user_id=? AND b.blocked_id=u.id) OR (b.user_id=u.id AND b.blocked_id=?)) ORDER BY name,id', [$viewer,$viewer]);

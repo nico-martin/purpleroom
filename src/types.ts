@@ -21,7 +21,7 @@ export interface Conference {
   website: string | null;
   logo_url: string | null;
   description: string | null;
-  created_by: number | User;
+  created_by: number | User | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -53,7 +53,7 @@ export interface Edition {
   cfp_opens_on: string | null;
   cfp_closes_on: string | null;
   notes: string | null;
-  created_by: number;
+  created_by: number | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;

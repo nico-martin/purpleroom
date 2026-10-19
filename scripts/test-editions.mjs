@@ -410,6 +410,51 @@ try {
     encoding: "utf8",
   });
   assert.equal(migration.status, 0, migration.stderr);
+  const foreignKeyRollback = JSON.parse(
+    php(
+      bootstrap +
+        `
+    $config['database']=dirname($config['database']).'/invalid-v8.sqlite';
+    db()->exec(file_get_contents('api/db/schema.sql'));
+    insert('schema_migrations',['version'=>1,'applied_at'=>now()]);
+    foreach(glob('api/db/migrations/*.sql') as $file) {
+      $version=(int)basename($file);if($version>8)continue;
+      db()->exec(file_get_contents($file));insert('schema_migrations',['version'=>$version,'applied_at'=>now()]);
+    }
+    $uid=insert('users',['name'=>'Keep this member','email'=>'preserve@example.com','cal_token'=>bin2hex(random_bytes(32))]);
+    db()->exec('PRAGMA foreign_keys=OFF');
+    insert('attendance',['edition_id'=>999,'user_id'=>$uid,'status'=>'going']);
+    require 'api/lib/migrations.php';
+    $failed=false;try {run_database_migrations();}catch(PDOException){$failed=true;}
+    echo json_encode(['failed'=>$failed,'foreign_keys'=>one('PRAGMA foreign_keys')['foreign_keys'],'users'=>all('SELECT * FROM users'),'attendance'=>all('SELECT * FROM attendance'),'version9'=>one('SELECT version FROM schema_migrations WHERE version=9'),'sql'=>one("SELECT sql FROM sqlite_master WHERE name='users'")['sql']]);
+  `
+    )
+  );
+  assert.equal(
+    foreignKeyRollback.failed,
+    true,
+    "Parent-table rebuilds must validate the entire foreign-key graph before commit"
+  );
+  assert.equal(
+    foreignKeyRollback.foreign_keys,
+    1,
+    "Foreign key enforcement must be restored after failure"
+  );
+  assert.equal(
+    foreignKeyRollback.version9,
+    null,
+    "A failed upgrade must not enter the migration ledger"
+  );
+  assert.equal(foreignKeyRollback.users[0].name, "Keep this member");
+  assert.equal(
+    foreignKeyRollback.attendance[0].edition_id,
+    999,
+    "A failed rebuild must not discard pre-existing child data"
+  );
+  assert.ok(
+    !foreignKeyRollback.sql.includes("AUTOINCREMENT"),
+    "Failed rebuilds must restore the previous users schema"
+  );
   const invalidLegacy = JSON.parse(
     php(
       bootstrap +

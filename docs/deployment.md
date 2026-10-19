@@ -82,6 +82,7 @@ Initialised databases apply bundled numbered migrations automatically on the nex
 - Migration 006 adds optional private submission notes. Existing rows start with empty notes; all other fields are retained.
 - Migration 007 adds conference topic tags, initialising existing conferences to an empty tag list without changing their other data.
 - Migration 008 adds hashed, request-bound login codes and attempt counts without changing accounts or existing tokens. Already-issued email/CLI links remain usable; new public requests send codes instead.
+- Migration 009 rebuilds users with non-reusable IDs and conferences/editions with nullable creator attribution, retaining all existing IDs, values, and relationships. It also adds a durable account-file cleanup queue. The migration runner disables foreign-key enforcement only on its connection before taking the transaction lock, validates the full foreign-key graph before commit, and always restores enforcement. Take a consistent backup before upgrading; normal API requests apply the migration without server CLI access.
 - Historical data remains stored even when its feature is retired. Existing invitation and calendar URLs no longer provide functionality.
 - Rollback planning must account for the database schema as well as uploaded files; restoring an older frontend alone does not undo a migration.
 
@@ -98,6 +99,8 @@ The workflow excludes these paths from upload/deletion:
 | `api/db/invite-links/` | Retained historical encrypted invitation payloads and `key.bin`. |
 
 Include the full historical invitation directory, including its key, in backups; never replace that key during deployment. Runtime directories are not committed or bundled. Apache blocks direct access to them. Conference logos and profile images are served through authenticated API routes, not directly from storage. Avatar serving additionally enforces member visibility, blocking, and suspension.
+
+Owner-confirmed account deletion removes personal database content and invalidates sessions/tokens while preserving the shared catalog. Associated profile-image files and historical invitation payloads are removed after commit; if removal fails, `account_deletion_files` retains only their relative paths for bounded retry on normal API requests (not `/health`). Keep storage permissions writable and investigate safe “account file cleanup pending” log messages. Never purge the entire avatar/invitation directory or shared key to resolve one account's cleanup. Backups remain subject to your retention policy; if restoring an older backup, account for deletions made since that backup before reopening the site.
 
 Local `api/config.local.php` is never copied from the checkout. Production receives the separately generated config. Preserve the workflow's FTP state tracking, exclusion rules, serialised uploads, and strict transport defaults.
 

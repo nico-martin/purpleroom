@@ -1,7 +1,17 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rename,
+  rm,
+  rmdir,
+  symlink,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -32,7 +42,13 @@ function cli(code, args = []) {
 }
 function client() {
   let cookie = "";
-  return async (path, method = "GET", body, expected = 200, csrf = true) => {
+  const request = async (
+    path,
+    method = "GET",
+    body,
+    expected = 200,
+    csrf = true
+  ) => {
     const response = await fetch(origin + "/api" + path, {
       method,
       headers: {
@@ -67,6 +83,8 @@ function client() {
       return JSON.parse(text);
     return text;
   };
+  request.cookie = () => cookie;
+  return request;
 }
 async function signup(request, email, name) {
   const before = Number(
@@ -134,6 +152,13 @@ try {
     )
   ).user;
   assert.equal(owner.role, "admin");
+  await admin("/me", "DELETE", { confirmation: "DELETE" }, 409);
+  assert.equal(
+    (await admin("/me")).user.id,
+    owner.id,
+    "The last-admin refusal must leave the account intact"
+  );
+  await anonymous("/me", "DELETE", { confirmation: "DELETE" }, 401);
   await anonymous(
     "/setup",
     "POST",
@@ -952,6 +977,413 @@ try {
       )
     ),
     0
+  );
+  // Permanent self-deletion: shared catalog survives, every personal relationship/token goes.
+  cli("query('DELETE FROM rate_limits');");
+  const departing = client(),
+    oldSession = client();
+  const deletedUser = await signup(
+    departing,
+    "delete@example.com",
+    "Departing speaker"
+  );
+  await alice(`/admin/users/${deletedUser.id}`, "PATCH", { role: "admin" });
+  const secondLogin = await oldSession("/auth/request", "POST", {
+    email: "delete@example.com",
+  });
+  await oldSession("/auth/verify", "POST", credentials(secondLogin));
+  const keepConference = await departing(
+    "/conferences",
+    "POST",
+    { name: "Preserved catalog", tags: ["test"] },
+    201
+  );
+  const keepEdition = await departing(
+    "/editions",
+    "POST",
+    {
+      conference_id: keepConference.id,
+      title: "Preserved edition",
+      starts_on: future(100),
+      ends_on: future(101),
+      cfp_closes_on: future(5),
+      notes: "Shared edition notes",
+    },
+    201
+  );
+  const archived = await departing(
+    "/conferences",
+    "POST",
+    { name: "Preserved trash" },
+    201
+  );
+  await departing(`/conferences/${archived.id}`, "DELETE", undefined, 204);
+  const personalPaper = await departing(
+    "/papers",
+    "POST",
+    { title: "Delete my proposal", notes: "Delete my notes" },
+    201
+  );
+  await departing(
+    "/submissions",
+    "POST",
+    {
+      paper_id: personalPaper.id,
+      edition_id: keepEdition.id,
+      status: "submitted",
+      notes: "Delete submission notes",
+    },
+    201
+  );
+  await departing(
+    "/submissions",
+    "POST",
+    {
+      edition_id: keepEdition.id,
+      status: "submitted",
+      notes: "Delete unassigned notes",
+    },
+    201
+  );
+  await departing(`/conferences/${keepConference.id}/review`, "PUT", {
+    text: "Delete my review",
+    tags: ["covers_travel"],
+  });
+  await departing(`/editions/${keepEdition.id}/attendance`, "PUT", {
+    status: "going",
+  });
+  const preservedPaper = await bob(
+    "/papers",
+    "POST",
+    { title: "Another member keeps this" },
+    201
+  );
+  const preservedSubmission = await bob(
+    "/submissions",
+    "POST",
+    {
+      paper_id: preservedPaper.id,
+      edition_id: keepEdition.id,
+      status: "accepted",
+      notes: "Keep this private note",
+    },
+    201
+  );
+  await bob(`/conferences/${keepConference.id}/review`, "PUT", {
+    text: "Keep another member's review",
+    tags: ["covers_travel"],
+  });
+  await bob(`/editions/${keepEdition.id}/attendance`, "PUT", {
+    status: "maybe",
+  });
+  await departing(`/crew/${b.id}/request`, "POST");
+  await bob(`/crew/${deletedUser.id}/accept`, "POST");
+  await departing(`/crew/${a.id}/request`, "POST");
+  await departing(`/crew/${s.id}/block`, "POST", undefined, 204);
+  const pendingDeletionCode = await departing("/auth/request", "POST", {
+    email: "delete@example.com",
+  });
+  const deletionLinkToken = randomBytes(32).toString("hex"),
+    legacyDeletionToken = randomBytes(32).toString("hex");
+  const historical = JSON.parse(
+    cli(
+      `
+    $id=(int)$argv[1];
+    insert('login_tokens',['user_id'=>$id,'token_hash'=>hash('sha256',$argv[2]),'expires_at'=>gmdate('Y-m-d\\TH:i:s\\Z',time()+900)]);
+    insert('auth_requests',['email'=>'delete@example.com','token_hash'=>hash('sha256',$argv[3]),'expires_at'=>gmdate('Y-m-d\\TH:i:s\\Z',time()+900)]);
+    insert('comments',['user_id'=>$id,'conference_id'=>(int)$argv[4],'text'=>'Retired personal content']);
+    $invites=[];
+    foreach ([['invited_by'=>$id],['invited_by'=>(int)$argv[5],'accepted_by'=>$id],['invited_by'=>(int)$argv[5],'email'=>'delete@example.com'],['invited_by'=>(int)$argv[5],'email'=>'unrelated@example.com']] as $data) {
+      $iid=insert('invites',[...$data,'token_hash'=>bin2hex(random_bytes(32)),'expires_at'=>gmdate('Y-m-d\\TH:i:s\\Z',time()+900)]);
+      $invites[]=one('SELECT * FROM invites WHERE id=?',[$iid]);
+    }
+    update('users',$id,['avatar_url'=>'/api/avatars/'.$id.'/avatar-aaaaaaaaaaaaaaaa.png']);
+    echo json_encode($invites);
+  `,
+      [
+        String(deletedUser.id),
+        deletionLinkToken,
+        legacyDeletionToken,
+        String(keepConference.id),
+        String(owner.id),
+      ]
+    )
+  );
+  const avatarFolder = join(directory, "avatars", String(deletedUser.id));
+  await mkdir(avatarFolder, { recursive: true });
+  for (const name of [
+    "avatar-aaaaaaaaaaaaaaaa.png",
+    "avatar-bbbbbbbbbbbbbbbb.svg",
+    ".avatar-fixture",
+  ])
+    await writeFile(join(avatarFolder, name), "personal image bytes");
+  const anotherAvatarFolder = join(directory, "avatars", String(b.id));
+  await mkdir(anotherAvatarFolder, { recursive: true });
+  await writeFile(
+    join(anotherAvatarFolder, "avatar-cccccccccccccccc.png"),
+    "keep another avatar"
+  );
+  await mkdir(join(directory, "invite-links"), { recursive: true });
+  await writeFile(
+    join(directory, "invite-links", "key.bin"),
+    "keep shared encryption key"
+  );
+  const invitePath = (row) =>
+    join(directory, "invite-links", `${row.id}-${row.token_hash}.json`);
+  for (const row of historical)
+    await writeFile(invitePath(row), "encrypted legacy payload");
+  const logoFolder = join(directory, "logos", String(keepConference.id));
+  await mkdir(logoFolder, { recursive: true });
+  const logoPath = join(logoFolder, "preserved-catalog-dddddddddddddddd.png");
+  await writeFile(logoPath, "keep the shared conference logo");
+  cli(
+    "update('conferences',(int)$argv[1],['logo_url'=>'/api/conference-logos/'.$argv[1].'/preserved-catalog-dddddddddddddddd.png']);",
+    [String(keepConference.id)]
+  );
+  const catalogBefore = JSON.parse(
+    cli(
+      "echo json_encode(['conferences'=>all('SELECT * FROM conferences ORDER BY id'),'editions'=>all('SELECT * FROM editions ORDER BY id')]);"
+    )
+  );
+  await departing("/me", "DELETE", {}, 422);
+  await departing("/me", "DELETE", { confirmation: "delete" }, 422);
+  await departing("/me", "DELETE", { confirmation: "DELETE" }, 403, false);
+  await alice(
+    `/users/${deletedUser.id}`,
+    "DELETE",
+    { confirmation: "DELETE" },
+    404
+  );
+  // A failed transaction must not remove personal data or enqueue/remove files.
+  cli(
+    "db()->exec('CREATE TRIGGER test_refuse_account_deletion BEFORE DELETE ON users WHEN OLD.id='.(int)$argv[1].' BEGIN SELECT RAISE(ABORT,\"test rollback\"); END;');",
+    [String(deletedUser.id)]
+  );
+  await departing("/me", "DELETE", { confirmation: "DELETE" }, 500);
+  assert.equal((await departing("/me")).user.id, deletedUser.id);
+  assert.equal((await departing("/papers")).length, 1);
+  assert.equal(
+    await readFile(join(avatarFolder, "avatar-aaaaaaaaaaaaaaaa.png"), "utf8"),
+    "personal image bytes"
+  );
+  assert.equal(
+    Number(
+      cli("echo one('SELECT COUNT(*) AS n FROM account_deletion_files')['n'];")
+    ),
+    0
+  );
+  cli("db()->exec('DROP TRIGGER test_refuse_account_deletion');");
+  // Do not traverse a member-directory symlink, even if private storage is damaged.
+  await rename(avatarFolder, avatarFolder + "-saved");
+  await symlink(anotherAvatarFolder, avatarFolder);
+  await departing("/me", "DELETE", { confirmation: "DELETE" }, 503);
+  assert.equal((await departing("/me")).user.id, deletedUser.id);
+  await unlink(avatarFolder);
+  await rename(avatarFolder + "-saved", avatarFolder);
+  // One broken filesystem entry exercises durable post-commit cleanup retry.
+  await unlink(invitePath(historical[0]));
+  await mkdir(invitePath(historical[0]));
+  await departing(
+    "/me",
+    "DELETE",
+    { confirmation: "DELETE", user_id: b.id },
+    204
+  );
+  await departing("/me", "GET", undefined, 401);
+  await oldSession("/me", "GET", undefined, 401);
+  await bob(`/users/${deletedUser.id}`, "GET", undefined, 404);
+  await bob(
+    `/avatars/${deletedUser.id}/avatar-aaaaaaaaaaaaaaaa.png`,
+    "GET",
+    undefined,
+    404
+  );
+  await anonymous(
+    "/auth/verify",
+    "POST",
+    credentials(pendingDeletionCode),
+    422
+  );
+  for (const token of [deletionLinkToken, legacyDeletionToken])
+    await anonymous("/auth/verify", "POST", { token }, 422);
+  assert.equal(
+    (await bob("/me")).user.id,
+    b.id,
+    "A supplied target ID must not delete another account"
+  );
+  const catalogAfter = JSON.parse(
+    cli(
+      "echo json_encode(['conferences'=>all('SELECT * FROM conferences ORDER BY id'),'editions'=>all('SELECT * FROM editions ORDER BY id')]);"
+    )
+  );
+  for (const table of ["conferences", "editions"])
+    assert.deepEqual(
+      catalogAfter[table],
+      catalogBefore[table].map((row) => ({
+        ...row,
+        created_by: row.created_by === deletedUser.id ? null : row.created_by,
+      })),
+      `${table} must retain IDs, dates, content, and trash status`
+    );
+  assert.equal(
+    (await bob(`/conferences/${keepConference.id}`)).created_by,
+    null
+  );
+  assert.equal(
+    (await bob(`/conferences/${keepConference.id}`)).reviews[0].text,
+    "Keep another member's review"
+  );
+  assert.equal(
+    await readFile(logoPath, "utf8"),
+    "keep the shared conference logo"
+  );
+  assert.equal((await bob(`/editions/${keepEdition.id}`)).created_by, null);
+  assert.equal(
+    (await bob("/papers")).find((row) => row.id === preservedPaper.id)
+      .submissions[0].id,
+    preservedSubmission.id
+  );
+  assert.equal(
+    (await bob("/papers")).find((row) => row.id === preservedPaper.id)
+      .submissions[0].notes,
+    "Keep this private note"
+  );
+  assert.equal((await bob(`/editions/${keepEdition.id}`)).maybe[0].id, b.id);
+  assert.equal(
+    (await alice("/trash")).conferences.find((row) => row.id === archived.id)
+      .created_by,
+    null
+  );
+  assert.ok(!(await bob("/users")).some((row) => row.id === deletedUser.id));
+  assert.ok(
+    !(await bob("/dashboard")).recent_activity.some(
+      (row) => row.user.id === deletedUser.id
+    )
+  );
+  const deletedRows = JSON.parse(
+    cli(
+      `
+    $id=(int)$argv[1];$counts=[];
+    foreach(['users'=>'id','papers'=>'owner_id','submissions'=>'owner_id','reviews'=>'user_id','attendance'=>'user_id','comments'=>'user_id','login_tokens'=>'user_id'] as $table=>$field)$counts[$table]=one('SELECT COUNT(*) AS n FROM '.$table.' WHERE '.$field.'=?',[$id])['n'];
+    $counts['friendships']=one('SELECT COUNT(*) AS n FROM friendships WHERE user_low=? OR user_high=? OR requested_by=?',[$id,$id,$id])['n'];
+    $counts['blocks']=one('SELECT COUNT(*) AS n FROM blocks WHERE user_id=? OR blocked_id=?',[$id,$id])['n'];
+    foreach(['login_codes','auth_requests'] as $table)$counts[$table]=one('SELECT COUNT(*) AS n FROM '.$table.' WHERE email=?',['delete@example.com'])['n'];
+    echo json_encode($counts);
+  `,
+      [String(deletedUser.id)]
+    )
+  );
+  assert.ok(
+    Object.values(deletedRows).every((count) => count === 0),
+    JSON.stringify(deletedRows)
+  );
+  assert.equal(
+    await readFile(join(avatarFolder, "avatar-aaaaaaaaaaaaaaaa.png")).then(
+      () => true,
+      () => false
+    ),
+    false
+  );
+  assert.equal(
+    await readFile(join(avatarFolder, "avatar-bbbbbbbbbbbbbbbb.svg")).then(
+      () => true,
+      () => false
+    ),
+    false
+  );
+  assert.equal(
+    await readFile(join(avatarFolder, ".avatar-fixture")).then(
+      () => true,
+      () => false
+    ),
+    false
+  );
+  assert.equal(
+    await readFile(
+      join(anotherAvatarFolder, "avatar-cccccccccccccccc.png"),
+      "utf8"
+    ),
+    "keep another avatar"
+  );
+  assert.equal(
+    await readFile(join(directory, "invite-links", "key.bin"), "utf8"),
+    "keep shared encryption key"
+  );
+  assert.equal(
+    await readFile(invitePath(historical[3]), "utf8"),
+    "encrypted legacy payload"
+  );
+  assert.equal(
+    Number(
+      cli("echo one('SELECT COUNT(*) AS n FROM account_deletion_files')['n'];")
+    ),
+    1
+  );
+  await rmdir(invitePath(historical[0]));
+  await writeFile(
+    invitePath(historical[0]),
+    "retry removing this inaccessible payload"
+  );
+  await alice("/me");
+  assert.equal(
+    Number(
+      cli("echo one('SELECT COUNT(*) AS n FROM account_deletion_files')['n'];")
+    ),
+    0
+  );
+  assert.equal(
+    await readFile(invitePath(historical[0])).then(
+      () => true,
+      () => false
+    ),
+    false
+  );
+  const freshUser = await signup(
+    departing,
+    "delete@example.com",
+    "Fresh speaker"
+  );
+  assert.ok(
+    freshUser.id > deletedUser.id,
+    "Deleted user IDs must never be reused"
+  );
+  assert.deepEqual(await departing("/papers"), []);
+  await oldSession("/me", "GET", undefined, 401);
+  assert.deepEqual(
+    JSON.parse(cli("echo json_encode(all('PRAGMA foreign_key_check'));")),
+    []
+  );
+  // Two remaining admins deleting concurrently must leave exactly one active admin.
+  await alice(`/admin/users/${owner.id}`, "PATCH", { role: "member" });
+  cli(
+    "insert('users',['name'=>'Suspended admin','email'=>'suspended-admin@example.com','cal_token'=>bin2hex(random_bytes(32)),'role'=>'admin','suspended'=>1]);"
+  );
+  await alice("/me", "DELETE", { confirmation: "DELETE" }, 409);
+  await alice(`/admin/users/${freshUser.id}`, "PATCH", { role: "admin" });
+  const deletions = await Promise.all(
+    [alice, departing].map((account) =>
+      fetch(origin + "/api/me", {
+        method: "DELETE",
+        headers: {
+          Cookie: account.cookie(),
+          "Content-Type": "application/json",
+          "X-Requested-With": "green-room",
+        },
+        body: JSON.stringify({ confirmation: "DELETE" }),
+      })
+    )
+  );
+  assert.deepEqual(
+    deletions.map((response) => response.status).sort(),
+    [204, 409]
+  );
+  assert.equal(
+    Number(
+      cli(
+        "echo one(\"SELECT COUNT(*) AS n FROM users WHERE role='admin' AND suspended=0\")['n'];"
+      )
+    ),
+    1
   );
   console.log(
     "API checks passed: verified public signup, onboarding, roles, ownership, friend requests/crossed acceptance, unique submitter privacy, manual attendance, review visibility, unfriend/block, suspension/session revocation, last-admin safeguards, retired endpoints, rate limits, archive preservation, and protected files."

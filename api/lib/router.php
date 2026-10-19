@@ -13,7 +13,10 @@ function dispatch(): never {
     if (in_array($method, ['POST', 'PATCH', 'PUT', 'DELETE'], true) && ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') !== 'green-room') fail(403, 'csrf', 'Missing request header.');
     foreach ($routes as [$verb, $pattern, $handler, $public]) {
         if ($method !== $verb || !preg_match($pattern, $path, $matches)) continue;
-        if (!in_array($path, ['/health', '/setup'], true)) ensure_database_migrations();
+        if (!in_array($path, ['/health', '/setup'], true)) {
+            ensure_database_migrations();
+            purge_deleted_account_files();
+        }
         if (!$public) {
             $user = require_login();
             if (!$user['profile_complete'] && $path !== '/me') fail(403, 'profile_required', 'Choose a display name to complete your profile.');

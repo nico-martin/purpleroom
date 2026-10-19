@@ -164,12 +164,17 @@ export default function AuthPage({
             <Notice className="mt-6 max-w-md">
               <p className="font-semibold text-ink">v0 / early beta</p>
               <p className="mt-1">
-                Expect bugs and rough edges. Your feedback helps shape what comes
-                next.
+                Expect bugs and rough edges. Your feedback helps shape what
+                comes next.
               </p>
             </Notice>
           </section>
           <Card padded className="mx-auto w-full max-w-md">
+            {mode === "login" && search.get("deleted") === "1" && (
+              <Notice tone="success" className="mb-5">
+                Your account and personal content have been permanently deleted.
+              </Notice>
+            )}
             <Mail className="mb-5 text-purple" />
             <h2 className="text-2xl">
               {mode === "verify"

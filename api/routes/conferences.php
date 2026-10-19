@@ -26,7 +26,7 @@ route('POST', '/conferences/metadata', function () {
 route('GET', '/conferences/{id}', function ($p) {
     $c = conference((int) $p['id']);
     $reviews = array_map(fn($r) => [...$r, 'tags' => json_decode($r['tags'], true), 'user' => user_by_id((int) $r['user_id'])], visible_reviews((int)$c['id']));
-    json_response([...conference_summary($c), 'created_by' => user_by_id((int) $c['created_by']), 'editions' => all('SELECT * FROM editions WHERE conference_id=? AND deleted_at IS NULL ORDER BY starts_on IS NULL, starts_on DESC, created_at DESC, id DESC', [$c['id']]), 'reviews' => $reviews]);
+    json_response([...conference_summary($c), 'created_by' => $c['created_by'] === null ? null : user_by_id((int) $c['created_by']), 'editions' => all('SELECT * FROM editions WHERE conference_id=? AND deleted_at IS NULL ORDER BY starts_on IS NULL, starts_on DESC, created_at DESC, id DESC', [$c['id']]), 'reviews' => $reviews]);
 });
 route('PATCH', '/conferences/{id}', function ($p) {
     $c = conference((int) $p['id']); $data = conference_fields(body(), $c);

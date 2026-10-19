@@ -9,6 +9,7 @@ api/config.local.php
 *.log
 .DS_Store
 .idea/
+.claude/worktrees/
 *.tsbuildinfo
 test-results/
 playwright-report/
