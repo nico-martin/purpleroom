@@ -159,8 +159,15 @@ export default function AuthPage({
               your friends are heading.
             </p>
             <p className="mt-6 text-sm text-muted">
-              Anyone can join. Everything inside is for signed-in members only.
+              A members-only space for conference speakers. Anyone can join.
             </p>
+            <Link
+              to="/faq"
+              className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-purple underline underline-offset-4"
+            >
+              What is purpleroom? Read the FAQ{" "}
+              <ArrowRight size={16} aria-hidden="true" />
+            </Link>
             <Notice className="mt-6 max-w-md">
               <p className="font-semibold text-ink">v0 / early beta</p>
               <p className="mt-1">
