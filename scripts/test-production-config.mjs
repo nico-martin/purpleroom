@@ -10,6 +10,47 @@ import {
   renderConfig,
 } from "./generate-production-config.mjs";
 
+test("deployment pins a stable runner and Node 24-compatible actions without changing the app runtime", async () => {
+  const workflow = await readFile(".github/workflows/deploy.yml", "utf8");
+  assert.ok(workflow.includes("runs-on: ubuntu-24.04"));
+  assert.ok(!workflow.includes("runs-on: ubuntu-latest"));
+  // Each pinned release's action.yml declares runs.using: node24.
+  for (const action of [
+    "actions/checkout@v7.0.1",
+    "actions/setup-node@v7.1.0",
+    "pnpm/action-setup@v6.1.0",
+    "SamKirkland/FTP-Deploy-Action@v4.4.0",
+  ])
+    assert.ok(workflow.includes(`uses: ${action}`), `Expected ${action}`);
+  assert.ok(
+    workflow.includes('node-version: "22"'),
+    "The Node runtime used by actions is separate from the app build runtime"
+  );
+  assert.ok(workflow.includes("cache: pnpm"));
+  assert.ok(workflow.includes("pnpm install --frozen-lockfile"));
+});
+
+test("deployment action upgrades retain serial uploads and strict non-destructive FTPS settings", async () => {
+  const workflow = await readFile(".github/workflows/deploy.yml", "utf8");
+  for (const setting of [
+    "group: production-deploy",
+    "cancel-in-progress: false",
+    "protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}",
+    "security: strict",
+    "dangerous-clean-slate: false",
+  ])
+    assert.ok(
+      workflow.includes(setting),
+      `Missing deployment safeguard: ${setting}`
+    );
+  for (const directory of ["sessions", "logos", "avatars", "invite-links"]) {
+    assert.ok(workflow.includes(`--exclude='db/${directory}/'`));
+    assert.ok(workflow.includes(`            api/db/${directory}/**`));
+  }
+  assert.ok(workflow.includes("--exclude='db/db.sqlite*'"));
+  assert.ok(workflow.includes("            api/db/db.sqlite*"));
+});
+
 test("deployment reads public mail settings from variables and credentials from secrets", async () => {
   const workflow = await readFile(".github/workflows/deploy.yml", "utf8");
   for (const key of ["APP_BASE_URL", "APP_MAIL_FROM", "SMTP_HOST", "SMTP_USERNAME"]) {

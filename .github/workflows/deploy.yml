@@ -17,18 +17,19 @@ concurrency:
 jobs:
   build-and-deploy:
     name: Build and Deploy via FTP
-    runs-on: ubuntu-latest
+    # Keep image upgrades deliberate rather than following ubuntu-latest rollouts.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6.1.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: "22"
           cache: pnpm
@@ -113,7 +114,7 @@ jobs:
           fi
 
       - name: Deploy frontend and PHP backend
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}

@@ -50,6 +50,8 @@ Emails contain a selectable six-digit sign-in code in branded HTML and a plain-t
 
 ## What a deployment does
 
+The workflow pins the hosted runner to **Ubuntu 24.04**, avoiding automatic `ubuntu-latest` operating-system transitions. Checkout, Node setup, pnpm setup, and FTP deployment use releases that declare **Node 24** as their action runtime. This is separate from the application's build runtime, which remains **Node 22** with the pnpm version pinned in `package.json`. Review action/runtime and runner-image upgrades deliberately; do not suppress deprecation warnings by allowing obsolete runtimes.
+
 1. Installs locked dependencies with pnpm and builds the React frontend, injecting the checked-out commit's short hash as `VITE_APP_VERSION`. The footer displays `version: dev-HASH` (or `version: dev-local` for local builds without metadata); it identifies the deployed frontend, not the latest remote commit after deployment.
 2. Stages the frontend output and PHP API, including Apache protection files and SQL migrations; excludes runtime data, local config, and the development router.
 3. Generates `api/config.local.php` from `APP_*` and `SMTP_*` variables and secrets, with production mode forced on. Invalid required settings stop deployment before upload.
