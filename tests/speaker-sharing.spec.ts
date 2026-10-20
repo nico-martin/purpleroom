@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 const headers = { "X-Requested-With": "green-room" };
 
-test("Shareable uses only published information, exposes crawler metadata, loads toolkit previews on demand, and regenerates from settings", async ({
+test("Shareable uses only published information, exposes crawler metadata, keeps the toolkit offline, and regenerates from settings", async ({
   page,
   context,
 }) => {
@@ -66,20 +66,11 @@ test("Shareable uses only published information, exposes crawler metadata, loads
         });
   });
   await page.goto("/speaker");
-  const preview = page.getByRole("region", { name: "Social sharing preview" });
-  await expect(preview).toContainText("only your published name");
-  expect(requests).toEqual([]);
-  await preview.getByRole("button", { name: "Load sharing preview" }).click();
-  await expect(preview.getByRole("alert")).toContainText(
-    "Could not load the sharing preview"
-  );
-  await preview.getByRole("button", { name: "Load sharing preview" }).click();
   await expect(
-    preview.getByRole("img", {
-      name: "Published speaker profile sharing preview",
-    })
+    page.getByRole("heading", { name: "Speaker toolkit" })
   ).toBeVisible();
-  expect(requests).toEqual([sharing.image_url, sharing.image_url]);
+  await expect(page.getByText(/sharing (preview|image)/i)).toHaveCount(0);
+  expect(requests).toEqual([]);
 
   expect(
     (
@@ -131,7 +122,7 @@ test("Shareable uses only published information, exposes crawler metadata, loads
   expect([...new Set(apiRequests)]).toEqual([
     `/api/public/speakers/${username}`,
   ]);
-  expect(requests).toHaveLength(2);
+  expect(requests).toEqual([]);
   await page.screenshot({ path: "test-results/speaker-shareable-card.png" });
   await page.setViewportSize({ width: 1200, height: 600 });
   expect(await card.boundingBox()).toMatchObject({ width: 1200, height: 600 });
@@ -141,15 +132,18 @@ test("Shareable uses only published information, exposes crawler metadata, loads
   const settingsImage = page.getByRole("region", {
     name: "Social sharing image",
   });
+  await expect(settingsImage.getByRole("alert")).toContainText(
+    "Could not load the sharing image"
+  );
+  expect(requests).toEqual([sharing.image_url]);
+  await settingsImage.getByRole("button", { name: "Regenerate image" }).click();
   await expect(
     settingsImage.getByRole("img", {
       name: "Published speaker profile sharing image",
     })
   ).toBeVisible();
-  expect(requests.slice(2)).toEqual([sharing.image_url]);
-  await settingsImage.getByRole("button", { name: "Regenerate image" }).click();
-  await expect.poll(() => requests.length).toBe(5);
-  const rebuilt = requests.slice(3).map((url) => new URL(url));
+  await expect.poll(() => requests.length).toBe(3);
+  const rebuilt = requests.slice(1).map((url) => new URL(url));
   for (const [url, format] of [
     [sharing.image_url, null],
     [sharing.twitter_image_url, "twitter"],
@@ -176,13 +170,6 @@ test("Shareable uses only published information, exposes crawler metadata, loads
   expect(
     await (await context.request.get(`/u/${username}`)).text()
   ).not.toContain('property="og:image"');
-  await page.goto("/speaker");
-  await expect(preview).toContainText(
-    "Private drafts are never sent to Shareable."
-  );
-  await expect(
-    preview.getByRole("button", { name: "Load sharing preview" })
-  ).toHaveCount(0);
   await page.goto("/settings/speaker");
   await expect(
     page.getByRole("switch", { name: "Make my profile public" })
@@ -190,5 +177,5 @@ test("Shareable uses only published information, exposes crawler metadata, loads
   await expect(
     page.getByRole("region", { name: "Social sharing image" })
   ).toHaveCount(0);
-  expect(requests).toHaveLength(5);
+  expect(requests).toHaveLength(3);
 });
