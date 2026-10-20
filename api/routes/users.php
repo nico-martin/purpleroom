@@ -1,6 +1,17 @@
 <?php
 if (!defined('GREEN_ROOM')) exit;
 route('GET', '/me', function () { json_response(['user' => private_user(require_login())]); });
+route('GET', '/speaker/username-availability', function () {
+    $user = require_login();
+    if (!take_rate_limit('username-availability:' . $user['id'], 120, 60)) {
+        header('Retry-After: 60');
+        fail(429, 'rate_limited', 'Too many username checks. Please wait a minute.');
+    }
+    $username = $_GET['username'] ?? null;
+    validate_username_format($username);
+    $available = !username_reserved($username) && !one('SELECT id FROM users WHERE username=? AND id<>?', [$username,$user['id']]);
+    json_response(['username'=>$username, 'available'=>$available]);
+});
 route('PATCH', '/me', function () {
     $user = require_login();
     $data = profile_fields(body(), $user);

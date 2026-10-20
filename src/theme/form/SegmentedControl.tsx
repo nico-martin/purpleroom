@@ -6,6 +6,7 @@ interface SegmentedControlProps<T extends string> {
   onChange: (value: T) => void;
   label: string;
   disabled?: boolean;
+  compact?: boolean;
   className?: string;
 }
 export default function SegmentedControl<T extends string>({
@@ -14,6 +15,7 @@ export default function SegmentedControl<T extends string>({
   onChange,
   label,
   disabled = false,
+  compact = false,
   className = "",
 }: SegmentedControlProps<T>) {
   return (
@@ -21,7 +23,8 @@ export default function SegmentedControl<T extends string>({
       role="group"
       aria-label={label}
       className={cn(
-        "inline-flex max-w-full flex-wrap rounded-xl bg-divider p-1",
+        "inline-flex max-w-full rounded-xl bg-divider p-1",
+        compact ? "flex-nowrap" : "flex-wrap",
         className
       )}
     >
@@ -33,7 +36,8 @@ export default function SegmentedControl<T extends string>({
           aria-pressed={value === option.value}
           onClick={() => onChange(option.value)}
           className={cn(
-            "min-h-11 flex-1 whitespace-nowrap rounded-lg px-4 text-sm transition-colors disabled:opacity-50",
+            "min-h-11 flex-1 whitespace-nowrap rounded-lg transition-colors disabled:opacity-50",
+            compact ? "min-w-0 px-1 text-xs" : "px-4 text-sm",
             value === option.value
               ? "bg-surface font-semibold text-green-deep shadow-sm"
               : "text-muted hover:text-ink"

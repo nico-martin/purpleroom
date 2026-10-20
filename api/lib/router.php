@@ -9,7 +9,8 @@ function route(string $method, string $path, callable $handler, bool $public = f
 function dispatch(): never {
     global $routes;
     $method = $_SERVER['REQUEST_METHOD'];
-    $path = substr(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), 4) ?: '/';
+    $requestPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    $path = preg_match('#^/u/([^/]+)/?$#D', $requestPath, $speaker) ? '/public/speakers/' . $speaker[1] . '/page' : (substr($requestPath, 4) ?: '/');
     if (in_array($method, ['POST', 'PATCH', 'PUT', 'DELETE'], true) && ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') !== 'green-room') fail(403, 'csrf', 'Missing request header.');
     foreach ($routes as [$verb, $pattern, $handler, $public]) {
         if ($method !== $verb || !preg_match($pattern, $path, $matches)) continue;

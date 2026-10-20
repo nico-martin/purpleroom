@@ -9,6 +9,10 @@
   --font-mono: "JetBrains Mono", monospace;
   --color-ground: #f6f3f8;
   --color-surface: #ffffff;
+  --color-image-matte: var(--color-divider);
+  --aspect-landscape: 3 / 2;
+  --aspect-profile-banner: 4 / 1;
+  --aspect-social-card: 1200 / 630;
   --color-ink: #302638;
   --color-ink-soft: #4b3e57;
   --color-muted: #6b5c78;

@@ -6,10 +6,12 @@ import cn from "../../utils/classnames";
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "secondary" | "ghost" | "dashed" | "danger";
   loading?: boolean;
+  compact?: boolean;
 }
 export default function Button({
   variant = "secondary",
   loading = false,
+  compact = false,
   className = "",
   children,
   disabled,
@@ -21,7 +23,10 @@ export default function Button({
       type={type}
       disabled={disabled || loading}
       className={cn(
-        "inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+        compact
+          ? "gap-1.5 whitespace-nowrap px-2 py-2 text-xs"
+          : "gap-2 px-4 py-2.5 text-sm",
         {
           "border border-green bg-green text-on-purple hover:bg-green-deep":
             variant === "primary",

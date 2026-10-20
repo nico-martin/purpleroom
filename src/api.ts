@@ -8,19 +8,24 @@ export class ApiError extends Error {
     super(message);
   }
 }
-export async function api<T>(
+async function request(
   path: string,
   options: { method?: string; body?: unknown; signal?: AbortSignal } = {}
-): Promise<T> {
+): Promise<Response> {
+  const multipart = options.body instanceof FormData;
   const response = await fetch(`/api${path}`, {
     method: options.method ?? "GET",
     credentials: "same-origin",
     signal: options.signal,
     headers: {
-      "Content-Type": "application/json",
+      ...(multipart ? {} : { "Content-Type": "application/json" }),
       "X-Requested-With": "green-room",
     },
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    body: multipart
+      ? (options.body as FormData)
+      : options.body === undefined
+        ? undefined
+        : JSON.stringify(options.body),
   });
   if (!response.ok) {
     const payload = await response.json().catch(() => ({
@@ -44,5 +49,15 @@ export async function api<T>(
       payload.error.fields
     );
   }
+  return response;
+}
+export async function api<T>(
+  path: string,
+  options: { method?: string; body?: unknown; signal?: AbortSignal } = {}
+): Promise<T> {
+  const response = await request(path, options);
   return response.status === 204 ? (undefined as T) : response.json();
+}
+export async function apiBlob(path: string): Promise<Blob> {
+  return (await request(path)).blob();
 }

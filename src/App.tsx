@@ -13,8 +13,11 @@ import EditionDetailPage from "./pages/EditionDetailPage";
 import EditionFormPage from "./pages/EditionFormPage";
 import FaqPage from "./pages/FaqPage";
 import MemberPage from "./pages/MemberPage";
+import PublicSpeakerPage from "./pages/PublicSpeakerPage";
 import SettingsPage from "./pages/SettingsPage";
 import SetupPage from "./pages/SetupPage";
+import SpeakerPage from "./pages/SpeakerPage";
+import SpeakerSettingsPage from "./pages/SpeakerSettingsPage";
 import TalkDetailPage from "./pages/TalkDetailPage";
 import TalksPage from "./pages/TalksPage";
 import TrashPage from "./pages/TrashPage";
@@ -26,6 +29,7 @@ export default function App() {
       <Route path="/login" element={<AuthPage mode="login" />} />
       <Route path="/faq" element={<FaqPage />} />
       <Route path="/setup" element={<SetupPage />} />
+      <Route path="/u/:username" element={<PublicSpeakerPage />} />
       <Route path="/auth/:token" element={<AuthPage mode="verify" />} />
       <Route element={<AppShell />}>
         <Route index element={<DashboardPage />} />
@@ -77,6 +81,8 @@ export default function App() {
           }
         />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="settings/speaker" element={<SpeakerSettingsPage />} />
+        <Route path="speaker" element={<SpeakerPage />} />
         <Route
           path="trash"
           element={

@@ -10,9 +10,79 @@ export interface User {
   email?: string;
 }
 export interface Account extends User, ProfileLinks {
+  username: string | null;
   email: string;
   role: "member" | "admin";
   profile_complete: number;
+}
+export interface SpeakerBio {
+  label: string;
+  text: string;
+}
+export interface SpeakerAppearance {
+  kind: "talk" | "recording" | "slides" | "appearance";
+  title: string;
+  url: string;
+  description: string;
+}
+export interface SpeakerDraft {
+  tagline: string;
+  company: string;
+  job_title: string;
+  contact_email: string;
+  bios: SpeakerBio[];
+  appearances: SpeakerAppearance[];
+}
+export interface SpeakerPicture {
+  id: number;
+  label: string;
+  credit: string;
+  url: string;
+  download_url: string;
+  variants?: Partial<Record<SpeakerPictureSize, SpeakerPictureVariant>>;
+}
+export type SpeakerPictureSize = "s" | "m" | "l" | "xl" | "full";
+export interface SpeakerPictureVariant {
+  width: number | null;
+  height: number | null;
+  file_size: number;
+  mime_type: string;
+  url: string;
+  download_url: string;
+}
+export interface SpeakerInformation {
+  draft: SpeakerDraft;
+  pictures: SpeakerPicture[];
+  published: boolean;
+  username: string | null;
+  branding?: SpeakerBranding;
+  sharing?: SpeakerSharing | null;
+}
+export interface SpeakerSharing {
+  profile_url: string;
+  image_url: string;
+  twitter_image_url: string;
+}
+export interface SpeakerBranding {
+  header_image: SpeakerPicture | null;
+  profile_url: string | null;
+}
+export interface SpeakerProfile extends Partial<
+  Omit<SpeakerDraft, "bios" | "appearances">
+> {
+  schema_version: number;
+  speaker_id: string;
+  username: string;
+  name: string;
+  profile_url: string;
+  api_url: string;
+  bios: SpeakerBio[];
+  appearances: SpeakerAppearance[];
+  pictures: SpeakerPicture[];
+  header_image?: SpeakerPicture | null;
+  profile_image?: SpeakerPicture | null;
+  sharing?: SpeakerSharing;
+  links: { field: string; url: string }[];
 }
 export interface Conference {
   id: number;

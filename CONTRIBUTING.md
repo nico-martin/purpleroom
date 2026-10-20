@@ -81,6 +81,7 @@ Run the relevant checks and report their actual results in the PR. Run the full 
 pnpm build
 pnpm lint
 pnpm test:api
+pnpm test:speakers
 pnpm test:editions
 pnpm test:logos
 pnpm test:deploy

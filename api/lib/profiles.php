@@ -20,6 +20,7 @@ function profile_fields(array $input, array $existing): array {
         unset($input['avatar_url']);
     }
     $data = fields($input, ['name','avatar_url',...PROFILE_LINK_FIELDS]);
+    if (array_key_exists('username', $input)) $data['username'] = username_field($input['username']);
     if ($local) $data['avatar_url'] = $avatar;
     foreach (PROFILE_LINK_FIELDS as $key) {
         $url = $data[$key] ?? null;
@@ -66,6 +67,14 @@ function persist_profile(array $data, array $existing, ?callable $fetcher = null
     db()->exec('BEGIN IMMEDIATE');
     try {
         if (!one('SELECT id FROM users WHERE id=? AND suspended=0 AND session_version=?', [$existing['id'],$existing['session_version']])) throw new AvatarException('Please sign in again before updating your profile.',401);
+        if (array_key_exists('username', $data)) {
+            if ($data['username'] !== null && one('SELECT id FROM users WHERE username=? AND id<>?', [$data['username'],$existing['id']])) {
+                db()->exec('ROLLBACK');
+                fail(409, 'username_taken', 'This username is already taken.', ['username'=>'taken']);
+            }
+            $current = one('SELECT username FROM users WHERE id=?', [$existing['id']]);
+            if ($data['username'] !== $current['username']) query('UPDATE speaker_information SET published=NULL,revision=NULL WHERE user_id=?', [$existing['id']]);
+        }
         $data['avatar_url'] = $asset ? store_avatar((int)$existing['id'],$asset) : null;
         update('users',(int)$existing['id'],$data);
         db()->exec('COMMIT');

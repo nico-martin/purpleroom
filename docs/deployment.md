@@ -8,9 +8,18 @@ For product behaviour, see [app logic](agent/app-logic.md). For local developmen
 
 - HTTPS and Apache with `.htaccess` rewrites enabled.
 - PHP 8.3+ with PDO SQLite. Enable PHP cURL for SMTP (with SMTP/SMTPS and TLS support) and metadata/logo downloads, and DOM for metadata parsing and SVG sanitisation.
+- Enable GD for speaker-picture resizing and EXIF for JPEG orientation. GD must support the photo format being imported (PNG/JPEG, optionally WebP/AVIF); generated non-JPEG variants use WebP when available, otherwise PNG. For local-file uploads up to 5 MB, configure `upload_max_filesize` to at least `5M` and `post_max_size` to at least `6M` in the hosting PHP settings. Keep a realistic memory limit (at least 128M recommended); oversized decoding/rotation buffers are rejected before allocation instead of exhausting PHP memory. Do not disable image pixel/size limits to work around failures.
 - PHP can write `api/db/`, the SQLite file/sidecars, and private runtime subdirectories. Use appropriate ownership/permissions; avoid world-writable `777` directories.
 - Either authenticated SMTP delivery or working host PHP `mail()` delivery. Configure the sender domain's SPF/DKIM with your mail provider and use a permitted/verified sender address.
 - A document root containing the built frontend and `api/`. Direct access to database files, config, libraries, and routes must remain denied.
+
+## Speaker social previews (Shareable)
+
+Public `/u/{username}` pages are rewritten through PHP to add crawler-readable metadata to the built `index.html`; all other frontend pages remain static. Keep the public `.htaccess` speaker rewrite and the deployed root `index.html` together. Development Vite middleware mirrors this using the isolated/local PHP server. No production Node process or external JavaScript library is needed.
+
+Speaker image metadata uses `https://shareable.nico.dev/render`. Run that Shareable instance and include the exact configured `APP_BASE_URL` origin in its `ALLOWED_HOSTS`; it must be able to reach the public profile and its images over HTTPS without authentication. The hosted instance cannot reach a developer's localhost. Test a published profile at `/u/{username}#render-shareable` at 1200×630 (or 1200×600 for the current Shareable Twitter renderer), then follow its `og:image` URL. Do not send private toolkit URLs or credentials to Shareable. Toolkit preview loading is opt-in and reports render/host failures.
+
+Each explicit publication/update changes the image cache version. Shareable and social platforms can retain old images after unpublishing: source pages stop exposing profile data, but those external caches are not revoked by purpleroom. Do not promise immediate deletion of third-party preview caches.
 
 ## GitHub configuration
 
