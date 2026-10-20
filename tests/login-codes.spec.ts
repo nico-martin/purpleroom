@@ -42,6 +42,16 @@ test("email codes support paste, retries, resend, reload, and the intended desti
     route.fulfill({ json: [] })
   );
   await page.goto("/login?next=/conferences");
+  await expect(
+    page.getByText("Local development", { exact: true })
+  ).toBeVisible();
+  await expect(
+    page.getByText("admin@purpleroom.dev", { exact: true })
+  ).toBeVisible();
+  await expect(
+    page.getByText(/Any other email creates a regular member account/)
+  ).toBeVisible();
+  await expect(page.getByText(/no email is sent/)).toBeVisible();
   await page
     .getByLabel("Email address", { exact: true })
     .fill("speaker@example.com");
@@ -49,7 +59,9 @@ test("email codes support paste, retries, resend, reload, and the intended desti
     .getByRole("button", { name: "Send me a code", exact: true })
     .click();
   const input = page.getByLabel("Sign-in code", { exact: true });
-  await expect(page.getByText("v0 / early beta", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("v0 / early beta", { exact: true })
+  ).toBeVisible();
   await expect(input).toBeFocused();
   await expect(input).toHaveAttribute("autocomplete", "one-time-code");
   await expect(input).toHaveAttribute("inputmode", "numeric");

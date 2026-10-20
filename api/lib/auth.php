@@ -3,6 +3,10 @@ declare(strict_types=1);
 if (!defined('GREEN_ROOM')) exit;
 const LOGIN_FAILURE_LIMIT = 20;
 const LOGIN_FAILURE_WINDOW = 86400;
+function new_account_role(string $email): string {
+    global $config;
+    return $config['env'] === 'dev' && strtolower(trim($email)) === 'admin@purpleroom.dev' ? 'admin' : 'member';
+}
 function session_directory(): string {
     $directory = dirname(__DIR__) . '/db/sessions';
     if (!is_dir($directory) && !@mkdir($directory, 0700, true) && !is_dir($directory)) fail(503, 'storage_unavailable', 'PHP cannot create its session directory. Check that api/db/ is writable by PHP.');
@@ -68,7 +72,7 @@ function verify_login_code(string $requestId, string $code): ?array {
             else {
                 $user = one('SELECT * FROM users WHERE email=?', [$pending['email']]);
                 if (!$user) {
-                    $id = insert('users', ['email'=>$pending['email'], 'name'=>'', 'profile_complete'=>0, 'cal_token'=>bin2hex(random_bytes(32))]);
+                    $id = insert('users', ['email'=>$pending['email'], 'name'=>'', 'role'=>new_account_role($pending['email']), 'profile_complete'=>0, 'cal_token'=>bin2hex(random_bytes(32))]);
                     $user = one('SELECT * FROM users WHERE id=?', [$id]);
                 }
                 query('UPDATE login_codes SET used_at=? WHERE id=?', [now(), $pending['id']]);

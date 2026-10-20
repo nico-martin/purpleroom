@@ -1712,6 +1712,122 @@ try {
     [false, true, true, false, 0, true],
     "Opening/closing instants and badges must respect local midnight, with the old full-day fallback retained for legacy deadlines"
   );
+  // Development-only account defaults must never grant production admin by email.
+  assert.deepEqual(
+    JSON.parse(
+      cli(`
+    require 'api/lib/auth.php';$roles=[];
+    foreach(['dev','production'] as $mode) {
+      $config['env']=$mode;
+      foreach(['admin@purpleroom.dev','ADMIN@PURPLEROOM.DEV','mail@nico.dev','member@example.com'] as $email) $roles[]=new_account_role($email);
+    }
+    echo json_encode($roles);
+  `)
+    ),
+    [
+      "admin",
+      "admin",
+      "member",
+      "member",
+      "member",
+      "member",
+      "member",
+      "member",
+    ]
+  );
+  const devAdmin = client();
+  const devCode = await devAdmin("/auth/request", "POST", {
+    email: "ADMIN@PURPLEROOM.DEV",
+  });
+  const devVerified = await devAdmin("/auth/verify", "POST", {
+    request_id: devCode.request_id,
+    code: devCode.code,
+  });
+  assert.equal(devVerified.user.email, "admin@purpleroom.dev");
+  assert.equal(devVerified.user.role, "admin");
+  await devAdmin("/me", "PATCH", { name: "Local Admin" });
+  await signup(client(), "ordinary-local@example.com", "Ordinary local member");
+  // A previously demoted/local member must not be re-promoted just by signing in.
+  cli(
+    "query('UPDATE users SET role=? WHERE email=?',['member','admin@purpleroom.dev']);"
+  );
+  const existingCode = await devAdmin("/auth/request", "POST", {
+    email: "admin@purpleroom.dev",
+  });
+  assert.equal(
+    (
+      await devAdmin("/auth/verify", "POST", {
+        request_id: existingCode.request_id,
+        code: existingCode.code,
+      })
+    ).user.role,
+    "member"
+  );
+  // Run the real seed CLI against a separate temporary database, not developer data.
+  const seedEnv = { ...env, GREEN_ROOM_DB: join(directory, "seed.sqlite") };
+  const migrateSeed = spawnSync("php", ["api/db/migrate.php"], {
+    env: seedEnv,
+    encoding: "utf8",
+  });
+  assert.equal(migrateSeed.status, 0, migrateSeed.stderr);
+  for (const [email, mode] of [
+    ["admin@purpleroom.dev", "dev"],
+    ["ADMIN@PURPLEROOM.DEV", "dev"],
+    ["mail@nico.dev", "dev"],
+    ["member@example.com", "dev"],
+    ["production@example.com", "production"],
+  ]) {
+    const seeded = spawnSync(
+      "php",
+      ["api/db/seed.php", "Local fixture", email],
+      { env: { ...seedEnv, PURPLEROOM_ENV: mode }, encoding: "utf8" }
+    );
+    assert.equal(seeded.status, 0, seeded.stderr);
+  }
+  const seedRows = spawnSync(
+    "php",
+    [
+      "-r",
+      "define('GREEN_ROOM',true);$config=require 'api/config.php';require 'api/lib/db.php';echo json_encode(all('SELECT email,role FROM users ORDER BY id'));",
+    ],
+    { env: seedEnv, encoding: "utf8" }
+  );
+  assert.equal(seedRows.status, 0, seedRows.stderr);
+  assert.deepEqual(JSON.parse(seedRows.stdout), [
+    { email: "admin@purpleroom.dev", role: "admin" },
+    { email: "mail@nico.dev", role: "member" },
+    { email: "member@example.com", role: "member" },
+    { email: "production@example.com", role: "member" },
+  ]);
+  // Re-seeding the existing local address preserves its role.
+  const productionSeedDb = join(directory, "production-seed.sqlite");
+  const prodSeedEnv = {
+    ...env,
+    GREEN_ROOM_DB: productionSeedDb,
+    PURPLEROOM_ENV: "production",
+  };
+  assert.equal(
+    spawnSync("php", ["api/db/migrate.php"], { env: prodSeedEnv }).status,
+    0
+  );
+  assert.equal(
+    spawnSync(
+      "php",
+      ["api/db/seed.php", "Production fixture", "admin@purpleroom.dev"],
+      { env: prodSeedEnv }
+    ).status,
+    0
+  );
+  const prodRole = spawnSync(
+    "php",
+    [
+      "-r",
+      "define('GREEN_ROOM',true);$config=require 'api/config.php';require 'api/lib/db.php';echo one('SELECT role FROM users')['role'];",
+    ],
+    { env: prodSeedEnv, encoding: "utf8" }
+  );
+  assert.equal(prodRole.status, 0, prodRole.stderr);
+  assert.equal(prodRole.stdout, "member");
   console.log(
     "API checks passed: verified public signup, onboarding, roles, ownership, friend requests/crossed acceptance, unique submitter privacy, manual attendance, review visibility, unfriend/block, suspension/session revocation, last-admin safeguards, retired endpoints, rate limits, archive preservation, and protected files."
   );
