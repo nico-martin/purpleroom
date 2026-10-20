@@ -1,6 +1,5 @@
 import SpeakerBios from "../components/SpeakerBios";
 import SpeakerPictureCard from "../components/SpeakerPictureCard";
-import SpeakerSharingPreview from "../components/SpeakerSharingPreview";
 import useApi from "../hooks/useApi";
 import useSession from "../hooks/useSession";
 import { PROFILE_LINKS } from "../lib/profile";
@@ -136,7 +135,6 @@ export default function SpeakerPage() {
           </p>
         )}
       </section>
-      <SpeakerSharingPreview sharing={data.sharing} />
       <section aria-label="Papers">
         <SectionHeader title="Papers" />
         <Card padded>
