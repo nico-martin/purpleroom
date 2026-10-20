@@ -91,6 +91,10 @@ Run `php -l path/to/file.php` for every changed PHP file. Browser tests require 
 
 Documentation-only changes normally need link/path checks and `git diff --check`, not the full application suite. Clearly disclose checks that failed or were not run and why; never describe unrun checks as passing.
 
+## Reviewing pull requests
+
+Human and agent reviewers must follow [the PR review guide](docs/agent/pr-review.md). Every review must explicitly assess whether `docs/agent/app-logic.md` accurately reflects the changes; checking only that the file was edited is not sufficient. Do not approve a behaviour-changing PR with missing or contradictory app-logic updates. If no update is needed, explain why in the review.
+
 ## Additional rules for coding agents
 
 - Follow this guide and `AGENTS.md`; being asked to implement a feature is **not** permission to commit, push, merge, deploy, or modify a live database.
@@ -108,6 +112,7 @@ Documentation-only changes normally need link/path checks and `git diff --check`
 - [ ] Check results are listed, including anything not run or still failing.
 - [ ] UI changes include useful screenshots; schema changes explain upgrade safety and data preservation.
 - [ ] Behaviour changes update the living app logic; operational changes update the deployment guide.
+- [ ] Review explicitly confirms app-logic consistency, or explains why no app-logic update is needed, following the PR review guide.
 - [ ] No secrets, local files, runtime data, nested repositories, or unrelated changes are included.
 - [ ] Any new dependencies or significant scope changes were agreed before implementation.
 
