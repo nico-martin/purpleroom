@@ -20,7 +20,7 @@ purpleroom is a members-only space for conference speakers to find their next st
 
 ## Privacy by design
 
-Nothing inside the app is publicly browsable. Anyone can join by entering a six-digit code from email in the login screen; new members choose a display name before appearing in the directory. Codes work once and expire after 15 minutes—no email link or in-app browser required.
+purpleroom is a members-only space for conference speakers. Anyone can join by entering a six-digit code from email in the login screen; new members choose a display name before appearing in the directory. Codes work once and expire after 15 minutes—no email link or in-app browser required.
 
 Your crew consists only of accepted friends. They can see your Going/Maybe plans and speaker reviews. They can also see **that you submitted** to an edition, but not your talk titles, how many proposals you submitted, or the results. Three proposals from one friend still count as one friend who submitted.
 
