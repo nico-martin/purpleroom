@@ -46,15 +46,15 @@ pnpm install
 pnpm dev
 ```
 
-Open `http://localhost:5173`. One command starts both the React frontend and PHP API and applies local database migrations. In development, the email form shows the sign-in code instead of sending mail. No sample conferences are created automatically.
+Open `http://localhost:5173`. One command starts both the React frontend and PHP API and applies local database migrations. The browser title starts with **DEV Purple Room**. In development, the email form shows the sign-in code instead of sending mail. No sample conferences are created automatically.
 
 With the dev server running, generate a local account and one-use sign-in link in another terminal:
 
 ```bash
-PURPLEROOM_ENV=dev php api/db/seed.php "Testuser" local@testuser.com
+PURPLEROOM_ENV=dev php api/db/seed.php "Local Admin" admin@purpleroom.dev
 ```
 
-Open the printed URL within 15 minutes. This creates the local account if needed; `mail@nico.dev` receives admin access when created. Other names/emails can be used to create member accounts. Existing accounts keep their current role.
+Open the printed URL within 15 minutes. In development, only `admin@purpleroom.dev` receives admin access when created (via the seed or verified email signup). All other emails create regular member accounts. Existing accounts keep their current role. Production signup never grants admin based on an email address.
 
 For a local admin account and development checks, see [AGENTS.md](AGENTS.md#local-development). For hosting, first-admin setup, and upgrades, see the [deployment guide](docs/deployment.md).
 

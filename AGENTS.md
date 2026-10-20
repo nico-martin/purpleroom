@@ -47,13 +47,15 @@ pnpm dev
 
 `pnpm dev` applies migrations and starts Vite on `http://localhost:5173` plus PHP on `127.0.0.1:8000`. Vite proxies `/api`; keep browser requests same-origin. Ctrl+C stops both processes. `pnpm preview` alone is not a PHP server.
 
-After migrations, this local CLI helper creates Nico's account if missing and prints a one-use login link:
+After migrations, this local CLI helper creates the development admin account if missing and prints a one-use login link:
 
 ```bash
-PURPLEROOM_ENV=dev php api/db/seed.php "Nico" mail@nico.dev
+PURPLEROOM_ENV=dev php api/db/seed.php "Local Admin" admin@purpleroom.dev
 ```
 
-The seed grants admin on creation only for `mail@nico.dev`; arbitrary seeded/publicly registered addresses are members. It does not reset an existing account's role. The protected `/setup` route is the first-admin path for fresh hosted installations; see the deployment guide.
+In development (`PURPLEROOM_ENV=dev`), only `admin@purpleroom.dev` receives admin on account creation, through either this seed or verified email signup. All other new accounts are members, including `mail@nico.dev`. Existing accounts retain their roles; this does not demote old admins or promote an existing member automatically. Production signup/seed never grants admin by email address. The protected `/setup` route is the first-admin path for fresh hosted installations; see the deployment guide. Do not alter historical migrations or live account roles to apply this local convention.
+
+The Vite development server prefixes the browser page title with `DEV`: `DEV Purple Room - { where speakers swap notes }`. Production builds retain the normal title without the prefix; never enable development mode on a public site.
 
 - Email signup/login sends six-digit codes; only development responses expose the code (never log it). Production uses authenticated TLS SMTP when the `SMTP_*` settings are complete, otherwise PHP `mail()`; both send multipart HTML/plain-text messages. Local CLI seed links and already-issued links remain supported, but public requests never issue new links.
 - `api/config.local.php` is ignored and overrides defaults. Never switch a public site to development mode.
@@ -105,7 +107,7 @@ The seed grants admin on creation only for `mail@nico.dev`; arbitrary seeded/pub
   - `api/db/invite-links/`, including historical `key.bin`;
   - local `api/config.local.php` (production config is generated separately).
 - The retired invitation/calendar helpers and stored tokens do not mean those features are active. Keep encrypted payloads/key and legacy fields intact unless explicitly authorised otherwise.
-- Migration 002 backfills edition titles. Migration 003 adds social roles/relationships and promotes only the existing `mail@nico.dev` account; it creates no friendships. Confirm account mapping before deploying that upgrade. Fresh public signup must never automatically grant admin.
+- Migration 002 backfills edition titles. Migration 003 adds social roles/relationships and promotes only the existing `mail@nico.dev` account; it creates no friendships. Confirm account mapping before deploying that upgrade. Production public signup must never automatically grant admin; the explicit local development default above does not change this migration.
 - Migration 004 adds optional homepage/social link columns without changing existing avatars or other account data. Avatar downloads remain lazy on profile save.
 - Migration 005 rebuilds `submissions` with explicit ownership and an optional proposal, backfilling owners and retaining every existing ID/field. It preserves unique proposal/edition pairs, permits one unassigned row per owner/edition, and enforces matching proposal ownership with triggers. Retain linked-proposal cascade deletion, but do not delete unassigned opportunities when unrelated talks are removed.
 - Migration 006 adds nullable per-submission private notes without rewriting existing submission data.

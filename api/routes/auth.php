@@ -58,7 +58,7 @@ route('POST', '/auth/verify', function () {
         if ($token) {
             $user = one('SELECT * FROM users WHERE email=?', [$token['email']]);
             if (!$user) {
-                $id = insert('users', ['email'=>$token['email'], 'name'=>'', 'profile_complete'=>0, 'cal_token'=>bin2hex(random_bytes(32))]);
+                $id = insert('users', ['email'=>$token['email'], 'name'=>'', 'role'=>new_account_role($token['email']), 'profile_complete'=>0, 'cal_token'=>bin2hex(random_bytes(32))]);
                 $user = one('SELECT * FROM users WHERE id=?', [$id]);
             }
             query('UPDATE auth_requests SET used_at=? WHERE id=?', [now(), $token['id']]);

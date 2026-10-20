@@ -21,7 +21,7 @@ test("compact conference cards show four per desktop row without depending on lo
   await page.route("**/api/me", (route) => route.fulfill({ json: { user: { id: 1, name: "Nico", email: "test@example.com", avatar_url: null }, cal_url: "https://example.com/calendar" } }));
   await page.route("**/api/conferences", (route) => route.fulfill({ json: conferences }));
   await page.goto("/conferences");
-  await expect(page).toHaveTitle("Purple Room - { where speakers swap notes }");
+  await expect(page).toHaveTitle("DEV Purple Room - { where speakers swap notes }");
   await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", "{ where speakers swap notes } - Conferences, talks, and trusted intel from your crew.");
   await expect(page.locator("footer").getByLabel("App version", { exact: true })).toHaveText("version: dev-local");
   await expect(page.locator("aside").getByLabel("App version", { exact: true })).toHaveCount(0);

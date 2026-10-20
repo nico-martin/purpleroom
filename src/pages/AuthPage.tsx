@@ -188,6 +188,20 @@ export default function AuthPage({
                 ? `If ${pending.email} can receive a code, it's on its way. Paste it below in this browser. It's good for 15 minutes.`
                 : "New here or coming back? We'll email you a six-digit code. No password needed."}
             </p>
+            {import.meta.env.DEV && mode === "login" && (
+              <Notice className="mb-5">
+                <p className="font-semibold text-ink">Local development</p>
+                <p className="mt-1">
+                  Use <strong>admin@purpleroom.dev</strong> to create an admin
+                  account. Any other email creates a regular member account.
+                  Existing accounts keep their current role.
+                </p>
+                <p className="mt-2">
+                  With the local API in development mode, no email is sent:
+                  request a code and use the development code shown here.
+                </p>
+              </Notice>
+            )}
             {error && (
               <Notice tone="error" className="mb-5">
                 {error}
