@@ -2,7 +2,7 @@
 declare(strict_types=1);
 define('GREEN_ROOM', true);
 $config = require __DIR__ . '/config.php';
-foreach (['db', 'http', 'auth', 'router', 'constants', 'mail', 'domain', 'social', 'migrations', 'remote', 'logos', 'profiles', 'accounts'] as $file) require __DIR__ . '/lib/' . $file . '.php';
+foreach (['db', 'http', 'auth', 'router', 'constants', 'mail', 'dates', 'domain', 'social', 'migrations', 'remote', 'logos', 'profiles', 'accounts'] as $file) require __DIR__ . '/lib/' . $file . '.php';
 header('X-Content-Type-Options: nosniff');
 try {
     route('GET', '/health', fn() => json_response(['ok' => true]), true);

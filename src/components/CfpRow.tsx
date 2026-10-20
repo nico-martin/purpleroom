@@ -1,7 +1,13 @@
 import { Check, Plus } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { dateRange, editionLabel, formatDate, location } from "../lib/format";
+import {
+  cfpClosingTime,
+  dateRange,
+  editionLabel,
+  formatDate,
+  location,
+} from "../lib/format";
 import {
   AvatarStack,
   Button,
@@ -19,10 +25,10 @@ interface CfpRowProps {
 export default function CfpRow({ cfp, onSubmit, className = "" }: CfpRowProps) {
   const { edition, conference, days_left, submitters, my_submissions } = cfp;
   return (
-    <ListRow className={`@2xl:flex-nowrap ${className}`}>
+    <ListRow className={`@3xl:flex-nowrap ${className}`}>
       <Link
         to={`/editions/${edition.id}`}
-        className="flex w-full min-w-0 items-center gap-3 @2xl:w-auto @2xl:flex-1"
+        className="flex w-full min-w-0 items-center gap-3 @3xl:w-auto @3xl:flex-1"
       >
         <LogoTile name={conference.name} src={conference.logo_url} />
         <div className="min-w-0">
@@ -36,7 +42,7 @@ export default function CfpRow({ cfp, onSubmit, className = "" }: CfpRowProps) {
           </p>
         </div>
       </Link>
-      <div className="flex w-24 shrink-0 flex-col items-start gap-1">
+      <div className="flex w-32 shrink-0 flex-col items-start gap-1 @3xl:w-40">
         <DeadlineBadge days={days_left} />
         <span className="font-mono text-xs text-muted">
           closes{" "}
@@ -44,6 +50,9 @@ export default function CfpRow({ cfp, onSubmit, className = "" }: CfpRowProps) {
             day: "numeric",
             month: "short",
           })}
+        </span>
+        <span className="max-w-full break-words text-xs text-muted">
+          {cfpClosingTime(edition)}
         </span>
       </div>
       <div className="flex w-36 max-w-full shrink-0 flex-col items-center gap-1">
@@ -61,7 +70,7 @@ export default function CfpRow({ cfp, onSubmit, className = "" }: CfpRowProps) {
       </div>
       <Button
         onClick={onSubmit}
-        className="ml-auto w-40 shrink-0 text-xs @2xl:ml-0"
+        className="ml-auto w-40 shrink-0 text-xs @3xl:ml-0"
       >
         {my_submissions.length ? (
           <>

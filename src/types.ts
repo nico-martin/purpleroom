@@ -48,10 +48,17 @@ export interface Edition {
   online: number;
   starts_on: string | null;
   ends_on: string | null;
+  starts_timezone: string | null;
+  ends_timezone: string | null;
   website: string | null;
   cfp_url: string | null;
   cfp_opens_on: string | null;
   cfp_closes_on: string | null;
+  cfp_opens_timezone: string | null;
+  cfp_closes_timezone: string | null;
+  cfp_closes_time: string | null;
+  cfp_opens_at: string | null;
+  cfp_closes_at: string | null;
   notes: string | null;
   created_by: number | null;
   created_at: string;
@@ -96,6 +103,7 @@ export interface Submission {
   abstract_override: string | null;
   hide_title: number;
   submitted_on: string | null;
+  submitted_timezone: string | null;
   notes: string | null;
   updated_at: string;
   paper_title?: string | null;

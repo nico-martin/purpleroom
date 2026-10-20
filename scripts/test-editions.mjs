@@ -153,7 +153,9 @@ try {
     )
   );
   assert.deepEqual(
-    migratedSubmissions.map(({ owner_id, notes, ...legacy }) => legacy),
+    migratedSubmissions.map(
+      ({ owner_id, notes, submitted_timezone, ...legacy }) => legacy
+    ),
     fixture.submissions,
     "Submission migration must preserve every field and ID"
   );
@@ -165,6 +167,10 @@ try {
   assert.ok(
     migratedSubmissions.every((submission) => submission.notes === null),
     "Existing submissions get empty notes without rewriting legacy fields"
+  );
+  assert.ok(
+    migratedSubmissions.every((row) => row.submitted_timezone === null),
+    "Do not infer a timezone for existing private submission dates"
   );
   assert.deepEqual(
     JSON.parse(
@@ -218,9 +224,35 @@ try {
     )
   );
   assert.deepEqual(
-    migrated.map(({ title, ...rest }) => rest),
+    migrated.map(
+      ({
+        title,
+        starts_timezone,
+        ends_timezone,
+        cfp_opens_timezone,
+        cfp_closes_timezone,
+        cfp_closes_time,
+        cfp_opens_at,
+        cfp_closes_at,
+        ...rest
+      }) => rest
+    ),
     fixture.editions,
     "Migration must preserve every existing field and edition ID"
+  );
+  assert.ok(
+    migrated.every((row) =>
+      [
+        "starts_timezone",
+        "ends_timezone",
+        "cfp_opens_timezone",
+        "cfp_closes_timezone",
+        "cfp_closes_time",
+        "cfp_opens_at",
+        "cfp_closes_at",
+      ].every((key) => row[key] === null)
+    ),
+    "Legacy event/CFP dates must remain unshifted, without invented times or timezones"
   );
   assert.deepEqual(
     migrated.map((edition) => edition.title),

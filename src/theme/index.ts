@@ -11,6 +11,7 @@ export { default as LogoTile } from "./identity/LogoTile";
 export { default as Input } from "./form/Input";
 export { default as Textarea } from "./form/Textarea";
 export { default as Select } from "./form/Select";
+export { default as TimezoneSelect } from "./form/TimezoneSelect";
 export { default as Field } from "./form/Field";
 export { default as Checkbox } from "./form/Checkbox";
 export { default as CopyField } from "./form/CopyField";

@@ -71,6 +71,7 @@ jobs:
           test -s "$bundle/api/db/migrations/007_conference_tags.sql"
           test -s "$bundle/api/db/migrations/008_login_codes.sql"
           test -s "$bundle/api/db/migrations/009_account_deletion.sql"
+          test -s "$bundle/api/db/migrations/010_date_timezones.sql"
           test ! -e "$bundle/api/config.local.php"
           test ! -e "$bundle/api/db/db.sqlite"
           test ! -d "$bundle/api/db/sessions"

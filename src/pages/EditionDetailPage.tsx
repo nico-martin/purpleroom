@@ -17,7 +17,15 @@ import SubmissionStatusSelect from "../components/SubmissionStatusSelect";
 import useApi from "../hooks/useApi";
 import useMutation from "../hooks/useMutation";
 import useSession from "../hooks/useSession";
-import { daysUntil, editionLabel, formatDate, location } from "../lib/format";
+import {
+  cfpClosingTime,
+  cfpDaysUntil,
+  dateRange,
+  dateWithTimezone,
+  editionLabel,
+  formatDate,
+  location,
+} from "../lib/format";
 import {
   Avatar,
   Button,
@@ -77,12 +85,9 @@ export default function EditionDetailPage({
               <MapPin size={15} />
               {location(data)}
             </span>
-            <span className="flex items-center gap-2">
-              <CalendarDays size={15} />
-              {formatDate(data.starts_on)}
-              {data.ends_on && data.ends_on !== data.starts_on
-                ? ` – ${formatDate(data.ends_on)}`
-                : ""}
+            <span className="flex min-w-0 items-start gap-2">
+              <CalendarDays size={15} className="shrink-0" />
+              <span className="min-w-0 break-words">{dateRange(data)}</span>
             </span>
           </div>
         </div>
@@ -106,15 +111,15 @@ export default function EditionDetailPage({
                 <h2 className="text-xl">Call for papers</h2>
                 <p className="mt-2 text-sm text-muted">
                   {data.cfp_opens_on
-                    ? `${formatDate(data.cfp_opens_on)} – `
+                    ? `Opens ${dateWithTimezone(data.cfp_opens_on, data.cfp_opens_timezone)}. `
                     : ""}
                   {data.cfp_closes_on
-                    ? formatDate(data.cfp_closes_on)
+                    ? `Closes ${formatDate(data.cfp_closes_on)}, ${cfpClosingTime(data)}`
                     : "No deadline yet. Keep an eye out."}
                 </p>
               </div>
               {data.cfp_closes_on && (
-                <DeadlineBadge days={daysUntil(data.cfp_closes_on)} />
+                <DeadlineBadge days={cfpDaysUntil(data)} />
               )}
             </div>
             <div className="mt-5 flex flex-wrap items-center gap-4">

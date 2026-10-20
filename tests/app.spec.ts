@@ -44,9 +44,10 @@ test("the crew can take a conference from shortlist to stage", async ({ page }) 
   await expect(page.getByLabel("Year", { exact: true })).toHaveCount(0);
   await page.getByLabel("City", { exact: true }).fill("Amsterdam");
   await page.getByLabel("Country code").fill("NL");
-  await page.getByLabel("First day").fill(future(90));
-  await page.getByLabel("Last day").fill(future(91));
+  await page.getByLabel("First day", { exact: true }).fill(future(90));
+  await page.getByLabel("Last day", { exact: true }).fill(future(91));
   await page.getByLabel("CFP closes").fill(future(5));
+  await page.getByLabel("CFP closing timezone", { exact: true }).selectOption("UTC");
   await page.getByRole("button", { name: "Add edition", exact: true }).click();
   await expect(page.getByRole("heading", { name: "JSNation", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Add my talk", exact: true }).click();

@@ -1,14 +1,14 @@
 <?php
 if (!defined('GREEN_ROOM')) exit;
-const EDITION_FIELDS = ['conference_id', 'title', 'year', 'city', 'country', 'online', 'starts_on', 'ends_on', 'website', 'cfp_url', 'cfp_opens_on', 'cfp_closes_on', 'notes'];
+const EDITION_FIELDS = ['conference_id', 'title', 'year', 'city', 'country', 'online', 'starts_on', 'ends_on', 'starts_timezone', 'ends_timezone', 'website', 'cfp_url', 'cfp_opens_on', 'cfp_closes_on', 'cfp_opens_timezone', 'cfp_closes_timezone', 'cfp_closes_time', 'notes'];
 route('GET', '/editions', function () {
     $sql = 'SELECT e.* FROM editions e JOIN conferences c ON c.id=e.conference_id WHERE e.deleted_at IS NULL AND c.deleted_at IS NULL'; $params = [];
     foreach (['from' => '>=', 'to' => '<='] as $key => $op) if (!empty($_GET[$key])) { $sql .= " AND e.starts_on $op ?"; $params[] = $_GET[$key]; }
-    if (($_GET['cfp_open'] ?? '') === '1') { $sql .= ' AND e.cfp_closes_on>=? AND (e.cfp_opens_on IS NULL OR e.cfp_opens_on<=?)'; $params[] = gmdate('Y-m-d'); $params[] = gmdate('Y-m-d'); }
+    if (($_GET['cfp_open'] ?? '') === '1') { $sql .= ' AND '.cfp_open_sql('e'); $params = [...$params,...cfp_open_params()]; }
     json_response(array_map(fn($e) => [...$e, 'conference' => conference_summary(conference((int) $e['conference_id']))], all($sql . ' ORDER BY e.starts_on', $params)));
 });
 route('POST', '/editions', function () {
-    $data = fields(body(), EDITION_FIELDS); required($data, ['conference_id']);
+    $data = edition_date_fields(fields(body(), EDITION_FIELDS)); required($data, ['conference_id']);
     $parent = conference((int) $data['conference_id']);
     if (!array_key_exists('title', $data)) $data['title'] = $parent['name'];
     required($data, ['title']); validate_edition($data);
@@ -20,7 +20,7 @@ route('GET', '/editions/{id}', function ($p) {
     json_response([...$e, 'conference' => conference_summary(conference((int) $e['conference_id'])), 'submitted_friends' => submitted_friends((int)$e['id']), 'attendance' => attendance_for((int) $e['id']), ...people_for((int) $e['id']), 'my_submissions' => all('SELECT s.*, p.title AS paper_title FROM submissions s LEFT JOIN papers p ON p.id=s.paper_id WHERE s.edition_id=? AND s.owner_id=?', [$e['id'], require_login()['id']])]);
 });
 route('PATCH', '/editions/{id}', function ($p) {
-    $e = edition((int) $p['id']); $data = fields(body(), EDITION_FIELDS);
+    $e = edition((int) $p['id']); $data = edition_date_fields(fields(body(), EDITION_FIELDS),$e);
     if (isset($data['conference_id'])) {
         $parent = conference($data['conference_id']);
         if (!array_key_exists('title', $data) && $e['title'] === conference((int) $e['conference_id'])['name']) $data['title'] = $parent['name'];

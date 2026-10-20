@@ -5,6 +5,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { api } from "../api";
 import useMutation from "../hooks/useMutation";
+import { browserTimezone } from "../lib/timezones";
 import {
   Button,
   ButtonLink,
@@ -17,6 +18,7 @@ import {
   PageHeader,
   Select,
   Textarea,
+  TimezoneSelect,
 } from "../theme";
 import type { ConferenceDetail, ConferenceSummary, Edition } from "../types";
 
@@ -31,10 +33,15 @@ const empty = {
   online: false,
   starts_on: "",
   ends_on: "",
+  starts_timezone: "",
+  ends_timezone: "",
   website: "",
   cfp_url: "",
   cfp_opens_on: "",
   cfp_closes_on: "",
+  cfp_opens_timezone: "",
+  cfp_closes_timezone: "",
+  cfp_closes_time: "23:59",
   notes: "",
 };
 export default function EditionFormPage({
@@ -51,6 +58,10 @@ export default function EditionFormPage({
   const [form, setForm] = useState({
     ...empty,
     conference_id: conferenceId ?? "",
+    starts_timezone: browserTimezone(),
+    ends_timezone: browserTimezone(),
+    cfp_opens_timezone: browserTimezone(),
+    cfp_closes_timezone: browserTimezone(),
   });
   useEffect(() => {
     async function load() {
@@ -70,10 +81,21 @@ export default function EditionFormPage({
           online: !!e.online,
           starts_on: e.starts_on ?? "",
           ends_on: e.ends_on ?? "",
+          starts_timezone:
+            e.starts_timezone ?? (e.starts_on ? "" : browserTimezone()),
+          ends_timezone:
+            e.ends_timezone ?? (e.ends_on ? "" : browserTimezone()),
           website: e.website ?? "",
           cfp_url: e.cfp_url ?? "",
           cfp_opens_on: e.cfp_opens_on ?? "",
           cfp_closes_on: e.cfp_closes_on ?? "",
+          cfp_opens_timezone:
+            e.cfp_opens_timezone ?? (e.cfp_opens_on ? "" : browserTimezone()),
+          cfp_closes_timezone:
+            e.cfp_closes_timezone ?? (e.cfp_closes_on ? "" : browserTimezone()),
+          cfp_closes_time:
+            e.cfp_closes_time ??
+            (e.cfp_closes_timezone || !e.cfp_closes_on ? "23:59" : ""),
           notes: e.notes ?? "",
         });
       } else if (conferenceId) {
@@ -130,6 +152,9 @@ export default function EditionFormPage({
           method: id ? "PATCH" : "POST",
           body: {
             ...form,
+            cfp_closes_time: form.cfp_closes_timezone
+              ? form.cfp_closes_time || "23:59"
+              : form.cfp_closes_time,
             conference_id: Number(form.conference_id),
           },
         }),
@@ -142,16 +167,68 @@ export default function EditionFormPage({
         <Input
           type={type}
           value={String(form[key])}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              [key]:
-                key === "country"
-                  ? e.target.value.toUpperCase()
-                  : e.target.value,
-            })
-          }
+          onChange={(e) => {
+            const value =
+              key === "country" ? e.target.value.toUpperCase() : e.target.value;
+            setForm((current) => {
+              const zones: Partial<
+                Record<
+                  keyof typeof form,
+                  | "starts_timezone"
+                  | "ends_timezone"
+                  | "cfp_opens_timezone"
+                  | "cfp_closes_timezone"
+                >
+              > = {
+                starts_on: "starts_timezone",
+                ends_on: "ends_timezone",
+                cfp_opens_on: "cfp_opens_timezone",
+                cfp_closes_on: "cfp_closes_timezone",
+              };
+              const zone = zones[key];
+              return {
+                ...current,
+                [key]: value,
+                ...(value && zone && !current[zone]
+                  ? { [zone]: browserTimezone() }
+                  : {}),
+                ...(key === "cfp_closes_on" && value && !current.cfp_closes_time
+                  ? { cfp_closes_time: "23:59" }
+                  : {}),
+              };
+            });
+          }}
           maxLength={key === "country" ? 2 : undefined}
+        />
+      </Field>
+    );
+  }
+  function timezoneField(
+    key:
+      | "starts_timezone"
+      | "ends_timezone"
+      | "cfp_opens_timezone"
+      | "cfp_closes_timezone",
+    label: string
+  ) {
+    return (
+      <Field
+        label={label}
+        hint="Defaults to your browser's timezone for new dates."
+      >
+        <TimezoneSelect
+          value={form[key]}
+          onChange={(value) =>
+            setForm((current) => ({
+              ...current,
+              [key]: value,
+              ...(key === "cfp_closes_timezone" &&
+              value &&
+              !current.cfp_closes_time
+                ? { cfp_closes_time: "23:59" }
+                : {}),
+            }))
+          }
         />
       </Field>
     );
@@ -224,16 +301,36 @@ export default function EditionFormPage({
               onChange={(e) => setForm({ ...form, online: e.target.checked })}
             />
             <div className="grid gap-5 sm:grid-cols-2">
-              {textField("starts_on", "First day", "date")}
-              {textField("ends_on", "Last day", "date")}
+              <div className="space-y-3">
+                {textField("starts_on", "First day", "date")}
+                {timezoneField("starts_timezone", "First day timezone")}
+              </div>
+              <div className="space-y-3">
+                {textField("ends_on", "Last day", "date")}
+                {timezoneField("ends_timezone", "Last day timezone")}
+              </div>
             </div>
             {textField("website", "Edition website", "url")}
             <div className="border-t border-divider pt-6">
               <h2 className="mb-5 text-xl">Call for papers</h2>
               <div className="grid gap-5 sm:grid-cols-2">
-                {textField("cfp_opens_on", "CFP opens", "date")}
-                {textField("cfp_closes_on", "CFP closes", "date")}
+                <div className="space-y-3">
+                  {textField("cfp_opens_on", "CFP opens", "date")}
+                  {timezoneField("cfp_opens_timezone", "CFP opening timezone")}
+                  <p className="text-xs text-muted">
+                    Opens at 00:00 in this timezone.
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  {textField("cfp_closes_on", "CFP closes", "date")}
+                  {textField("cfp_closes_time", "CFP closing time", "time")}
+                  {timezoneField("cfp_closes_timezone", "CFP closing timezone")}
+                </div>
               </div>
+              <p className="mt-4 text-xs text-muted">
+                CFP deadlines are shown to everyone in the selected CFP
+                timezone, not converted to the viewer's timezone.
+              </p>
             </div>
             {textField("cfp_url", "CFP link", "url")}
             <Field label="Notes for the crew">
