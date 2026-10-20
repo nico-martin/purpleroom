@@ -28,7 +28,7 @@ route('GET', '/users/{id}', function ($p) {
     $user = member_target((int)$p['id']); $state = friendship_state((int)$user['id']);
     $plans = [];
     if (in_array($state, ['self','friend'], true)) {
-        $plans = all('SELECT a.status,e.id,e.title,e.starts_on,e.ends_on,e.city,e.country,e.online,e.conference_id FROM attendance a JOIN editions e ON e.id=a.edition_id JOIN conferences c ON c.id=e.conference_id WHERE a.user_id=? AND e.deleted_at IS NULL AND c.deleted_at IS NULL ORDER BY e.starts_on', [$user['id']]);
+        $plans = all('SELECT a.status,e.id,e.title,e.starts_on,e.ends_on,e.starts_timezone,e.ends_timezone,e.city,e.country,e.online,e.conference_id FROM attendance a JOIN editions e ON e.id=a.edition_id JOIN conferences c ON c.id=e.conference_id WHERE a.user_id=? AND e.deleted_at IS NULL AND c.deleted_at IS NULL ORDER BY e.starts_on', [$user['id']]);
     }
     json_response(['user'=>profile_details($user), 'relationship'=>$state, 'plans'=>$plans]);
 });

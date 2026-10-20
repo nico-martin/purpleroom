@@ -1448,7 +1448,10 @@ try {
   assert.equal(anonymousMe.headers.get("set-cookie"), null);
   const bogusMe = await raw("/me", "GET", "gr_session=" + "a".repeat(32));
   assert.equal(bogusMe.status, 401);
-  assert.match(bogusMe.headers.get("set-cookie"), /gr_session=;|gr_session=deleted/);
+  assert.match(
+    bogusMe.headers.get("set-cookie"),
+    /gr_session=;|gr_session=deleted/
+  );
   const sessionCode = await requestCode("session@example.com");
   const wrongGuess = await raw(
     "/auth/verify",
@@ -1470,6 +1473,245 @@ try {
   );
   assert.equal(sessionLogin.status, 200);
   assert.equal(sessionFiles(), filesBefore + 1);
+  // Zoned deadlines: preserve wall-clock values, derive UTC instants, and share one open-CFP rule.
+  const zoneAdmin = deletions[0].status === 409 ? alice : departing;
+  const zoneConference = await zoneAdmin(
+    "/conferences",
+    "POST",
+    { name: "Timezone checks" },
+    201
+  );
+  const makeZoned = (data) =>
+    zoneAdmin(
+      "/editions",
+      "POST",
+      { conference_id: zoneConference.id, ...data },
+      201
+    );
+  const summer = await makeZoned({
+    title: "Summer deadline",
+    starts_on: "2027-08-20",
+    ends_on: "2027-08-21",
+    starts_timezone: "Europe/Zurich",
+    ends_timezone: "Europe/Zurich",
+    cfp_closes_on: "2027-07-10",
+    cfp_closes_timezone: "Europe/Zurich",
+  });
+  assert.equal(summer.cfp_closes_time, "23:59");
+  assert.equal(summer.cfp_closes_at, "2027-07-10T21:59:00Z");
+  assert.equal(
+    (
+      await zoneAdmin(`/editions/${summer.id}`, "PATCH", {
+        cfp_closes_at: "2099-01-01T00:00:00Z",
+      })
+    ).cfp_closes_at,
+    summer.cfp_closes_at,
+    "Clients must not override server-derived UTC instants"
+  );
+  assert.equal(
+    (
+      await zoneAdmin(`/editions/${summer.id}`, "PATCH", {
+        notes: "An unrelated edit",
+      })
+    ).cfp_closes_at,
+    summer.cfp_closes_at
+  );
+  const winter = await zoneAdmin(`/editions/${summer.id}`, "PATCH", {
+    cfp_closes_on: "2027-01-10",
+  });
+  assert.equal(
+    winter.cfp_closes_at,
+    "2027-01-10T22:59:00Z",
+    "DST offsets must follow the deadline date, not the current date"
+  );
+  for (const data of [
+    { cfp_closes_timezone: "Not/AZone" },
+    { starts_timezone: "CET" },
+    { ends_timezone: 123 },
+    { cfp_closes_time: "24:00" },
+    { cfp_closes_time: "12:99" },
+    {
+      cfp_closes_on: "2027-03-28",
+      cfp_closes_time: "02:30",
+      cfp_closes_timezone: "Europe/Zurich",
+    },
+    {
+      cfp_closes_on: "2027-10-31",
+      cfp_closes_time: "02:30",
+      cfp_closes_timezone: "Europe/Zurich",
+    },
+    {
+      cfp_opens_on: "2027-07-10",
+      cfp_opens_timezone: "America/Los_Angeles",
+      cfp_closes_on: "2027-07-10",
+      cfp_closes_time: "06:00",
+      cfp_closes_timezone: "Europe/Zurich",
+    },
+  ])
+    await zoneAdmin(`/editions/${summer.id}`, "PATCH", data, 422);
+  await bob(
+    `/editions/${summer.id}`,
+    "PATCH",
+    { cfp_closes_timezone: "UTC" },
+    403
+  );
+  const crossDate = await zoneAdmin(`/editions/${summer.id}`, "PATCH", {
+    cfp_opens_on: "2027-07-11",
+    cfp_opens_timezone: "Pacific/Kiritimati",
+    cfp_closes_on: "2027-07-10",
+    cfp_closes_timezone: "America/Los_Angeles",
+    cfp_closes_time: "23:59",
+  });
+  assert.equal(crossDate.cfp_opens_at, "2027-07-10T10:00:00Z");
+  assert.equal(crossDate.cfp_closes_at, "2027-07-11T06:59:00Z");
+  await zoneAdmin(`/editions/${summer.id}`, "DELETE", undefined, 204);
+  const localFields = (timestamp, zone) => {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: zone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(new Date(timestamp));
+    const get = (key) => parts.find((part) => part.type === key).value;
+    return {
+      cfp_closes_on: `${get("year")}-${get("month")}-${get("day")}`,
+      cfp_closes_time: `${get("hour")}:${get("minute")}`,
+      cfp_closes_timezone: zone,
+    };
+  };
+  const live = await makeZoned({
+    title: "Live zoned deadline",
+    ...localFields(Date.now() + 3600000, "America/Los_Angeles"),
+  });
+  assert.equal(
+    (await bob(`/conferences/${zoneConference.id}`)).has_open_cfp,
+    true
+  );
+  assert.ok(
+    (await bob("/editions?cfp_open=1")).some((row) => row.id === live.id)
+  );
+  assert.ok(
+    (await bob("/dashboard")).open_cfps.some(
+      (row) => row.edition.id === live.id
+    )
+  );
+  await zoneAdmin(
+    `/editions/${live.id}`,
+    "PATCH",
+    localFields(Date.now() - 3600000, "America/Los_Angeles")
+  );
+  assert.equal(
+    (await bob(`/conferences/${zoneConference.id}`)).has_open_cfp,
+    false,
+    "A deadline earlier today must actually close"
+  );
+  assert.ok(
+    !(await bob("/editions?cfp_open=1")).some((row) => row.id === live.id)
+  );
+  assert.ok(
+    !(await bob("/dashboard")).open_cfps.some(
+      (row) => row.edition.id === live.id
+    )
+  );
+  const firstInstant = await makeZoned({
+    title: "Earlier instant, later local day",
+    ...localFields(Date.now() + 3600000, "Pacific/Kiritimati"),
+  });
+  const secondInstant = await makeZoned({
+    title: "Later instant, earlier local day",
+    ...localFields(Date.now() + 7200000, "America/Adak"),
+  });
+  assert.deepEqual(
+    (await bob("/dashboard")).open_cfps
+      .filter((row) =>
+        [firstInstant.id, secondInstant.id].includes(row.edition.id)
+      )
+      .map((row) => row.edition.id),
+    [firstInstant.id, secondInstant.id],
+    "Order actual UTC deadlines, not local calendar dates"
+  );
+  const privateZone = await bob(
+    "/submissions",
+    "POST",
+    {
+      edition_id: live.id,
+      status: "submitted",
+      submitted_timezone: "Pacific/Marquesas",
+      notes: "Keep timezone private",
+    },
+    201
+  );
+  assert.equal(privateZone.submitted_timezone, "Pacific/Marquesas");
+  assert.equal(
+    privateZone.submitted_on,
+    localFields(Date.now(), "Pacific/Marquesas").cfp_closes_on
+  );
+  assert.equal(
+    (
+      await bob(`/submissions/${privateZone.id}`, "PATCH", {
+        status: "accepted",
+      })
+    ).submitted_timezone,
+    "Pacific/Marquesas"
+  );
+  const attachedZoned = await bob(`/submissions/${privateZone.id}`, "PATCH", {
+    paper_id: preservedPaper.id,
+  });
+  assert.equal(
+    attachedZoned.submitted_timezone,
+    privateZone.submitted_timezone
+  );
+  assert.equal(attachedZoned.submitted_on, privateZone.submitted_on);
+  assert.equal(attachedZoned.status, "accepted");
+  assert.equal(attachedZoned.notes, "Keep timezone private");
+  assert.ok(
+    !JSON.stringify(await zoneAdmin(`/editions/${live.id}`)).includes(
+      "submitted_timezone"
+    )
+  );
+  await bob(
+    `/submissions/${privateZone.id}`,
+    "PATCH",
+    { submitted_timezone: "invalid" },
+    422
+  );
+  const legacyDate = await makeZoned({
+    title: "Legacy client date",
+    cfp_closes_on: future(1),
+  });
+  assert.equal(legacyDate.cfp_closes_at, null);
+  assert.equal(legacyDate.cfp_closes_timezone, null);
+  assert.equal(legacyDate.cfp_closes_time, null);
+  assert.ok(
+    (await bob("/editions?cfp_open=1")).some((row) => row.id === legacyDate.id)
+  );
+  const boundaryEdition = await makeZoned({
+    title: "Exact window boundaries",
+    cfp_opens_on: "2030-07-11",
+    cfp_opens_timezone: "Pacific/Kiritimati",
+    cfp_closes_on: "2030-07-11",
+    cfp_closes_timezone: "Pacific/Kiritimati",
+  });
+  const boundaries = JSON.parse(
+    cli(
+      `
+    require 'api/lib/dates.php';$id=(int)$argv[1];$result=[];
+    foreach(['2030-07-10T09:59:59Z','2030-07-10T10:00:00Z','2030-07-11T09:59:00Z','2030-07-11T09:59:01Z'] as $instant) $result[]=(bool)one('SELECT id FROM editions WHERE id=? AND '.cfp_open_sql(),[$id,...cfp_open_params($instant)]);
+    $e=one('SELECT * FROM editions WHERE id=?',[$id]);$result[]=cfp_days_left($e,'2030-07-10T12:00:00Z');
+    $legacy=one('SELECT * FROM editions WHERE id=?',[(int)$argv[2]]);$result[]=(bool)one('SELECT id FROM editions WHERE id=? AND '.cfp_open_sql(),[$legacy['id'],...cfp_open_params($legacy['cfp_closes_on'].'T23:59:59Z')]);
+    echo json_encode($result);
+  `,
+      [String(boundaryEdition.id), String(legacyDate.id)]
+    )
+  );
+  assert.deepEqual(
+    boundaries,
+    [false, true, true, false, 0, true],
+    "Opening/closing instants and badges must respect local midnight, with the old full-day fallback retained for legacy deadlines"
+  );
   console.log(
     "API checks passed: verified public signup, onboarding, roles, ownership, friend requests/crossed acceptance, unique submitter privacy, manual attendance, review visibility, unfriend/block, suspension/session revocation, last-admin safeguards, retired endpoints, rate limits, archive preservation, and protected files."
   );

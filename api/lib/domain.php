@@ -42,7 +42,7 @@ function visible_reviews(int $id): array {
 }
 function conference_summary(array $row): array {
     $today=gmdate('Y-m-d');
-    return [...conference_record($row), ...review_summary((int) $row['id']), 'next_edition' => one('SELECT * FROM editions WHERE conference_id=? AND deleted_at IS NULL AND starts_on >= ? ORDER BY starts_on,id LIMIT 1', [$row['id'], $today]), 'has_open_cfp'=>(bool)one('SELECT id FROM editions WHERE conference_id=? AND deleted_at IS NULL AND cfp_closes_on>=? AND (cfp_opens_on IS NULL OR cfp_opens_on<=?) LIMIT 1',[$row['id'],$today,$today])];
+    return [...conference_record($row), ...review_summary((int) $row['id']), 'next_edition' => one('SELECT * FROM editions WHERE conference_id=? AND deleted_at IS NULL AND starts_on >= ? ORDER BY starts_on,id LIMIT 1', [$row['id'], $today]), 'has_open_cfp'=>(bool)one('SELECT id FROM editions WHERE conference_id=? AND deleted_at IS NULL AND '.cfp_open_sql().' LIMIT 1',[$row['id'],...cfp_open_params()])];
 }
 function attendance_for(int $id): array {
     $ids = visible_user_ids();
@@ -59,6 +59,7 @@ function people_for(int $id): array {
 function validate_edition(array $data): void {
     if (isset($data['title']) && preg_match_all('/./us', $data['title']) > 500) fail(422, 'validation', 'Keep the edition title under 500 characters.', ['title' => 'too_long']);
     foreach ([['starts_on', 'ends_on'], ['cfp_opens_on', 'cfp_closes_on']] as [$start, $end]) {
+        if ($start === 'cfp_opens_on' && !empty($data['cfp_opens_at']) && !empty($data['cfp_closes_at'])) continue;
         if (!empty($data[$start]) && !empty($data[$end]) && $data[$end] < $data[$start]) fail(422, 'validation', 'End date must be on or after the start date.', [$end => 'before_start']);
     }
     if (!empty($data['country']) && !preg_match('/^[A-Z]{2}$/', $data['country'])) fail(422, 'validation', 'Use a two-letter country code.', ['country' => 'invalid']);

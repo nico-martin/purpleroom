@@ -1,4 +1,5 @@
 import type { Edition } from "../types";
+import { timezoneLabel } from "./timezones";
 
 export function formatDate(
   value: string | null | undefined,
@@ -10,7 +11,73 @@ export function formatDate(
     options ?? { day: "numeric", month: "short", year: "numeric" }
   ).format(new Date(value.length === 10 ? `${value}T12:00:00` : value));
 }
+export function dateWithTimezone(
+  value: string | null | undefined,
+  zone: string | null | undefined,
+  options?: Intl.DateTimeFormatOptions
+): string {
+  return `${formatDate(value, options)}${value && zone ? ` (${timezoneLabel(zone)})` : ""}`;
+}
+export function cfpClosingTime(edition: Edition): string {
+  if (!edition.cfp_closes_timezone) return "Timezone not set";
+  let offset = "";
+  if (edition.cfp_closes_at) {
+    try {
+      offset =
+        new Intl.DateTimeFormat("en-GB", {
+          timeZone: edition.cfp_closes_timezone,
+          timeZoneName: "shortOffset",
+        })
+          .formatToParts(new Date(edition.cfp_closes_at))
+          .find((part) => part.type === "timeZoneName")?.value ?? "";
+    } catch {
+      /* Older browsers may not know a newly introduced IANA zone; keep the saved local time and zone visible. */
+    }
+  }
+  return `${edition.cfp_closes_time ?? "23:59"} (${timezoneLabel(edition.cfp_closes_timezone)}${offset ? `, ${offset.replace(/^GMT/, "UTC")}` : ""})`;
+}
+export function cfpDaysUntil(edition: Edition): number {
+  if (edition.cfp_closes_at && Date.parse(edition.cfp_closes_at) < Date.now())
+    return -1;
+  if (!edition.cfp_closes_on) return 0;
+  if (!edition.cfp_closes_timezone) return daysUntil(edition.cfp_closes_on);
+  let parts: Intl.DateTimeFormatPart[];
+  try {
+    parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: edition.cfp_closes_timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date());
+  } catch {
+    return edition.cfp_closes_at
+      ? Math.ceil((Date.parse(edition.cfp_closes_at) - Date.now()) / 86400000)
+      : daysUntil(edition.cfp_closes_on);
+  }
+  const part = (type: string) =>
+    parts.find((item) => item.type === type)?.value;
+  const today = `${part("year")}-${part("month")}-${part("day")}`;
+  return Math.round(
+    (Date.parse(edition.cfp_closes_on + "T00:00:00Z") -
+      Date.parse(today + "T00:00:00Z")) /
+      86400000
+  );
+}
 export function dateRange(edition: Edition): string {
+  if (edition.starts_timezone || edition.ends_timezone) {
+    if (!edition.starts_on)
+      return edition.ends_on
+        ? `Ends ${dateWithTimezone(edition.ends_on, edition.ends_timezone)}`
+        : "Dates to come";
+    const start = dateWithTimezone(edition.starts_on, edition.starts_timezone);
+    if (
+      !edition.ends_on ||
+      (edition.ends_on === edition.starts_on &&
+        edition.ends_timezone === edition.starts_timezone)
+    )
+      return start;
+    return `${start} – ${dateWithTimezone(edition.ends_on, edition.ends_timezone)}`;
+  }
   if (!edition.starts_on)
     return edition.ends_on
       ? `Ends ${formatDate(edition.ends_on)}`

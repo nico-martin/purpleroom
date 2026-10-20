@@ -2,9 +2,9 @@
 if (!defined('GREEN_ROOM')) exit;
 route('GET', '/dashboard', function () {
     $today=gmdate('Y-m-d'); $uid=(int)require_login()['id'];
-    $open=all('SELECT e.* FROM editions e JOIN conferences c ON c.id=e.conference_id WHERE e.deleted_at IS NULL AND c.deleted_at IS NULL AND e.cfp_closes_on>=? AND (e.cfp_opens_on IS NULL OR e.cfp_opens_on<=?) ORDER BY e.cfp_closes_on,e.id',[$today,$today]);
-    $open=array_map(function($e) use($today,$uid) {
-        return ['edition'=>$e,'conference'=>conference_summary(conference((int)$e['conference_id'])),'days_left'=>(int)(new DateTimeImmutable($today))->diff(new DateTimeImmutable($e['cfp_closes_on']))->format('%a'),'submitters'=>submitted_friends((int)$e['id']),'my_submissions'=>all('SELECT s.*,p.title AS paper_title FROM submissions s LEFT JOIN papers p ON p.id=s.paper_id WHERE s.edition_id=? AND s.owner_id=?',[$e['id'],$uid])];
+    $open=all("SELECT e.* FROM editions e JOIN conferences c ON c.id=e.conference_id WHERE e.deleted_at IS NULL AND c.deleted_at IS NULL AND ".cfp_open_sql('e')." ORDER BY COALESCE(e.cfp_closes_at,e.cfp_closes_on||'T23:59:59Z'),e.id",cfp_open_params());
+    $open=array_map(function($e) use($uid) {
+        return ['edition'=>$e,'conference'=>conference_summary(conference((int)$e['conference_id'])),'days_left'=>cfp_days_left($e),'submitters'=>submitted_friends((int)$e['id']),'my_submissions'=>all('SELECT s.*,p.title AS paper_title FROM submissions s LEFT JOIN papers p ON p.id=s.paper_id WHERE s.edition_id=? AND s.owner_id=?',[$e['id'],$uid])];
     },$open);
     $ids=visible_user_ids(); $scope=id_placeholders($ids);
     $upcoming=all("SELECT e.* FROM editions e JOIN conferences c ON c.id=e.conference_id WHERE e.deleted_at IS NULL AND c.deleted_at IS NULL AND COALESCE(e.ends_on,e.starts_on)>=? AND EXISTS(SELECT 1 FROM attendance a WHERE a.edition_id=e.id AND a.user_id IN ($scope)) ORDER BY e.starts_on,e.id LIMIT 20",[$today,...$ids]);

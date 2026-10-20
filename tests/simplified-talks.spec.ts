@@ -136,6 +136,7 @@ test("simplified editors preserve legacy abstracts and represent historical atte
   await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(submissionWrites.at(-1)).toEqual({
     submitted_on: "2026-01-01",
+    submitted_timezone: null,
     notes: "Follow up with the organiser.\nDiscuss travel arrangements.",
   });
   await page

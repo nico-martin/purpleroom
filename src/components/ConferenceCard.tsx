@@ -1,7 +1,12 @@
 import { CalendarDays, MapPin, MessageSquare } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { editionLabel, formatDate, location, websiteHost } from "../lib/format";
+import {
+  dateWithTimezone,
+  editionLabel,
+  location,
+  websiteHost,
+} from "../lib/format";
 import { Badge, SummaryCard, Tag } from "../theme";
 import type { ConferenceSummary } from "../types";
 
@@ -72,8 +77,8 @@ export default function ConferenceCard({
               size={14}
               className="shrink-0 text-muted"
             />
-            <span className="font-mono text-xs">
-              {formatDate(edition.starts_on)}
+            <span className="min-w-0 break-words font-mono text-xs">
+              {dateWithTimezone(edition.starts_on, edition.starts_timezone)}
             </span>
           </span>
           <span className="flex items-start gap-2 text-xs text-muted">

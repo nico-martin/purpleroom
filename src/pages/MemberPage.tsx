@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 
 import CrewActions from "../components/CrewActions";
 import useApi from "../hooks/useApi";
-import { formatDate } from "../lib/format";
+import { dateWithTimezone } from "../lib/format";
 import { PROFILE_LINKS } from "../lib/profile";
 import type { ProfileLinks } from "../lib/profile";
 import {
@@ -26,6 +26,7 @@ interface MemberProfile {
     id: number;
     title: string;
     starts_on: string | null;
+    starts_timezone: string | null;
     status: "going" | "maybe";
   }[];
 }
@@ -93,10 +94,10 @@ export default function MemberPage() {
                   to={`/editions/${p.id}`}
                   className="flex items-center justify-between gap-4 border-b border-divider p-5 last:border-0"
                 >
-                  <span>
+                  <span className="min-w-0">
                     <span className="block font-semibold">{p.title}</span>
-                    <span className="text-xs text-muted">
-                      {formatDate(p.starts_on)}
+                    <span className="break-words text-xs text-muted">
+                      {dateWithTimezone(p.starts_on, p.starts_timezone)}
                     </span>
                   </span>
                   <Badge tone={p.status === "going" ? "positive" : "neutral"}>

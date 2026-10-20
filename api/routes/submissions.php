@@ -3,7 +3,8 @@ if (!defined('GREEN_ROOM')) exit;
 function submission_data(array $input): array {
     $unassigned = array_key_exists('paper_id',$input) && $input['paper_id'] === null;
     if ($unassigned) unset($input['paper_id']);
-    $data = fields($input, ['paper_id', 'edition_id', 'status', 'abstract_override', 'hide_title', 'submitted_on', 'notes']);
+    $data = fields($input, ['paper_id', 'edition_id', 'status', 'abstract_override', 'hide_title', 'submitted_on', 'submitted_timezone', 'notes']);
+    if (array_key_exists('submitted_timezone',$data)) validate_timezone($data['submitted_timezone'],'submitted_timezone');
     if ($unassigned) $data['paper_id'] = null;
     if (isset($data['status']) && !in_array($data['status'], SUBMISSION_STATUSES, true) || array_key_exists('status', $data) && $data['status'] === null) fail(422, 'validation', 'Choose a valid submission status.');
     return $data;
@@ -27,13 +28,13 @@ route('POST', '/submissions', function () {
     if (isset($data['paper_id'])) paper($data['paper_id']);
     edition($data['edition_id']);
     $data['owner_id'] = require_login()['id'];
-    if (($data['status'] ?? '') === 'submitted' && empty($data['submitted_on'])) $data['submitted_on'] = gmdate('Y-m-d');
+    if (($data['status'] ?? '') === 'submitted' && empty($data['submitted_on'])) $data['submitted_on'] = (new DateTimeImmutable('now',new DateTimeZone($data['submitted_timezone'] ?? 'UTC')))->format('Y-m-d');
     $id = insert('submissions', $data); json_response(own_submission($id), 201);
 });
 route('PATCH', '/submissions/{id}', function ($p) {
     $s = own_submission((int) $p['id']); $data = submission_data(body());
     if (isset($data['paper_id'])) paper($data['paper_id']); if (isset($data['edition_id'])) edition($data['edition_id']);
-    if (($data['status'] ?? '') === 'submitted' && empty($data['submitted_on'] ?? $s['submitted_on'])) $data['submitted_on'] = gmdate('Y-m-d');
+    if (($data['status'] ?? '') === 'submitted' && empty($data['submitted_on'] ?? $s['submitted_on'])) $data['submitted_on'] = (new DateTimeImmutable('now',new DateTimeZone($data['submitted_timezone'] ?? $s['submitted_timezone'] ?? 'UTC')))->format('Y-m-d');
     update('submissions', (int) $s['id'], [...$data, 'updated_at' => now()]); json_response(own_submission((int) $s['id']));
 });
 route('DELETE', '/submissions/{id}', function ($p) { $s = own_submission((int) $p['id']); query('DELETE FROM submissions WHERE id=?', [$s['id']]); json_response(null, 204); });

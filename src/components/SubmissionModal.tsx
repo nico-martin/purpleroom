@@ -6,6 +6,7 @@ import { api } from "../api";
 import useApi from "../hooks/useApi";
 import useMutation from "../hooks/useMutation";
 import { SUBMISSION_STATUS_OPTIONS } from "../lib/constants";
+import { browserTimezone } from "../lib/timezones";
 import {
   Button,
   Field,
@@ -65,6 +66,7 @@ export default function SubmissionModal({
                   paper_id: id,
                   edition_id: editionId,
                   status,
+                  submitted_timezone: browserTimezone(),
                   notes: notes || null,
                 },
           }

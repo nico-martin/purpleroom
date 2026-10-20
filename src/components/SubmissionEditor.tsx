@@ -3,7 +3,16 @@ import type { FormEvent } from "react";
 
 import { api } from "../api";
 import useMutation from "../hooks/useMutation";
-import { Button, Field, Input, Modal, Notice, Textarea } from "../theme";
+import { browserTimezone } from "../lib/timezones";
+import {
+  Button,
+  Field,
+  Input,
+  Modal,
+  Notice,
+  Textarea,
+  TimezoneSelect,
+} from "../theme";
 import type { Submission } from "../types";
 
 interface SubmissionEditorProps {
@@ -18,6 +27,10 @@ export default function SubmissionEditor({
   onClose,
 }: SubmissionEditorProps) {
   const [date, setDate] = useState(submission.submitted_on ?? "");
+  const [timezone, setTimezone] = useState(
+    submission.submitted_timezone ??
+      (submission.submitted_on ? "" : browserTimezone())
+  );
   const [notes, setNotes] = useState(submission.notes ?? "");
   const { busy, error, run } = useMutation();
   function submit(event: FormEvent) {
@@ -28,6 +41,7 @@ export default function SubmissionEditor({
           method: "PATCH",
           body: {
             submitted_on: date || null,
+            submitted_timezone: timezone || null,
             notes: notes || null,
           },
         }),
@@ -44,8 +58,17 @@ export default function SubmissionEditor({
           <Input
             type="date"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onChange={(e) => {
+              setDate(e.target.value);
+              if (e.target.value && !timezone) setTimezone(browserTimezone());
+            }}
           />
+        </Field>
+        <Field
+          label="Submission date timezone"
+          hint="Only you can see the submission date and timezone."
+        >
+          <TimezoneSelect value={timezone} onChange={setTimezone} />
         </Field>
         <Field
           label="Private notes (optional)"
