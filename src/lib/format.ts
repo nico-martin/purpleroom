@@ -1,5 +1,5 @@
 import type { Edition } from "../types";
-import { timezoneLabel } from "./timezones";
+import { isViewerTimezone, timezoneLabel } from "./timezones";
 
 export function formatDate(
   value: string | null | undefined,
@@ -16,10 +16,12 @@ export function dateWithTimezone(
   zone: string | null | undefined,
   options?: Intl.DateTimeFormatOptions
 ): string {
-  return `${formatDate(value, options)}${value && zone ? ` (${timezoneLabel(zone)})` : ""}`;
+  return `${formatDate(value, options)}${value && zone && !isViewerTimezone(zone) ? ` (${timezoneLabel(zone)})` : ""}`;
 }
 export function cfpClosingTime(edition: Edition): string {
   if (!edition.cfp_closes_timezone) return "Timezone not set";
+  if (isViewerTimezone(edition.cfp_closes_timezone))
+    return edition.cfp_closes_time ?? "23:59";
   let offset = "";
   if (edition.cfp_closes_at) {
     try {

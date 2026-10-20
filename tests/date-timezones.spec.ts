@@ -32,6 +32,94 @@ const baseEdition = {
   submitted_friends: [],
 };
 
+for (const scenario of [
+  { viewer: "Europe/Zurich", saved: "Europe/Zurich", local: true },
+  { viewer: "Europe/Zurich", saved: "Europe/Amsterdam", local: true },
+  { viewer: "America/New_York", saved: "US/Eastern", local: true },
+  { viewer: "America/Phoenix", saved: "America/Denver", local: false },
+]) {
+  test(`timezone labels for ${scenario.saved} viewed from ${scenario.viewer}`, async ({
+    browser,
+  }) => {
+    const page = await browser.newPage({ timezoneId: scenario.viewer });
+    // The viewer is in summer; the saved deadline uses its winter offset.
+    await page.clock.install({ time: new Date("2027-06-01T12:00:00Z") });
+    const edition = {
+      ...baseEdition,
+      starts_on: "2027-05-14",
+      ends_on: null,
+      starts_timezone: scenario.saved,
+      cfp_opens_on: "2027-01-01",
+      cfp_opens_timezone: scenario.saved,
+      cfp_closes_on: "2027-03-01",
+      cfp_closes_time: "23:59",
+      cfp_closes_timezone: scenario.saved,
+      cfp_closes_at:
+        scenario.saved === "America/Denver"
+          ? "2027-03-02T06:59:00Z"
+          : "2027-03-01T22:59:00Z",
+    };
+    await page.route("**/api/me", (route) =>
+      route.fulfill({
+        json: {
+          user: { id: 1, name: "Member", role: "member", profile_complete: 1 },
+        },
+      })
+    );
+    await page.route("**/api/editions/11", (route) =>
+      route.fulfill({ json: edition })
+    );
+    await page.route("**/api/dashboard", (route) =>
+      route.fulfill({
+        json: {
+          open_cfps: [
+            {
+              edition,
+              conference,
+              days_left: 10,
+              submitters: [],
+              my_submissions: [],
+            },
+          ],
+          upcoming: [],
+          recent_activity: [],
+        },
+      })
+    );
+    await page.goto("/editions/11");
+    if (scenario.local) {
+      await expect(
+        page.getByText("14 May 2027", { exact: true })
+      ).toBeVisible();
+      await expect(
+        page.getByText("Opens 1 Jan 2027. Closes 1 Mar 2027, 23:59", {
+          exact: true,
+        })
+      ).toBeVisible();
+    } else {
+      await expect(
+        page.getByText("14 May 2027 (Mountain Time — Denver)", { exact: true })
+      ).toBeVisible();
+      await expect(
+        page.getByText(/23:59 \(Mountain Time — Denver, UTC-7\)/)
+      ).toBeVisible();
+    }
+    await page.goto("/");
+    await expect(page.getByText("closes 1 Mar", { exact: true })).toBeVisible();
+    if (scenario.local) {
+      await expect(page.getByText("23:59", { exact: true })).toBeVisible();
+      await expect(
+        page.getByText(/Central European Time|Eastern Time|UTC[+-]/)
+      ).toHaveCount(0);
+    } else {
+      await expect(
+        page.getByText("23:59 (Mountain Time — Denver, UTC-7)", { exact: true })
+      ).toBeVisible();
+    }
+    await page.close();
+  });
+}
+
 for (const deadline of [
   { date: "2027-03-01", instant: "2027-03-01T22:59:00Z", offset: "UTC+1" },
   { date: "2027-06-27", instant: "2027-06-27T21:59:00Z", offset: "UTC+2" },
@@ -242,11 +330,7 @@ test("winter defaults use a friendly regional name for a summer deadline, with o
     cfp_closes_time: "23:59",
     cfp_closes_on: "2030-06-27",
   });
-  await expect(
-    page.getByText(
-      /Closes 27 Jun 2030, 23:59 \(Central European Time, UTC\+2\)/
-    )
-  ).toBeVisible();
+  await expect(page.getByText(/Closes 27 Jun 2030, 23:59$/)).toBeVisible();
   await page.close();
 });
 

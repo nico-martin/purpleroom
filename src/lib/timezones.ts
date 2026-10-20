@@ -67,6 +67,26 @@ export function timezoneLabel(zone: string): string {
   );
 }
 
+export function isViewerTimezone(zone: string): boolean {
+  function timezoneKey(value: string): string {
+    try {
+      value = new Intl.DateTimeFormat("en", {
+        timeZone: value,
+      }).resolvedOptions().timeZone;
+    } catch {
+      // Unknown zones must not be mistaken for the viewer's zone.
+    }
+    return (
+      commonTimezones.find((item) =>
+        (item.cities ?? [item.zone]).includes(value)
+      )?.zone ?? value
+    );
+  }
+  // Use IANA identities/curated rule groups, not an offset that may only match
+  // today (for example, Phoenix and Denver diverge during daylight saving).
+  return timezoneKey(zone) === timezoneKey(browserTimezone());
+}
+
 export function timezoneOptions(value: string): string[] {
   const intl = Intl as typeof Intl & {
     supportedValuesOf?: (key: "timeZone") => string[];
