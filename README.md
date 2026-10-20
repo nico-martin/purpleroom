@@ -65,6 +65,7 @@ Passwordless sign-in emails include branded HTML and a plain-text alternative, d
 
 ## Project documentation
 
+- [Contributing](CONTRIBUTING.md): branch/PR workflow, test coverage, and guidelines for contributors and coding agents.
 - [App logic](docs/agent/app-logic.md): the living reference for how the app works, including permissions, privacy, and edge cases.
 - [Codebase guide](AGENTS.md): architecture, conventions, commands, and safety rules for contributors and coding agents.
 - [Deployment guide](docs/deployment.md): configuration, FTP/FTPS deployment, backups, and troubleshooting.

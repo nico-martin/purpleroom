@@ -2,9 +2,10 @@
 
 ## Documentation and change discipline
 
+- Follow [CONTRIBUTING.md](CONTRIBUTING.md) for contribution workflow and regression-test expectations. For every new task, create a fresh `fix/`, `security/`, `feat/`, `docs/`, or `chore/` branch in a separate Git worktree before editing; do not reuse another task's branch/worktree or work in the shared primary checkout. Run edits/checks there with isolated data and ports. If creation is blocked, ask instead of falling back to `main`. Never commit or push working changes directly to `main`, bypass its pull-request-only GitHub protections, or remove existing worktrees without authorisation. Integration is through reviewed pull requests. Agents still need explicit authorisation to commit, push, merge, or deploy.
 - Read [the app logic](docs/agent/app-logic.md) before changing behaviour. It is the single living product reference, not a historical build plan.
 - Update that document alongside changes to permissions, visibility, workflows, statuses, or feature scope. Update regression tests in the same change. Do not create a competing specification or leave obsolete rules marked as current.
-- Keep [README.md](README.md) aimed at people evaluating or using the project: purpose, features, privacy, and getting started. Put contributor/agent instructions here and hosting procedures in [docs/deployment.md](docs/deployment.md).
+- Keep [README.md](README.md) aimed at people evaluating or using the project: purpose, features, privacy, and getting started. Put contribution workflow in [CONTRIBUTING.md](CONTRIBUTING.md), detailed codebase/agent instructions here, and hosting procedures in [docs/deployment.md](docs/deployment.md).
 - [docs/agent/design.png](docs/agent/design.png) is a visual reference, not authority to restore old branding or behaviour. Use the current **purpleroom** brand and Rebecca Purple (`#663399`) palette, including dark mode.
 - Inspect `git status --short` before editing. Preserve unrelated work, existing data, and runtime files. Do not commit, push, deploy, or mutate a live database without explicit authorisation.
 - When implementation and documented privacy rules conflict, report the discrepancy; do not silently weaken the rule or turn an unimplemented idea into a promise.
