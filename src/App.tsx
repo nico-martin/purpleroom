@@ -11,6 +11,7 @@ import CrewPage from "./pages/CrewPage";
 import DashboardPage from "./pages/DashboardPage";
 import EditionDetailPage from "./pages/EditionDetailPage";
 import EditionFormPage from "./pages/EditionFormPage";
+import FaqPage from "./pages/FaqPage";
 import MemberPage from "./pages/MemberPage";
 import PublicSpeakerPage from "./pages/PublicSpeakerPage";
 import SettingsPage from "./pages/SettingsPage";
@@ -26,6 +27,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<AuthPage mode="login" />} />
+      <Route path="/faq" element={<FaqPage />} />
       <Route path="/setup" element={<SetupPage />} />
       <Route path="/u/:username" element={<PublicSpeakerPage />} />
       <Route path="/auth/:token" element={<AuthPage mode="verify" />} />
