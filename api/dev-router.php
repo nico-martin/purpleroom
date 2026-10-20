@@ -5,7 +5,7 @@ if (preg_match('#^/api/(db|lib|routes)(/|$)|^/api/(config[^/]*|dev-router)\.php$
     http_response_code(403);
     exit('Forbidden');
 }
-if ($path === '/api' || str_starts_with($path, '/api/')) {
+if ($path === '/api' || str_starts_with($path, '/api/') || preg_match('#^/u/[^/]+/?$#D', $path)) {
     require __DIR__ . '/index.php';
     return true;
 }

@@ -6,10 +6,10 @@ import { api } from "../api";
 import DeleteAccountDialog from "../components/DeleteAccountDialog";
 import useMutation from "../hooks/useMutation";
 import useSession from "../hooks/useSession";
-import { PROFILE_LINKS, profileLinkValues } from "../lib/profile";
 import {
   Avatar,
   Button,
+  ButtonLink,
   Card,
   ColorSchemeControl,
   Field,
@@ -28,7 +28,6 @@ export default function SettingsPage({
   const { user, refreshMe } = useSession();
   const [name, setName] = useState(user.name);
   const [avatar, setAvatar] = useState(user.avatar_url ?? "");
-  const [links, setLinks] = useState(() => profileLinkValues(user));
   const storedAvatar = avatar.startsWith("/api/avatars/");
   const [saved, setSaved] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -42,14 +41,10 @@ export default function SettingsPage({
           body: {
             name,
             avatar_url: avatar || null,
-            ...Object.fromEntries(
-              PROFILE_LINKS.map(({ field }) => [field, links[field] || null])
-            ),
           },
         }),
       (result) => {
         setAvatar(result.user.avatar_url ?? "");
-        setLinks(profileLinkValues(result.user));
         setSaved(true);
         refreshMe();
       }
@@ -74,6 +69,17 @@ export default function SettingsPage({
             </p>
           </div>
           <ColorSchemeControl />
+        </Card>
+      </section>
+      <section className="mb-9 max-w-3xl">
+        <SectionHeader title="Your speaker settings" />
+        <Card padded>
+          <p className="mb-4 text-sm text-muted">
+            Edit your username, speaker information, homepage and socials, and
+            control public sharing. Your toolkit is a separate, read-only place
+            to copy saved information.
+          </p>
+          <ButtonLink to="/settings/speaker">Open speaker settings</ButtonLink>
         </Card>
       </section>
       <section className="max-w-3xl">
@@ -141,32 +147,6 @@ export default function SettingsPage({
                 placeholder="https://…"
               />
             </Field>
-            <div className="space-y-5 border-t border-divider pt-5">
-              <h3 className="text-lg">Homepage and socials</h3>
-              <p className="text-sm text-muted">
-                Optional links shown on your profile to signed-in members. Enter
-                full URLs; Mastodon supports any instance.
-              </p>
-              <div className="grid gap-5 sm:grid-cols-2">
-                {PROFILE_LINKS.map(({ field, label, placeholder }) => (
-                  <Field key={field} label={label}>
-                    <Input
-                      type="url"
-                      maxLength={2048}
-                      value={links[field]}
-                      placeholder={placeholder}
-                      onChange={(e) => {
-                        setLinks((current) => ({
-                          ...current,
-                          [field]: e.target.value,
-                        }));
-                        setSaved(false);
-                      }}
-                    />
-                  </Field>
-                ))}
-              </div>
-            </div>
             {mutation.error && <Notice tone="error">{mutation.error}</Notice>}
             {saved && (
               <Notice tone="success">

@@ -1,0 +1,503 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "purpleroom public speaker API",
+    "version": "1.5.0",
+    "description": "Read-only published press kits, publication-gated branding images and public gallery image capability URLs. Gallery image tokens work independently of profile publication, until removal, owner suspension/incompletion or account deletion. Branding tokens require membership in the current published snapshot. No authentication. Data/media share 120 requests per peer IP per 60-second window; 429 includes Retry-After: 60. All data/media responses are no-store. Unpublished, suspended and missing profiles are indistinguishable. Private account APIs are not part of this contract."
+  },
+  "servers": [{ "url": "/" }],
+  "security": [],
+  "paths": {
+    "/api/speaker-branding/{token}": {
+      "parameters": [{ "$ref": "#/components/parameters/ImageToken" }],
+      "get": {
+        "operationId": "getPublishedSpeakerBranding",
+        "summary": "Read a cover or portrait referenced by the current published speaker snapshot",
+        "responses": {
+          "200": { "$ref": "#/components/responses/Picture" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/speaker-pictures/{token}": {
+      "parameters": [{ "$ref": "#/components/parameters/ImageToken" }],
+      "get": {
+        "operationId": "getSpeakerImage",
+        "summary": "Read the original via its public capability URL, even when the profile is private",
+        "responses": {
+          "200": { "$ref": "#/components/responses/Picture" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/ServerError" },
+          "503": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/speaker-pictures/{token}/download": {
+      "parameters": [{ "$ref": "#/components/parameters/ImageToken" }],
+      "get": {
+        "operationId": "downloadSpeakerImage",
+        "summary": "Download the original via its public capability URL",
+        "responses": {
+          "200": { "$ref": "#/components/responses/Picture" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/ServerError" },
+          "503": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/speaker-pictures/{token}/sizes/{size}": {
+      "parameters": [
+        { "$ref": "#/components/parameters/ImageToken" },
+        { "$ref": "#/components/parameters/PictureSize" }
+      ],
+      "get": {
+        "operationId": "getSpeakerImageSize",
+        "summary": "Read a generated image size using a public token",
+        "responses": {
+          "200": { "$ref": "#/components/responses/Picture" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/ServerError" },
+          "503": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/speaker-pictures/{token}/sizes/{size}/download": {
+      "parameters": [
+        { "$ref": "#/components/parameters/ImageToken" },
+        { "$ref": "#/components/parameters/PictureSize" }
+      ],
+      "get": {
+        "operationId": "downloadSpeakerImageSize",
+        "summary": "Download a generated image size using a public token",
+        "responses": {
+          "200": { "$ref": "#/components/responses/Picture" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/ServerError" },
+          "503": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/public/speakers/{username}": {
+      "parameters": [{ "$ref": "#/components/parameters/Username" }],
+      "get": {
+        "operationId": "getPublicSpeaker",
+        "summary": "Retrieve an explicitly published complete speaker-profile snapshot",
+        "responses": {
+          "200": {
+            "description": "Published speaker profile, including all saved speaker information at publication. Optional empty fields may be omitted; older snapshots may also omit optional fields. Private account and proposal data are excluded.",
+            "headers": {
+              "Cache-Control": {
+                "schema": { "type": "string", "const": "no-store" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Speaker" },
+                "example": {
+                  "schema_version": 1,
+                  "speaker_id": "spk_aabbccddeeff00112233445566778899",
+                  "username": "alex-speaker",
+                  "name": "Alex Speaker",
+                  "profile_url": "https://conference-tools.example/u/alex-speaker",
+                  "api_url": "https://conference-tools.example/api/public/speakers/alex-speaker",
+                  "bios": [
+                    {
+                      "label": "Short",
+                      "text": "Alex builds accessible software."
+                    }
+                  ],
+                  "links": [],
+                  "pictures": [],
+                  "appearances": []
+                }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/ServerError" },
+          "503": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/public/speakers/{username}/media/{revision}/{id}": {
+      "parameters": [
+        { "$ref": "#/components/parameters/Username" },
+        { "$ref": "#/components/parameters/Revision" },
+        { "$ref": "#/components/parameters/PictureId" }
+      ],
+      "get": {
+        "operationId": "getPublicSpeakerPicture",
+        "summary": "Preview an approved picture using its returned URL",
+        "responses": {
+          "200": { "$ref": "#/components/responses/Picture" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/ServerError" },
+          "503": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/public/speakers/{username}/media/{revision}/{id}/sizes/{size}": {
+      "parameters": [
+        { "$ref": "#/components/parameters/Username" },
+        { "$ref": "#/components/parameters/Revision" },
+        { "$ref": "#/components/parameters/PictureId" },
+        { "$ref": "#/components/parameters/PictureSize" }
+      ],
+      "get": {
+        "operationId": "getPublicSpeakerPictureSize",
+        "summary": "Preview a pre-generated picture size included in this publication",
+        "responses": {
+          "200": { "$ref": "#/components/responses/Picture" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/ServerError" },
+          "503": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/public/speakers/{username}/media/{revision}/{id}/sizes/{size}/download": {
+      "parameters": [
+        { "$ref": "#/components/parameters/Username" },
+        { "$ref": "#/components/parameters/Revision" },
+        { "$ref": "#/components/parameters/PictureId" },
+        { "$ref": "#/components/parameters/PictureSize" }
+      ],
+      "get": {
+        "operationId": "downloadPublicSpeakerPictureSize",
+        "summary": "Download a pre-generated picture size as an attachment",
+        "responses": {
+          "200": { "$ref": "#/components/responses/Picture" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/ServerError" },
+          "503": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/public/speakers/{username}/media/{revision}/{id}/download": {
+      "parameters": [
+        { "$ref": "#/components/parameters/Username" },
+        { "$ref": "#/components/parameters/Revision" },
+        { "$ref": "#/components/parameters/PictureId" }
+      ],
+      "get": {
+        "operationId": "downloadPublicSpeakerPicture",
+        "summary": "Download an approved picture as an attachment; respect credit/usage instructions",
+        "responses": {
+          "200": { "$ref": "#/components/responses/Picture" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/ServerError" },
+          "503": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "ImageToken": {
+        "name": "token",
+        "in": "path",
+        "required": true,
+        "description": "Stable opaque image capability, not an account login token. Anyone with this URL can read the image regardless of profile publication. Removal or owner suspension/deletion revokes access.",
+        "schema": { "type": "string", "pattern": "^[a-f0-9]{48}$" }
+      },
+      "Username": {
+        "name": "username",
+        "in": "path",
+        "required": true,
+        "description": "New claims require 4–40 characters. Previously stored three-character URLs remain routable.",
+        "schema": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 40,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        }
+      },
+      "Revision": {
+        "name": "revision",
+        "in": "path",
+        "required": true,
+        "description": "Opaque publication revision from the returned media URL. Old revisions stop working after replacement or unpublication.",
+        "schema": { "type": "string", "pattern": "^[a-f0-9]{32}$" }
+      },
+      "PictureSize": {
+        "name": "size",
+        "in": "path",
+        "required": true,
+        "description": "S/M/L/XL are widths of 400/720/1080/1900 pixels with proportional height. Full preserves the original file. Only use sizes present in the returned variants map.",
+        "schema": { "type": "string", "enum": ["s", "m", "l", "xl", "full"] }
+      },
+      "PictureId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "responses": {
+      "NotFound": {
+        "description": "Unknown, unpublished, incomplete or suspended speaker, or unavailable picture.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": {
+              "error": {
+                "code": "not_found",
+                "message": "Speaker profile not found.",
+                "fields": {}
+              }
+            }
+          }
+        }
+      },
+      "RateLimited": {
+        "description": "Shared public data/media IP budget exceeded.",
+        "headers": {
+          "Retry-After": { "schema": { "type": "integer", "const": 60 } }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": {
+              "error": {
+                "code": "rate_limited",
+                "message": "Too many public profile requests. Try again in a minute.",
+                "fields": {}
+              }
+            }
+          }
+        }
+      },
+      "ServerError": {
+        "description": "Transient server/storage error; retry with backoff.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "Picture": {
+        "description": "Validated image bytes. Download route uses Content-Disposition: attachment; preview uses inline. All media is no-store, nosniff and sandboxed.",
+        "headers": {
+          "Content-Disposition": { "schema": { "type": "string" } },
+          "Cache-Control": {
+            "schema": { "type": "string", "const": "no-store" }
+          }
+        },
+        "content": {
+          "image/png": { "schema": { "type": "string", "format": "binary" } },
+          "image/jpeg": { "schema": { "type": "string", "format": "binary" } },
+          "image/webp": { "schema": { "type": "string", "format": "binary" } },
+          "image/gif": { "schema": { "type": "string", "format": "binary" } },
+          "image/avif": { "schema": { "type": "string", "format": "binary" } },
+          "image/x-icon": {
+            "schema": { "type": "string", "format": "binary" }
+          },
+          "image/svg+xml": {
+            "schema": { "type": "string", "format": "binary" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Speaker": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "speaker_id",
+          "username",
+          "name",
+          "profile_url",
+          "api_url",
+          "bios",
+          "links",
+          "pictures",
+          "appearances"
+        ],
+        "properties": {
+          "schema_version": { "type": "integer", "const": 1 },
+          "speaker_id": {
+            "type": "string",
+            "pattern": "^spk_[a-f0-9]{32}$",
+            "description": "Stable opaque identifier, independent of username and private account IDs."
+          },
+          "username": { "type": "string" },
+          "name": { "type": "string" },
+          "profile_url": { "type": "string", "format": "uri" },
+          "api_url": { "type": "string", "format": "uri" },
+          "sharing": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Shareable image URLs based only on the published profile. Publication updates rotate the cache version; external services can retain old rendered images.",
+            "required": ["profile_url", "image_url", "twitter_image_url"],
+            "properties": {
+              "profile_url": { "type": "string", "format": "uri" },
+              "image_url": { "type": "string", "format": "uri" },
+              "twitter_image_url": { "type": "string", "format": "uri" }
+            }
+          },
+          "tagline": { "type": "string" },
+          "company": { "type": "string" },
+          "job_title": { "type": "string" },
+          "contact_email": {
+            "type": "string",
+            "description": "Explicitly supplied public contact, never the login email by default. May be empty."
+          },
+          "bios": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["label", "text"],
+              "properties": {
+                "label": { "type": "string" },
+                "text": { "type": "string" }
+              }
+            }
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["field", "url"],
+              "properties": {
+                "field": {
+                  "type": "string",
+                  "enum": [
+                    "homepage_url",
+                    "github_url",
+                    "linkedin_url",
+                    "x_url",
+                    "bluesky_url",
+                    "instagram_url",
+                    "youtube_url",
+                    "mastodon_url"
+                  ]
+                },
+                "url": { "type": "string", "format": "uri" }
+              }
+            }
+          },
+          "header_image": {
+            "description": "Custom 4:1 cover upload, separate from the picture gallery. Branding URLs require current publication. Older snapshots may omit it.",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Speaker/properties/pictures/items"
+              },
+              { "type": "null" }
+            ]
+          },
+          "profile_image": {
+            "description": "Snapshot of the saved Purple Room profile picture, included on explicit publish/update. Uses a publication-gated branding URL, never the authenticated avatar URL. Older snapshots may omit it.",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Speaker/properties/pictures/items"
+              },
+              { "type": "null" }
+            ]
+          },
+          "pictures": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "label", "credit", "url", "download_url"],
+              "properties": {
+                "id": { "type": "integer" },
+                "label": { "type": "string" },
+                "credit": { "type": "string" },
+                "url": { "type": "string", "format": "uri" },
+                "download_url": { "type": "string", "format": "uri" },
+                "variants": {
+                  "type": "object",
+                  "description": "Pre-generated sizes, with full for the original. Legacy snapshots may omit this map; old pictures may have full only.",
+                  "additionalProperties": false,
+                  "properties": {
+                    "s": { "$ref": "#/components/schemas/PictureVariant" },
+                    "m": { "$ref": "#/components/schemas/PictureVariant" },
+                    "l": { "$ref": "#/components/schemas/PictureVariant" },
+                    "xl": { "$ref": "#/components/schemas/PictureVariant" },
+                    "full": { "$ref": "#/components/schemas/PictureVariant" }
+                  }
+                }
+              }
+            }
+          },
+          "appearances": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "title", "url", "description"],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": ["talk", "recording", "slides", "appearance"]
+                },
+                "title": { "type": "string" },
+                "url": { "type": "string", "format": "uri" },
+                "description": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "PictureVariant": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "width",
+          "height",
+          "file_size",
+          "mime_type",
+          "url",
+          "download_url"
+        ],
+        "properties": {
+          "width": {
+            "type": ["integer", "null"],
+            "description": "Display width in pixels, accounting for EXIF orientation. Null only for older non-raster pictures."
+          },
+          "height": { "type": ["integer", "null"] },
+          "file_size": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Exact file size in bytes."
+          },
+          "mime_type": { "type": "string" },
+          "url": { "type": "string", "format": "uri" },
+          "download_url": { "type": "string", "format": "uri" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message", "fields"],
+            "properties": {
+              "code": { "type": "string" },
+              "message": { "type": "string" },
+              "fields": {
+                "type": "object",
+                "additionalProperties": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

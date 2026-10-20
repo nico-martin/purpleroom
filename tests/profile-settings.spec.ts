@@ -52,6 +52,23 @@ test("local profile images and all social links can be saved, replaced, viewed, 
   await page.route("**/api/users/1", (route) =>
     route.fulfill({ json: { user, relationship: "self", plans: [] } })
   );
+  await page.route("**/api/speaker", (route) =>
+    route.fulfill({
+      json: {
+        draft: {
+          tagline: "",
+          company: "",
+          job_title: "",
+          contact_email: "",
+          bios: [],
+          appearances: [],
+        },
+        pictures: [],
+        published: false,
+        username: user.username ?? null,
+      },
+    })
+  );
   await page.goto("/settings");
   await expect(
     page.getByText("Stored with purpleroom", { exact: true })
@@ -60,14 +77,36 @@ test("local profile images and all social links can be saved, replaced, viewed, 
     exact: true,
   });
   await expect(replace).toHaveValue("");
-  for (const [label, , url] of linkFields)
-    await page.getByLabel(label, { exact: true }).fill(url);
   await page.getByRole("button", { name: "Save profile", exact: true }).click();
   await expect(
     page.getByText("Looking good. Your profile is saved.")
   ).toBeVisible();
   expect(writes[0].avatar_url).toBe(originalAvatar);
-  for (const [, field, url] of linkFields) expect(writes[0][field]).toBe(url);
+  expect(writes[0]).not.toHaveProperty("username");
+  for (const [label, field] of linkFields) {
+    await expect(page.getByLabel(label, { exact: true })).toHaveCount(0);
+    expect(writes[0]).not.toHaveProperty(field);
+  }
+  await page.goto("/settings/speaker");
+  await expect(
+    page.getByRole("link", { name: "Speaker settings", exact: true })
+  ).toHaveAttribute("aria-current", "page");
+  await expect(
+    page.getByRole("link", { name: "Settings", exact: true })
+  ).not.toHaveAttribute("aria-current", "page");
+  for (const [label, , url] of linkFields)
+    await page.getByLabel(label, { exact: true }).fill(url);
+  await page
+    .getByRole("button", { name: "Save username and links", exact: true })
+    .click();
+  await expect(
+    page.getByText("Your username and links are saved.")
+  ).toBeVisible();
+  for (const [, field, url] of linkFields)
+    expect(writes.at(-1)?.[field]).toBe(url);
+  expect(writes.at(-1)).not.toHaveProperty("avatar_url");
+  expect(user.avatar_url).toBe(originalAvatar);
+  await page.goto("/settings");
   await replace.fill("https://images.example/new-avatar.png");
   await page.getByRole("button", { name: "Save profile", exact: true }).click();
   await expect(
@@ -81,6 +120,7 @@ test("local profile images and all social links can be saved, replaced, viewed, 
   );
   expect(remoteImageRequests).toEqual([]);
   await page.reload();
+  await page.goto("/settings/speaker");
   await expect(page.getByLabel("GitHub", { exact: true })).toHaveValue(
     "https://github.com/nico"
   );
@@ -103,12 +143,21 @@ test("local profile images and all social links can be saved, replaced, viewed, 
   await page
     .getByRole("button", { name: "Remove profile image", exact: true })
     .click();
-  await page.getByLabel("GitHub", { exact: true }).fill("");
   await page.getByRole("button", { name: "Save profile", exact: true }).click();
   await expect(
     page.getByText("Looking good. Your profile is saved.")
   ).toBeVisible();
   expect(writes.at(-1)?.avatar_url).toBeNull();
+  expect(user.github_url).toBe("https://github.com/nico");
+  await page.goto("/settings/speaker");
+  await page.getByLabel("GitHub", { exact: true }).fill("");
+  await page
+    .getByRole("button", { name: "Save username and links", exact: true })
+    .click();
+  await expect(
+    page.getByText("Your username and links are saved.")
+  ).toBeVisible();
+  expect(user.avatar_url).toBeNull();
   expect(writes.at(-1)?.github_url).toBeNull();
   expect(writes.at(-1)?.mastodon_url).toBe("https://my-instance.example/@nico");
   expect(

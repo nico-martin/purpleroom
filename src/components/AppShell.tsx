@@ -59,6 +59,7 @@ export default function AppShell({ className = "" }: AppShellProps) {
     { to: "/", label: "The room", icon: LayoutDashboard },
     { to: "/conferences", label: "Conferences", icon: CalendarDays },
     { to: "/talks", label: "My talks", icon: Mic2 },
+    { to: "/speaker", label: "Speaker toolkit", icon: Sparkles },
     { to: "/crew", label: "The crew", icon: Users },
   ];
   if (data.user.profile_complete === 0)
@@ -112,8 +113,15 @@ export default function AppShell({ className = "" }: AppShellProps) {
           <NavItem
             to="/settings"
             icon={<Settings2 size={18} strokeWidth={1.6} />}
+            end
           >
             Settings
+          </NavItem>
+          <NavItem
+            to="/settings/speaker"
+            icon={<Mic2 size={18} strokeWidth={1.6} />}
+          >
+            Speaker settings
           </NavItem>
           {data.user.role === "admin" && (
             <>

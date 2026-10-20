@@ -2,7 +2,7 @@ import { Check, Copy } from "lucide-react";
 import { useState } from "react";
 
 import cn from "../../utils/classnames";
-import { Button, Input } from "../index";
+import { Button, Input, Textarea } from "../index";
 
 interface CopyFieldProps {
   value: string;
@@ -28,13 +28,23 @@ export default function CopyField({
   return (
     <div className={cn("space-y-2", className)}>
       <div className="flex gap-2">
-        <Input
-          aria-label={label}
-          value={value}
-          readOnly
-          className="font-mono text-xs"
-          onFocus={(e) => e.currentTarget.select()}
-        />
+        {value.includes("\n") || value.length > 200 ? (
+          <Textarea
+            aria-label={label}
+            value={value}
+            readOnly
+            rows={6}
+            onFocus={(e) => e.currentTarget.select()}
+          />
+        ) : (
+          <Input
+            aria-label={label}
+            value={value}
+            readOnly
+            className="font-mono text-xs"
+            onFocus={(e) => e.currentTarget.select()}
+          />
+        )}
         <Button onClick={copy} aria-label={`Copy ${label}`}>
           {copied ? <Check size={16} /> : <Copy size={16} />}
           {copied ? "Copied" : "Copy"}
@@ -42,7 +52,7 @@ export default function CopyField({
       </div>
       <p role="status" className="text-xs text-muted">
         {failed
-          ? "Clipboard unavailable. Select the link above and copy it manually."
+          ? "Clipboard unavailable. Select the text above and copy it manually."
           : copied
             ? "Copied. You're all set."
             : ""}
