@@ -27,27 +27,29 @@ Use a short, descriptive, lowercase branch name:
 | `docs/` | Documentation-only changes | `docs/contributing-guidelines` |
 | `chore/` | Tooling, maintenance, and dependency updates | `chore/update-playwright` |
 
-- Start from an up-to-date `main` unless the work explicitly depends on another branch. Keep dependent branches/PRs clearly identified.
-- Keep one concern per branch/PR. Avoid unrelated refactoring, bulk formatting, or dependency churn.
+- For a distinct, unrelated effort, create an appropriately prefixed branch from an up-to-date `main` unless the work depends on another branch. Keep dependent branches/PRs clearly identified.
+- Continue related fixes, refinements, and sub-features on the existing feature branch and in the current folder. Do not create a new branch for every small follow-up. Keep one coherent concern per branch/PR; avoid unrelated refactoring, bulk formatting, or dependency churn.
 - Use short, descriptive commit messages. Review the staged diff so secrets, runtime files, and unrelated work do not slip in.
 - Do not force-push shared branches or rewrite other contributors' history without agreement.
 - Worktrees are separate checkouts, not files to include in a commit. Never stage nested repositories; keep `.claude/worktrees/` and other local worktree directories out of Git.
 - Resolve conflicts deliberately and rerun affected tests after integrating upstream changes. Do not merge another branch merely because an agent finds it locally.
 
-### Required agent workspace
+### Agent workspace and branch continuity
 
-For **every new task**, coding agents must create both a **fresh branch** with the appropriate prefix and a **separate Git worktree** before editing. Git worktrees are local checkouts; their branches and PRs are hosted on GitHub. Do not reuse another task's branch/worktree or edit in the shared primary checkout.
+Agents must **never make implementation or documentation changes on `main`**. Before editing, check the current branch and working-tree status. Continue an ongoing feature on its existing non-main branch, including related sub-features and fixes. The primary checkout is a valid workspace on a non-main branch.
 
-For example, after checking the existing work and confirming the task's base branch:
+Create or open a separate Git worktree **only when explicitly instructed**; do not create one automatically for implementation or PR review. Git worktrees are local checkouts, not GitHub-hosted branches. Preserve existing worktrees and do not move the session to a different checkout without instruction.
+
+For a distinct new effort, create an appropriately prefixed branch in the current checkout after confirming the base and that switching will preserve existing work. For example, from a clean checkout:
 
 ```bash
 git fetch origin
-git worktree add -b feat/short-description ../purpleroom-short-description origin/main
+git switch -c feat/short-description origin/main
 ```
 
-Run edits, dependency installation, checks, and any authorised commits from the new worktree. Use a unique directory and branch name; if the task explicitly depends on unmerged work, agree the base branch first. Keep databases, runtime storage, and development-server ports isolated as well—do not automatically copy secrets or live data into the worktree.
+Run edits, dependency installation, checks, and any authorised commits in the current feature checkout. If the task depends on unmerged work, keep that dependency clear rather than branching from an unrelated base. Keep test databases, runtime storage, and development-server ports isolated regardless of checkout location; do not automatically copy secrets or live data into test fixtures or an explicitly requested worktree.
 
-If a new worktree/branch cannot be created, stop and ask rather than silently using `main` or another agent's checkout. Do not remove existing worktrees or branches without authorisation.
+If a necessary branch switch/creation or explicitly requested worktree cannot be performed safely, stop and ask rather than editing on `main` or overwriting existing work. Do not remove existing worktrees or branches without authorisation.
 
 ## Development conventions
 
@@ -98,7 +100,7 @@ Human and agent reviewers must follow [the PR review guide](docs/agent/pr-review
 ## Additional rules for coding agents
 
 - Follow this guide and `AGENTS.md`; being asked to implement a feature is **not** permission to commit, push, merge, deploy, or modify a live database.
-- Always start a new task in a fresh, appropriately prefixed branch and a separate Git worktree as described above. Never commit on `main`, even when asked to commit a change, and never bypass GitHub's branch protections. Use the PR workflow.
+- Stay on the existing feature branch and in the current folder for related work. Create/open a separate worktree only when explicitly instructed. Never edit or commit on `main`, even when asked to commit a change, and never bypass GitHub's branch protections. Use the PR workflow.
 - Work within the requested scope. Ask before resolving ambiguous product/privacy decisions, adding dependencies, deleting retained data, or expanding a feature.
 - Do not discard someone else's edits, run destructive resets, remove worktrees, or broadly delete runtime storage. Avoid repository-wide formatting when targeted formatting will do.
 - Use isolated fixtures and local services. Do not send real emails or change hosting settings without explicit authorisation. Never expose secrets, login codes, session cookies, private account data, or database contents in logs, screenshots, issues, or PRs.
@@ -106,7 +108,7 @@ Human and agent reviewers must follow [the PR review guide](docs/agent/pr-review
 
 ## Pull request checklist
 
-- [ ] The branch uses the appropriate prefix, agent work was isolated in a task-specific Git worktree, and the PR has one clear purpose.
+- [ ] Work was done on an appropriately prefixed non-main branch, related feature work stayed together, and the PR has one clear purpose. Any separate worktree was explicitly requested.
 - [ ] The description explains the problem, intended behaviour, and any linked issue.
 - [ ] Relevant regression tests and negative/permission cases are included.
 - [ ] Check results are listed, including anything not run or still failing.
