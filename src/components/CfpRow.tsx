@@ -19,10 +19,10 @@ interface CfpRowProps {
 export default function CfpRow({ cfp, onSubmit, className = "" }: CfpRowProps) {
   const { edition, conference, days_left, submitters, my_submissions } = cfp;
   return (
-    <ListRow className={className}>
+    <ListRow className={`@2xl:flex-nowrap ${className}`}>
       <Link
         to={`/editions/${edition.id}`}
-        className="flex w-full min-w-0 items-center gap-3 sm:w-auto sm:flex-1"
+        className="flex w-full min-w-0 items-center gap-3 @2xl:w-auto @2xl:flex-1"
       >
         <LogoTile name={conference.name} src={conference.logo_url} />
         <div className="min-w-0">
@@ -36,7 +36,7 @@ export default function CfpRow({ cfp, onSubmit, className = "" }: CfpRowProps) {
           </p>
         </div>
       </Link>
-      <div className="flex min-w-24 flex-col items-start gap-1">
+      <div className="flex w-24 shrink-0 flex-col items-start gap-1">
         <DeadlineBadge days={days_left} />
         <span className="font-mono text-xs text-muted">
           closes{" "}
@@ -46,7 +46,7 @@ export default function CfpRow({ cfp, onSubmit, className = "" }: CfpRowProps) {
           })}
         </span>
       </div>
-      <div className="flex flex-col items-center gap-1">
+      <div className="flex w-36 max-w-full shrink-0 flex-col items-center gap-1">
         {submitters.length ? (
           <AvatarStack users={submitters} max={3} />
         ) : (
@@ -59,7 +59,10 @@ export default function CfpRow({ cfp, onSubmit, className = "" }: CfpRowProps) {
           </span>
         )}
       </div>
-      <Button onClick={onSubmit} className="ml-auto text-xs">
+      <Button
+        onClick={onSubmit}
+        className="ml-auto w-40 shrink-0 text-xs @2xl:ml-0"
+      >
         {my_submissions.length ? (
           <>
             <Check size={14} className="text-green" />

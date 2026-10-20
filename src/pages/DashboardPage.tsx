@@ -91,7 +91,7 @@ export default function DashboardPage({ className = "" }: DashboardPageProps) {
                 ) : undefined
               }
             />
-            <Card>
+            <Card className="@container">
               {data.open_cfps.length ? (
                 data.open_cfps.map((cfp) => (
                   <CfpRow
