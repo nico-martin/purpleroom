@@ -174,6 +174,17 @@ Statuses are owner-managed, not a mandatory linear workflow. A newly linked prop
 - Edition and dashboard participant lists include the viewer's own plans and eligible friends' plans. Member profiles show plans only to the owner and accepted friends.
 - There is no submission-derived “speaking” group in shared views. No marker does not distinguish an explicit refusal from a member who has not made plans.
 
+### Agenda
+
+- **My agenda** (`/agenda`, `GET /me/agenda`) lists only the viewer's own Going and Maybe plans. It is owner-only, **even for admins**: there is no way to request another member's agenda, and it contains no friend, submission, or notes data.
+- It includes active editions whose last event day (or first if no last day exists) is today (UTC) or later, plus all fully undated plans. Past plans are hidden. Dated entries are ordered by start date (or end date if only that is set); undated entries come last.
+- Going and Maybe are labelled differently (“Going” / “Maybe (tentative)”), so tentative interest is never shown as a commitment.
+- Two dated plans conflict when their calendar date ranges overlap **inclusively** (sharing a boundary day counts). Dates are compared as calendar dates, ignoring timezones. An edition with only one date counts as a single day on that date. Maybe and Going plans are checked alike, and both entries name and link each other.
+- A fully undated plan is shown as “Dates unknown, conflicts can't be checked” and is never flagged. Unknown dates are not treated as proof of no conflict.
+- Conflicts are computed on every read, so they follow attendance and date changes. Warnings never block, change, or remove attendance.
+- Like all attendance, the agenda is independent of submissions: no submission status creates or removes an entry.
+- My agenda opens as a Monday-first month calendar, one month at a time, with a toggle to the list view. The view and month are URL-backed. Dated plans are drawn across their inclusive calendar days, and one-date editions as a single day. Days covered by two or more plans are marked as overlap, and conflicting plans carry the warning, by the same rule as the list. Going (solid bar) and Maybe (dashed bar, “Maybe (tentative)”) differ by pattern and text. Undated plans are never placed on the grid; they are listed below it as “Dates unknown, conflicts can't be checked”.
+
 ## 7. Crew and member discovery
 
 The crew screen provides **My crew**, **All members**, **Requests**, and **Blocked**, with name search. The directory includes completed, active profiles and excludes members blocked in either direction. Directory membership alone grants no access to private plans or reviews.
@@ -221,7 +232,7 @@ The crew screen provides **My crew**, **All members**, **Requests**, and **Block
 - Login/verification and signed-in pages share footer credits: “A project by Nico Martin · Open source on GitHub”, linking to `https://nico.dev` and `https://github.com/nico-martin/purpleroom/` respectively.
 - Open CFPs use the same timezone-aware window rule as the conference directory and editions endpoint, and are ordered by actual closing instant (legacy date-only deadlines sort at the end of their UTC closing date). Unknown deadlines are not included. Day-count badges use the CFP timezone's calendar date when known; an elapsed timed deadline is closed even earlier on the same date.
 - CFP rows show edition information, deadline, the viewer's own submissions, and qualifying submitted friends.
-- Upcoming plans include up to 20 active editions with the viewer's or eligible friends' manual attendance. The last event day (or first if no last day exists) must be today or later. Entries are ordered by start date.
+- Upcoming plans include up to 20 active editions with the viewer's or eligible friends' manual attendance. The last event day (or first if no last day exists) must be today or later. Entries are ordered by start date. The viewer's own plans with overlap warnings are on the private agenda (§6 Agenda).
 - “Around the room” shows at most the latest ten catalog additions and viewer-visible review updates, newest first. Catalog-addition activity excludes suspended/blocked authors; the shared catalog itself remains available.
 - Activity never exposes submission outcomes, proposal titles, per-member proposal totals, or retired comments.
 - Light, Dark, and System appearance modes are browser-specific. The preference survives reload/sign-out in a cookie, not in the member account or local storage. System mode follows OS appearance, and the preference is applied before the app renders.

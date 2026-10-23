@@ -65,7 +65,12 @@ export function cfpDaysUntil(edition: Edition): number {
       86400000
   );
 }
-export function dateRange(edition: Edition): string {
+export function dateRange(
+  edition: Pick<
+    Edition,
+    "starts_on" | "ends_on" | "starts_timezone" | "ends_timezone"
+  >
+): string {
   if (edition.starts_timezone || edition.ends_timezone) {
     if (!edition.starts_on)
       return edition.ends_on
