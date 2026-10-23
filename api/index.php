@@ -6,7 +6,7 @@ foreach (['db', 'http', 'auth', 'router', 'constants', 'mail', 'dates', 'domain'
 header('X-Content-Type-Options: nosniff');
 try {
     route('GET', '/health', fn() => json_response(['ok' => true]), true);
-    foreach (['setup', 'auth', 'users', 'avatars', 'speakers', 'crew', 'admin', 'conferences', 'logos', 'editions', 'reviews', 'papers', 'submissions', 'attendance', 'dashboard'] as $file) require __DIR__ . '/routes/' . $file . '.php';
+    foreach (['setup', 'auth', 'users', 'avatars', 'speakers', 'crew', 'admin', 'conferences', 'logos', 'editions', 'reviews', 'papers', 'submissions', 'attendance', 'agenda', 'dashboard'] as $file) require __DIR__ . '/routes/' . $file . '.php';
     dispatch();
 } catch (AccountDeletionException $error) {
     fail($error->status, $error->reason, $error->getMessage());

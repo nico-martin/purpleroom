@@ -1,5 +1,6 @@
 import {
   ArrowUpRight,
+  CalendarCheck,
   CalendarDays,
   ChevronDown,
   LayoutDashboard,
@@ -59,6 +60,7 @@ export default function AppShell({ className = "" }: AppShellProps) {
     { to: "/", label: "The room", icon: LayoutDashboard },
     { to: "/conferences", label: "Conferences", icon: CalendarDays },
     { to: "/talks", label: "My talks", icon: Mic2 },
+    { to: "/agenda", label: "My agenda", icon: CalendarCheck },
     { to: "/speaker", label: "Speaker toolkit", icon: Sparkles },
     { to: "/crew", label: "The crew", icon: Users },
   ];
