@@ -42,8 +42,9 @@ test("Around the room renders only the newest ten supplied entries", async ({
   await expect(page.getByText("Activity 11", { exact: false })).toHaveCount(0);
 });
 
-test("simplified editors preserve legacy abstracts and represent historical attended statuses", async ({
+test("talk editor manages details and abstract variants, copies without mutations, preserves legacy abstracts and represents historical attended statuses", async ({
   page,
+  context,
 }) => {
   const submission = {
     id: 3,
@@ -64,18 +65,32 @@ test("simplified editors preserve legacy abstracts and represent historical atte
     title: "A good idea",
     abstract: "Keep my original abstract.",
     notes: "Previous notes",
+    duration_minutes: null as number | null,
+    audience_level: null as string | null,
+    language: null as string | null,
+    format: null as string | null,
+    abstract_variants: [
+      { label: "Abstract", text: "Keep my original abstract." },
+    ],
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
     submissions: [submission],
   };
   const paperWrites: Record<string, unknown>[] = [];
   const submissionWrites: Record<string, unknown>[] = [];
+  const mutations: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/api/") && request.method() !== "GET")
+      mutations.push(request.method() + " " + request.url());
+  });
   await page.route("**/api/papers/1", async (route) => {
     if (route.request().method() === "PATCH") {
       const data = route.request().postDataJSON() as Record<string, unknown>;
       paperWrites.push(data);
-      paper.title = String(data.title);
-      paper.notes = String(data.notes);
+      Object.assign(paper, data, {
+        abstract: paper.abstract,
+        language: data.language || null,
+      });
     }
     await route.fulfill({ json: paper });
   });
@@ -95,24 +110,109 @@ test("simplified editors preserve legacy abstracts and represent historical atte
   await expect(
     page.getByRole("heading", { name: "A good idea", exact: true })
   ).toBeVisible();
+  const variants = page.getByRole("region", {
+    name: "Abstract variants",
+    exact: true,
+  });
   await expect(
-    page.getByRole("heading", { name: "Abstract", exact: true })
-  ).toHaveCount(0);
-  await expect(page.getByText(paper.abstract, { exact: true })).toHaveCount(0);
+    variants.getByRole("heading", { name: "Abstract", exact: true })
+  ).toBeVisible();
+  await expect(
+    variants.getByText("26 characters · 4 words", { exact: true })
+  ).toBeVisible();
+  const details = page.getByRole("region", {
+    name: "Talk details",
+    exact: true,
+  });
+  await expect(
+    details.getByText("11 characters · 3 words", { exact: true })
+  ).toBeVisible();
   await expect(
     page.getByRole("option", { name: "Attended (legacy)", exact: true })
   ).toBeDisabled();
   await expect(page.getByRole("combobox")).toHaveValue("attended");
+
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const copyAbstract = page.getByRole("button", {
+    name: "Copy Abstract abstract",
+    exact: true,
+  });
+  await copyAbstract.click();
+  await expect(copyAbstract.locator("svg.lucide-check")).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    "Keep my original abstract."
+  );
+  await details
+    .getByRole("button", { name: "Copy title", exact: true })
+    .click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    "A good idea"
+  );
+  expect(mutations).toEqual([]);
+  await expect(page.getByRole("combobox")).toHaveValue("attended");
+
   await page.getByRole("button", { name: "Edit talk", exact: true }).click();
   await expect(page.getByLabel("Abstract", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Talk title", { exact: true })).toHaveAccessibleDescription(
+    "11 characters · 3 words"
+  );
+  await expect(page.getByLabel("Abstract variant 1 label")).toHaveValue(
+    "Abstract"
+  );
+  await expect(
+    page.getByLabel("Abstract variant 1 text")
+  ).toHaveAccessibleDescription("26 characters · 4 words");
+  await page.getByLabel("Abstract variant 1 label").fill("Short");
+  await page.getByRole("button", { name: "Add abstract variant" }).click();
+  await page.getByLabel("Abstract variant 2 label").fill("Deutsch");
+  await page
+    .getByLabel("Abstract variant 2 text")
+    .fill("Eine gute Idee.\nZweite Zeile.");
+  await expect(
+    page.getByLabel("Abstract variant 2 text")
+  ).toHaveAccessibleDescription("29 characters · 5 words");
+  await page.getByLabel("Duration (minutes)").fill("30");
+  await page.getByLabel("Audience level").selectOption("intermediate");
+  await page.getByLabel("Language").fill("English");
+  await page.getByLabel("Format", { exact: true }).selectOption("talk");
   await page.getByLabel("Private notes").fill("My new notes");
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page.getByText("My new notes", { exact: true })).toBeVisible();
   expect(paperWrites[0]).toEqual({
     title: "A good idea",
+    duration_minutes: 30,
+    audience_level: "intermediate",
+    language: "English",
+    format: "talk",
+    abstract_variants: [
+      { label: "Short", text: "Keep my original abstract." },
+      { label: "Deutsch", text: "Eine gute Idee.\nZweite Zeile." },
+    ],
     notes: "My new notes",
   });
+  expect(paperWrites.some((write) => "abstract" in write)).toBe(false);
   expect(paper.abstract).toBe("Keep my original abstract.");
+  await expect(details.getByText("30 minutes", { exact: true })).toBeVisible();
+  await expect(details.getByText("Intermediate", { exact: true })).toBeVisible();
+  await expect(details.getByText("English", { exact: true })).toBeVisible();
+  await expect(details.getByText("Talk", { exact: true })).toBeVisible();
+  await expect(
+    variants.getByRole("heading", { name: "Deutsch", exact: true })
+  ).toBeVisible();
+  await expect(page.getByRole("combobox")).toHaveValue("attended");
+
+  await page.getByRole("button", { name: "Edit talk", exact: true }).click();
+  const add = page.getByRole("button", { name: "Add abstract variant" });
+  for (let i = 2; i < 20; i++) await add.click();
+  await expect(page.getByLabel("Abstract variant 20 label")).toBeVisible();
+  await expect(add).toBeDisabled();
+  await page
+    .getByRole("button", { name: "Remove abstract variant 20", exact: true })
+    .click();
+  await expect(add).toBeEnabled();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(paperWrites).toHaveLength(1);
 
   await page.getByRole("combobox").selectOption("confirmed");
   await expect(page.getByRole("combobox")).toHaveValue("confirmed");

@@ -9,4 +9,6 @@ const REVIEW_TAGS = [
  'spoke_there' => "I've spoken there", 'attended_there' => "I've attended", 'heard_good_things' => 'Heard good things',
  'disorganized' => 'Disorganized', 'poor_communication' => 'Poor communication',
 ];
+const PAPER_AUDIENCE_LEVELS = ['beginner', 'intermediate', 'advanced', 'all'];
+const PAPER_FORMATS = ['talk', 'lightning', 'workshop', 'keynote', 'panel', 'other'];
 const SUBMISSION_STATUSES = ['interested', 'submitted', 'accepted', 'rejected', 'waitlisted', 'confirmed', 'declined', 'attended'];

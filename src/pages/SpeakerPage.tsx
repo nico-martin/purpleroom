@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 import SpeakerBios from "../components/SpeakerBios";
 import SpeakerPictureCard from "../components/SpeakerPictureCard";
 import useApi from "../hooks/useApi";
@@ -138,15 +140,16 @@ export default function SpeakerPage() {
       <section aria-label="Papers">
         <SectionHeader title="Papers" />
         <Card padded>
-          <p className="text-sm text-muted">Coming soon.</p>
-          <a
-            href="https://github.com/nico-martin/purpleroom/issues/2"
-            target="_blank"
-            rel="noreferrer"
+          <p className="text-sm text-muted">
+            Talk details and abstract variants stay in your private talk
+            library, ready to copy for each CFP.
+          </p>
+          <Link
+            to="/talks"
             className="mt-3 inline-flex min-h-11 items-center text-sm text-green underline underline-offset-4"
           >
-            Follow this feature on GitHub
-          </a>
+            Open my talks
+          </Link>
         </Card>
       </section>
       {draft.appearances.length > 0 && (

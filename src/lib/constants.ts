@@ -27,6 +27,21 @@ export const SUBMISSION_STATUSES = [
   "attended",
 ] as const;
 
+export const PAPER_AUDIENCE_LEVELS = {
+  beginner: "Beginner",
+  intermediate: "Intermediate",
+  advanced: "Advanced",
+  all: "All levels",
+} as const;
+export const PAPER_FORMATS = {
+  talk: "Talk",
+  lightning: "Lightning talk",
+  workshop: "Workshop",
+  keynote: "Keynote",
+  panel: "Panel",
+  other: "Other",
+} as const;
+
 // Keep the historical status in the data model without offering it for new choices.
 export const SUBMISSION_STATUS_OPTIONS = SUBMISSION_STATUSES.filter(
   (status) => status !== "attended"

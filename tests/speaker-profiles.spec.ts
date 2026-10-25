@@ -821,18 +821,12 @@ test("toolkit handles loading failures and empty saved information without offer
   await expect(
     papers.getByRole("heading", { name: "Papers", exact: true })
   ).toBeVisible();
-  await expect(papers.getByText("Coming soon.", { exact: true })).toBeVisible();
+  await expect(papers.getByText("Coming soon.", { exact: true })).toHaveCount(0);
+  await expect(papers.getByRole("link")).toHaveCount(1);
   await expect(
-    papers.getByRole("link", {
-      name: "Follow this feature on GitHub",
-      exact: true,
-    })
-  ).toHaveAttribute(
-    "href",
-    "https://github.com/nico-martin/purpleroom/issues/2"
-  );
-  await expect(papers.getByRole("link")).toHaveAttribute("target", "_blank");
-  await expect(papers.getByRole("link")).toHaveAttribute("rel", "noreferrer");
+    papers.getByRole("link", { name: "Open my talks", exact: true })
+  ).toHaveAttribute("href", "/talks");
+  await expect(papers.getByRole("button")).toHaveCount(0);
   await expect(
     page.getByText("No links saved yet.", { exact: false })
   ).toBeVisible();

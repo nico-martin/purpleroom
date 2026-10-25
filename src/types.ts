@@ -1,7 +1,18 @@
-import type { REVIEW_TAGS, SUBMISSION_STATUSES } from "./lib/constants";
+import type {
+  PAPER_AUDIENCE_LEVELS,
+  PAPER_FORMATS,
+  REVIEW_TAGS,
+  SUBMISSION_STATUSES,
+} from "./lib/constants";
 import type { ProfileLinks } from "./lib/profile";
 
 export type ReviewTag = keyof typeof REVIEW_TAGS;
+export type PaperAudienceLevel = keyof typeof PAPER_AUDIENCE_LEVELS;
+export type PaperFormat = keyof typeof PAPER_FORMATS;
+export interface AbstractVariant {
+  label: string;
+  text: string;
+}
 export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number];
 export interface User {
   id: number;
@@ -159,8 +170,14 @@ export interface Paper {
   id: number;
   owner_id: number;
   title: string;
+  /** Legacy column: stored and API-compatible, never sent by the UI. */
   abstract: string | null;
   notes: string | null;
+  duration_minutes: number | null;
+  audience_level: PaperAudienceLevel | null;
+  language: string | null;
+  format: PaperFormat | null;
+  abstract_variants: AbstractVariant[];
   created_at: string;
   updated_at: string;
   submissions: Submission[];
