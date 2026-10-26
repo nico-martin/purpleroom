@@ -103,6 +103,10 @@ async function signup(request, email, name) {
   assert.equal(verified.user.role, "member");
   assert.equal(verified.user.profile_complete, 0);
   await request("/users", "GET", undefined, 403);
+  assert.equal(
+    (await request("/me/agenda", "GET", undefined, 403)).error.code,
+    "profile_required"
+  );
   await request("/papers", "POST", { title: "Not onboarded" }, 403);
   await request("/me", "PATCH", { name: " " }, 422);
   const complete = await request("/me", "PATCH", { name });
@@ -168,6 +172,7 @@ try {
   );
   for (const path of [
     "/me",
+    "/me/agenda",
     "/users",
     "/crew",
     "/conferences",
@@ -601,6 +606,164 @@ try {
       (x) => !["submission_status", "comment"].includes(x.type)
     )
   );
+  // Private agenda: owner-only, inclusive calendar-day overlaps, upcoming + undated.
+  const agendaConf = await admin(
+    "/conferences",
+    "POST",
+    { name: "Agenda checks" },
+    201
+  );
+  const agendaEdition = (data) =>
+    admin("/editions", "POST", { conference_id: agendaConf.id, ...data }, 201);
+  const agA = await agendaEdition({
+    title: "Agenda A",
+    starts_on: future(100),
+    ends_on: future(102),
+  });
+  const agB = await agendaEdition({
+    title: "Agenda B",
+    starts_on: future(102),
+    ends_on: future(104),
+  });
+  const agC = await agendaEdition({
+    title: "Agenda C",
+    starts_on: future(110),
+    ends_on: future(112),
+  });
+  const agD = await agendaEdition({ title: "Agenda D", starts_on: future(111) });
+  const agU = await agendaEdition({ title: "Agenda Undated" });
+  const agPast = await agendaEdition({
+    title: "Agenda Past",
+    starts_on: future(-10),
+    ends_on: future(-9),
+  });
+  const agDeleted = await agendaEdition({
+    title: "Agenda Deleted",
+    starts_on: future(100),
+  });
+  const agFriend = await agendaEdition({
+    title: "Agenda Friend",
+    starts_on: future(101),
+  });
+  const agAdmin = await agendaEdition({
+    title: "Agenda Admin",
+    starts_on: future(101),
+  });
+  const agSubmitted = await agendaEdition({
+    title: "Agenda Submitted",
+    starts_on: future(101),
+  });
+  for (const [edition, status] of [
+    [agA, "going"],
+    [agB, "maybe"],
+    [agC, "going"],
+    [agD, "maybe"],
+    [agU, "going"],
+    [agPast, "going"],
+    [agDeleted, "going"],
+  ])
+    await alice(`/editions/${edition.id}/attendance`, "PUT", { status });
+  await admin(`/editions/${agDeleted.id}`, "DELETE", undefined, 204);
+  await bob(`/editions/${agFriend.id}/attendance`, "PUT", { status: "going" });
+  await admin(`/editions/${agAdmin.id}/attendance`, "PUT", { status: "going" });
+  const agendaSub = await alice(
+    "/submissions",
+    "POST",
+    { edition_id: agSubmitted.id, status: "accepted" },
+    201
+  );
+  await alice(`/submissions/${agendaSub.id}`, "PATCH", { status: "confirmed" });
+  const agendaResponse = await fetch(origin + "/api/me/agenda", {
+    headers: { Cookie: alice.cookie() },
+  });
+  assert.equal(agendaResponse.status, 200);
+  assert.equal(agendaResponse.headers.get("cache-control"), "no-store");
+  let agenda = await agendaResponse.json();
+  assert.deepEqual(Object.keys(agenda), ["plans"]);
+  const byId = (id) => agenda.plans.find((p) => p.edition.id === id);
+  assert.deepEqual(
+    agenda.plans.map((p) => p.edition.id),
+    [e.id, agA.id, agB.id, agC.id, agD.id, agU.id],
+    "Upcoming dated plans by start date, undated last; past, deleted, friend, admin and submission-only editions excluded"
+  );
+  for (const plan of agenda.plans) {
+    assert.deepEqual(Object.keys(plan).sort(), [
+      "conference",
+      "conflicts",
+      "edition",
+      "status",
+    ]);
+    assert.deepEqual(Object.keys(plan.edition).sort(), [
+      "city",
+      "conference_id",
+      "country",
+      "ends_on",
+      "ends_timezone",
+      "id",
+      "online",
+      "starts_on",
+      "starts_timezone",
+      "title",
+    ]);
+    assert.deepEqual(Object.keys(plan.conference).sort(), ["id", "name"]);
+    assert.ok(Array.isArray(plan.conflicts));
+    for (const conflict of plan.conflicts)
+      assert.deepEqual(Object.keys(conflict).sort(), [
+        "edition_id",
+        "label",
+        "status",
+      ]);
+    assert.ok([0, 1].includes(plan.edition.online));
+  }
+  assert.ok(!JSON.stringify(agenda).includes("SECRET"));
+  assert.deepEqual(byId(agA.id).conflicts, [
+    { edition_id: agB.id, label: "Agenda B", status: "maybe" },
+  ]);
+  assert.deepEqual(
+    byId(agB.id).conflicts,
+    [{ edition_id: agA.id, label: "Agenda A", status: "going" }],
+    "Inclusive boundary day flags both rows; Maybe vs Going is flagged"
+  );
+  assert.equal(byId(agA.id).status, "going");
+  assert.equal(byId(agB.id).status, "maybe");
+  assert.deepEqual(byId(agC.id).conflicts, [
+    { edition_id: agD.id, label: "Agenda D", status: "maybe" },
+  ]);
+  assert.deepEqual(
+    byId(agD.id).conflicts,
+    [{ edition_id: agC.id, label: "Agenda C", status: "going" }],
+    "Start-only edition inside a range is flagged"
+  );
+  assert.deepEqual(byId(e.id).conflicts, [], "Non-overlapping plans are not flagged");
+  assert.deepEqual(byId(agU.id).conflicts, []);
+  assert.deepEqual(byId(agU.id).conference, {
+    id: agendaConf.id,
+    name: "Agenda checks",
+  });
+  assert.deepEqual(
+    (await admin("/me/agenda")).plans.map((p) => p.edition.id),
+    [agAdmin.id],
+    "Admins see only their own plans"
+  );
+  assert.deepEqual(
+    (await bob("/me/agenda")).plans.map((p) => p.edition.id),
+    [agFriend.id],
+    "Friends' plans never appear in another member's agenda"
+  );
+  await alice(`/editions/${agB.id}/attendance`, "DELETE", undefined, 204);
+  await admin(`/editions/${agD.id}`, "PATCH", { starts_on: future(115) });
+  agenda = await alice("/me/agenda");
+  assert.ok(!byId(agB.id));
+  assert.deepEqual(byId(agA.id).conflicts, [], "Removing attendance clears the conflict");
+  assert.deepEqual(byId(agC.id).conflicts, [], "Separating dates clears the conflict");
+  assert.deepEqual(byId(agD.id).conflicts, []);
+  await anonymous("/me/agenda", "GET", undefined, 401);
+  await alice(`/submissions/${agendaSub.id}`, "DELETE", undefined, 204);
+  for (const edition of [agA, agC, agD, agU, agPast])
+    await alice(`/editions/${edition.id}/attendance`, "DELETE", undefined, 204);
+  await bob(`/editions/${agFriend.id}/attendance`, "DELETE", undefined, 204);
+  await admin(`/editions/${agAdmin.id}/attendance`, "DELETE", undefined, 204);
+  await admin(`/conferences/${agendaConf.id}`, "DELETE", undefined, 204);
   await alice(`/crew/${b.id}`, "DELETE", undefined, 204);
   assert.equal((await alice(`/editions/${e.id}`)).submitted_friends.length, 0);
   assert.equal((await alice(`/conferences/${c.id}`)).review_count, 0);
@@ -1829,7 +1992,7 @@ try {
   assert.equal(prodRole.status, 0, prodRole.stderr);
   assert.equal(prodRole.stdout, "member");
   console.log(
-    "API checks passed: verified public signup, onboarding, roles, ownership, friend requests/crossed acceptance, unique submitter privacy, manual attendance, review visibility, unfriend/block, suspension/session revocation, last-admin safeguards, retired endpoints, rate limits, archive preservation, and protected files."
+    "API checks passed: verified public signup, onboarding, roles, ownership, friend requests/crossed acceptance, unique submitter privacy, manual attendance, private agenda overlaps, review visibility, unfriend/block, suspension/session revocation, last-admin safeguards, retired endpoints, rate limits, archive preservation, and protected files."
   );
 } finally {
   if (server) {

@@ -3,6 +3,7 @@ import { Route, Routes } from "react-router-dom";
 import AdminOnly from "./components/AdminOnly";
 import AppShell from "./components/AppShell";
 import AdminPage from "./pages/AdminPage";
+import AgendaPage from "./pages/AgendaPage";
 import AuthPage from "./pages/AuthPage";
 import ConferenceDetailPage from "./pages/ConferenceDetailPage";
 import ConferenceFormPage from "./pages/ConferenceFormPage";
@@ -70,6 +71,7 @@ export default function App() {
         />
         <Route path="talks" element={<TalksPage />} />
         <Route path="talks/:id" element={<TalkDetailPage />} />
+        <Route path="agenda" element={<AgendaPage />} />
         <Route path="crew" element={<CrewPage />} />
         <Route path="members/:id" element={<MemberPage />} />
         <Route

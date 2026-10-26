@@ -14,6 +14,7 @@ purpleroom is a members-only space for conference speakers to find their next st
 - **Leave room for a conversation.** Use “Topic to be agreed” when a speaking opportunity has no specific talk yet. Attach a new or existing talk later without losing its status or submission date.
 - **Build your crew.** Browse the member directory, send a request, and connect when the other person accepts.
 - **Make plans together.** Mark an edition Going or Maybe, and see your friends' plans—even if you haven't submitted a talk.
+- **Spot clashes early.** Your private **My agenda** lists your upcoming Going and Maybe plans and warns when dated events overlap, without stopping you from keeping both.
 - **Share speaker experience.** Leave conference reviews with practical tags, a return recommendation, and your own take, visible to your friends.
 - **Make your profile yours.** Add a profile image, homepage, and links to GitHub, LinkedIn, X, Bluesky, Instagram, YouTube, and Mastodon. Profile images are saved with purpleroom instead of hotlinked after import.
 - **Keep your speaker toolkit ready.** Edit bio variants, tagline, company/job title, homepage/socials and pictures in **Speaker settings**. The private **Speaker toolkit** is read-only: choose a bio from the dropdown and click text or its leading copy icon to copy it. Upload/import a photo at least 2000px wide to get S/M/L/XL/Full sizes, uncropped 3:2 previews, dimensions/file sizes, downloads, image copying and public image URLs.

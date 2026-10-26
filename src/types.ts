@@ -187,6 +187,27 @@ export interface Attendance {
   status: "maybe" | "going";
   user: User;
 }
+export interface AgendaPlan {
+  status: "going" | "maybe";
+  edition: Pick<
+    Edition,
+    | "id"
+    | "starts_on"
+    | "ends_on"
+    | "starts_timezone"
+    | "ends_timezone"
+    | "city"
+    | "country"
+    | "online"
+    | "conference_id"
+  > & { title: string | null };
+  conference: Pick<Conference, "id" | "name">;
+  conflicts: {
+    edition_id: number;
+    label: string;
+    status: "going" | "maybe";
+  }[];
+}
 export interface Cfp {
   edition: Edition;
   conference: ConferenceSummary;
