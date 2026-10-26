@@ -2,6 +2,7 @@ import { AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 import { useId } from "react";
 import { Link } from "react-router-dom";
 
+import { planRange } from "../lib/agenda";
 import { dateRange, editionLabel } from "../lib/format";
 import { Badge, Button } from "../theme";
 import type { AgendaPlan } from "../types";
@@ -90,7 +91,8 @@ export default function AgendaCalendar({
   const headingId = useId();
   const today = currentMonth();
   const month =
-    monthParam && /^\d{4}-(0[1-9]|1[0-2])$/.test(monthParam)
+    // Years below 1000 are rejected: Date.UTC maps 0–99 onto 1900–1999.
+    monthParam && /^[1-9]\d{3}-(0[1-9]|1[0-2])$/.test(monthParam)
       ? monthParam
       : today;
   const goTo = (delta: number) => {
@@ -111,9 +113,10 @@ export default function AgendaCalendar({
   );
   const coverage = new Array<number>(days + 1).fill(0);
   for (const plan of plans) {
-    const start = plan.edition.starts_on ?? plan.edition.ends_on;
-    const end = plan.edition.ends_on ?? plan.edition.starts_on;
-    if (!start || !end || end < monthStart || start > monthEnd) continue;
+    const range = planRange(plan.edition);
+    if (!range) continue;
+    const [start, end] = range;
+    if (end < monthStart || start > monthEnd) continue;
     const firstDay = Number((start < monthStart ? monthStart : start).slice(8));
     const lastDay = Number((end > monthEnd ? monthEnd : end).slice(8));
     for (let day = firstDay; day <= lastDay; day++) coverage[day]++;
@@ -142,19 +145,13 @@ export default function AgendaCalendar({
     }
   }
   const hasDated = coverage.some((count) => count > 0);
-  const undated = plans.filter(
-    (plan) => !plan.edition.starts_on && !plan.edition.ends_on
-  );
+  const undated = plans.filter((plan) => !planRange(plan.edition));
   const title = monthTitle(month);
 
   return (
     <section aria-labelledby={headingId}>
       <div className="mb-4 flex items-center justify-between gap-3">
-        <Button
-          compact
-          aria-label="Previous month"
-          onClick={() => goTo(-1)}
-        >
+        <Button compact aria-label="Previous month" onClick={() => goTo(-1)}>
           <ChevronLeft size={16} aria-hidden="true" />
         </Button>
         <h2
@@ -164,11 +161,7 @@ export default function AgendaCalendar({
         >
           {title}
         </h2>
-        <Button
-          compact
-          aria-label="Next month"
-          onClick={() => goTo(1)}
-        >
+        <Button compact aria-label="Next month" onClick={() => goTo(1)}>
           <ChevronRight size={16} aria-hidden="true" />
         </Button>
       </div>
@@ -195,7 +188,10 @@ export default function AgendaCalendar({
         </div>
         {weeks.map(({ segments }, week) => (
           <div key={week} className="relative border-t border-divider">
-            <div aria-hidden="true" className="absolute inset-0 grid grid-cols-7">
+            <div
+              aria-hidden="true"
+              className="absolute inset-0 grid grid-cols-7"
+            >
               {WEEKDAYS.map((_, col) => {
                 const day = week * 7 + col - lead + 1;
                 return (

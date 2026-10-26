@@ -22,8 +22,13 @@ async function login(context: BrowserContext, email: string, name?: string) {
   return user;
 }
 
-const day = (offset: number) =>
-  new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
+// Browser-local dates, like the calendar's default month; UTC dates drift a
+// month near midnight at month boundaries outside UTC.
+const day = (offset: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() + offset);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+};
 
 test("private agenda shows statuses, overlap warnings, unknown dates and an empty state", async ({
   browser,
@@ -193,8 +198,7 @@ test("private agenda shows statuses, overlap warnings, unknown dates and an empt
     previous.setUTCMonth(previous.getUTCMonth() - 1);
     const previousMonth = previous.toISOString().slice(0, 7);
     await expect(monthHeading).toHaveText(monthTitle(previousMonth));
-    if (previousMonth === current)
-      await expect(page).not.toHaveURL(/month=/);
+    if (previousMonth === current) await expect(page).not.toHaveURL(/month=/);
     else await expect(page).toHaveURL(new RegExp(`month=${previousMonth}`));
 
     await viewToggle.getByRole("button", { name: "List" }).click();

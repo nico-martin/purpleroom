@@ -177,9 +177,9 @@ Statuses are owner-managed, not a mandatory linear workflow. A newly linked prop
 ### Agenda
 
 - **My agenda** (`/agenda`, `GET /me/agenda`) lists only the viewer's own Going and Maybe plans. It is owner-only, **even for admins**: there is no way to request another member's agenda, and it contains no friend, submission, or notes data.
-- It includes active editions whose last event day (or first if no last day exists) is today (UTC) or later, plus all fully undated plans. Past plans are hidden. Dated entries are ordered by start date (or end date if only that is set); undated entries come last.
+- It includes active editions whose last event day (or first if no last day exists) is today or later in the viewer's browser timezone, plus all fully undated plans. Past plans are hidden. The API keeps a plan until its last day has ended in every timezone (cut-off date in UTC−12); the page then hides plans and conflict mentions whose last day is before the viewer's local date. Dated entries are ordered by start date (or end date if only that is set); undated entries come last.
 - Going and Maybe are labelled differently (“Going” / “Maybe (tentative)”), so tentative interest is never shown as a commitment.
-- Two dated plans conflict when their calendar date ranges overlap **inclusively** (sharing a boundary day counts). Dates are compared as calendar dates, ignoring timezones. An edition with only one date counts as a single day on that date. Maybe and Going plans are checked alike, and both entries name and link each other.
+- Two dated plans conflict when their calendar date ranges overlap **inclusively** (sharing a boundary day counts). Dates are compared as calendar dates, ignoring timezones. An edition with only one date counts as a single day on that date; a legacy row storing its last date before its first is treated as the range between them. Maybe and Going plans are checked alike, and both entries name and link each other.
 - A fully undated plan is shown as “Dates unknown, conflicts can't be checked” and is never flagged. Unknown dates are not treated as proof of no conflict.
 - Conflicts are computed on every read, so they follow attendance and date changes. Warnings never block, change, or remove attendance.
 - Like all attendance, the agenda is independent of submissions: no submission status creates or removes an entry.
