@@ -182,6 +182,7 @@ try {
     migratedPapers.map(
       ({
         duration_minutes,
+        duration_max_minutes,
         audience_level,
         language,
         format,
@@ -194,7 +195,13 @@ try {
   );
   assert.ok(
     migratedPapers.every((paper) =>
-      ["duration_minutes", "audience_level", "language", "format"].every(
+      [
+        "duration_minutes",
+        "duration_max_minutes",
+        "audience_level",
+        "language",
+        "format",
+      ].every(
         (key) => paper[key] === null
       )
     ),

@@ -505,6 +505,7 @@ try {
   // Paper details and abstract variants: validation, omission and clearing.
   assert.deepEqual(paper.abstract_variants, []);
   assert.equal(paper.duration_minutes, null);
+  assert.equal(paper.duration_max_minutes, null);
   const subBefore = (await bob("/submissions")).find((row) => row.id === sub.id);
   const details = {
     duration_minutes: 30,
@@ -538,6 +539,10 @@ try {
     ["duration_minutes", 601],
     ["duration_minutes", 30.5],
     ["duration_minutes", "30"],
+    ["duration_max_minutes", 601],
+    ["duration_max_minutes", "45"],
+    ["duration_max_minutes", 30], // not above the stored start of 30
+    ["duration_max_minutes", 20],
     ["audience_level", "expert"],
     ["format", "Talk"],
     ["language", "x".repeat(101)],
@@ -576,6 +581,20 @@ try {
   assert.equal(clearedDetails.abstract, "SECRET ABSTRACT");
   const created = await bob("/papers", "POST", { title: "Full", ...details, duration_minutes: 45 }, 201);
   assert.equal(created.duration_minutes, 45);
+  assert.equal(created.duration_max_minutes, null);
+  // Duration ranges: an upper bound above the start, validated against stored values on partial updates.
+  const ranged = await bob(`/papers/${created.id}`, "PATCH", { duration_minutes: 20, duration_max_minutes: 45 });
+  assert.deepEqual([ranged.duration_minutes, ranged.duration_max_minutes], [20, 45]);
+  const raisedMax = await bob(`/papers/${created.id}`, "PATCH", { duration_max_minutes: 60 });
+  assert.deepEqual([raisedMax.duration_minutes, raisedMax.duration_max_minutes], [20, 60]);
+  await bob(`/papers/${created.id}`, "PATCH", { duration_minutes: 60 }, 422);
+  await bob(`/papers/${created.id}`, "PATCH", { duration_minutes: null }, 422);
+  await bob("/papers", "POST", { title: "No", duration_max_minutes: 45 }, 422);
+  await bob("/papers", "POST", { title: "No", duration_minutes: 45, duration_max_minutes: 45 }, 422);
+  const single = await bob(`/papers/${created.id}`, "PATCH", { duration_minutes: 30, duration_max_minutes: null });
+  assert.deepEqual([single.duration_minutes, single.duration_max_minutes], [30, null]);
+  const noDuration = await bob(`/papers/${created.id}`, "PATCH", { duration_minutes: null, duration_max_minutes: null });
+  assert.deepEqual([noDuration.duration_minutes, noDuration.duration_max_minutes], [null, null]);
   assert.equal(created.abstract_variants.length, 2);
   await bob(`/papers/${created.id}`, "DELETE", undefined, 204);
   await bob(`/papers/${paper.id}`, "PATCH", details);

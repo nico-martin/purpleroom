@@ -19,6 +19,7 @@ import SetupPage from "./pages/SetupPage";
 import SpeakerPage from "./pages/SpeakerPage";
 import SpeakerSettingsPage from "./pages/SpeakerSettingsPage";
 import TalkDetailPage from "./pages/TalkDetailPage";
+import TalkNewPage from "./pages/TalkNewPage";
 import TalksPage from "./pages/TalksPage";
 import TrashPage from "./pages/TrashPage";
 import { ButtonLink, EmptyState } from "./theme";
@@ -69,6 +70,7 @@ export default function App() {
           }
         />
         <Route path="talks" element={<TalksPage />} />
+        <Route path="talks/new" element={<TalkNewPage />} />
         <Route path="talks/:id" element={<TalkDetailPage />} />
         <Route path="crew" element={<CrewPage />} />
         <Route path="members/:id" element={<MemberPage />} />

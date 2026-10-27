@@ -1,13 +1,11 @@
 import { LockKeyhole, Mic2, Plus } from "lucide-react";
-import { useState } from "react";
 
 import SubmissionEditionLink from "../components/SubmissionEditionLink";
 import SubmissionStatusSelect from "../components/SubmissionStatusSelect";
 import TalkCard from "../components/TalkCard";
-import TalkEditor from "../components/TalkEditor";
 import useApi from "../hooks/useApi";
 import {
-  Button,
+  ButtonLink,
   Card,
   EmptyState,
   LoadingState,
@@ -27,7 +25,6 @@ export default function TalksPage({ className = "" }: TalksPageProps) {
     refresh();
     opportunities.refresh();
   }
-  const [creating, setCreating] = useState(false);
   return (
     <div className={className}>
       <PageHeader
@@ -35,10 +32,10 @@ export default function TalksPage({ className = "" }: TalksPageProps) {
         title="Ideas looking for a stage."
         description="Your talk library, from first idea to front row. Your notes are just for you."
         action={
-          <Button variant="primary" onClick={() => setCreating(true)}>
+          <ButtonLink to="/talks/new" variant="primary">
             <Plus size={16} />
             New talk
-          </Button>
+          </ButtonLink>
         }
       />
       <div className="mb-7 flex items-center gap-2 text-xs text-muted">
@@ -111,19 +108,16 @@ export default function TalksPage({ className = "" }: TalksPageProps) {
               title="It starts with an idea."
               description="Keep your talk ideas and private notes in one place. When a good CFP comes along, you'll be ready."
               action={
-                <Button variant="dashed" onClick={() => setCreating(true)}>
+                <ButtonLink to="/talks/new" variant="dashed">
                   <Plus size={15} />
                   Write your first talk
-                </Button>
+                </ButtonLink>
               }
               icon={<Mic2 size={22} strokeWidth={1.5} />}
             />
           </Card>
         )}
       </section>
-      {creating && (
-        <TalkEditor onClose={() => setCreating(false)} onSaved={refreshAll} />
-      )}
     </div>
   );
 }

@@ -764,6 +764,89 @@ test("toolkit is read-only and copies text, links and icons with persistent cont
   expect(mutations).toEqual([]);
 });
 
+test("toolkit Papers picker shows the selected talk's details for copying without changing it", async ({
+  page,
+  context,
+}) => {
+  await signup(context, "Talk Picker Speaker");
+  for (const data of [
+    {
+      title: "Older talk",
+      abstract_variants: [{ label: "Short", text: "Older abstract." }],
+    },
+    {
+      title: "Newest talk",
+      duration_minutes: 20,
+      duration_max_minutes: 45,
+      audience_level: "intermediate",
+      language: "English",
+      format: "workshop",
+      notes: "Never in the toolkit.",
+      abstract_variants: [
+        { label: "Short", text: "Newest short abstract." },
+        { label: "Deutsch", text: "Neueste Kurzfassung." },
+      ],
+    },
+  ])
+    expect(
+      (await context.request.post("/api/papers", { headers, data })).ok()
+    ).toBeTruthy();
+  const mutations: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/api/") && request.method() !== "GET")
+      mutations.push(request.method() + " " + request.url());
+  });
+  await page.goto("/speaker");
+  const papers = page.getByRole("region", { name: "Papers", exact: true });
+  const picker = papers.getByLabel("Talk", { exact: true });
+  // The first talk in library order opens by default.
+  await expect(picker).toHaveValue(
+    (await picker.locator("option").first().getAttribute("value")) ?? ""
+  );
+  await picker.selectOption({ label: "Newest talk" });
+  await expect(
+    papers.getByText("20–45 minutes", { exact: true })
+  ).toBeVisible();
+  await expect(papers.getByText("Intermediate", { exact: true })).toBeVisible();
+  await expect(papers.getByText("Workshop", { exact: true })).toBeVisible();
+  await expect(
+    papers.getByRole("heading", { name: "Deutsch", exact: true })
+  ).toBeVisible();
+  await expect(papers.getByText("Never in the toolkit.")).toHaveCount(0);
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await papers
+    .getByRole("button", { name: "Copy duration in minutes", exact: true })
+    .click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    "20–45"
+  );
+  await papers
+    .getByRole("button", { name: "Copy Deutsch abstract", exact: true })
+    .click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    "Neueste Kurzfassung."
+  );
+  await picker.selectOption({ label: "Older talk" });
+  await expect(
+    papers.getByRole("button", { name: "Copy title", exact: true })
+  ).toContainText("Older talk");
+  await expect(
+    papers.getByText("Older abstract.", { exact: true })
+  ).toBeVisible();
+  await expect(papers.getByText("Newest short abstract.")).toHaveCount(0);
+  await expect(papers.getByText("20–45 minutes")).toHaveCount(0);
+  const edit = papers.getByRole("link", {
+    name: "Edit this talk",
+    exact: true,
+  });
+  await expect(edit).toHaveAttribute("href", /^\/talks\/\d+$/);
+  expect(mutations).toEqual([]);
+  await edit.click();
+  await expect(page.getByLabel("Talk title", { exact: true })).toHaveValue(
+    "Older talk"
+  );
+});
+
 test("toolkit handles loading failures and empty saved information without offering edits", async ({
   page,
 }) => {
@@ -777,6 +860,7 @@ test("toolkit handles loading failures and empty saved information without offer
     avatar_url: null,
   };
   await page.route("**/api/me", (route) => route.fulfill({ json: { user } }));
+  await page.route("**/api/papers", (route) => route.fulfill({ json: [] }));
   let failed = true;
   await page.route("**/api/speaker", (route) =>
     failed
@@ -821,11 +905,13 @@ test("toolkit handles loading failures and empty saved information without offer
   await expect(
     papers.getByRole("heading", { name: "Papers", exact: true })
   ).toBeVisible();
-  await expect(papers.getByText("Coming soon.", { exact: true })).toHaveCount(0);
+  await expect(
+    papers.getByText("No talks in your private library yet.", { exact: true })
+  ).toBeVisible();
   await expect(papers.getByRole("link")).toHaveCount(1);
   await expect(
-    papers.getByRole("link", { name: "Open my talks", exact: true })
-  ).toHaveAttribute("href", "/talks");
+    papers.getByRole("link", { name: "Create a talk", exact: true })
+  ).toHaveAttribute("href", "/talks/new");
   await expect(papers.getByRole("button")).toHaveCount(0);
   await expect(
     page.getByText("No links saved yet.", { exact: false })
