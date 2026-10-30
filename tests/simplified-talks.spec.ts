@@ -42,9 +42,8 @@ test("Around the room renders only the newest ten supplied entries", async ({
   await expect(page.getByText("Activity 11", { exact: false })).toHaveCount(0);
 });
 
-test("talk editor manages details and abstract variants, copies without mutations, preserves legacy abstracts and represents historical attended statuses", async ({
+test("talk page edits details and abstract variants, preserves legacy abstracts and represents historical attended statuses", async ({
   page,
-  context,
 }) => {
   const submission = {
     id: 3,
@@ -66,6 +65,7 @@ test("talk editor manages details and abstract variants, copies without mutation
     abstract: "Keep my original abstract.",
     notes: "Previous notes",
     duration_minutes: null as number | null,
+    duration_max_minutes: null as number | null,
     audience_level: null as string | null,
     language: null as string | null,
     format: null as string | null,
@@ -110,58 +110,33 @@ test("talk editor manages details and abstract variants, copies without mutation
   await expect(
     page.getByRole("heading", { name: "A good idea", exact: true })
   ).toBeVisible();
-  const variants = page.getByRole("region", {
-    name: "Abstract variants",
-    exact: true,
-  });
+  // The talk page is the editor: no modal, no separate Edit step.
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(
-    variants.getByRole("heading", { name: "Abstract", exact: true })
-  ).toBeVisible();
-  await expect(
-    variants.getByText("26 characters · 4 words", { exact: true })
-  ).toBeVisible();
-  const details = page.getByRole("region", {
-    name: "Talk details",
-    exact: true,
-  });
-  await expect(
-    details.getByText("11 characters · 3 words", { exact: true })
-  ).toBeVisible();
+    page.getByRole("button", { name: "Edit talk", exact: true })
+  ).toHaveCount(0);
   await expect(
     page.getByRole("option", { name: "Attended (legacy)", exact: true })
   ).toBeDisabled();
-  await expect(page.getByRole("combobox")).toHaveValue("attended");
-
-  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  const copyAbstract = page.getByRole("button", {
-    name: "Copy Abstract abstract",
-    exact: true,
-  });
-  await copyAbstract.click();
-  await expect(copyAbstract.locator("svg.lucide-check")).toBeVisible();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
-    "Keep my original abstract."
-  );
-  await details
-    .getByRole("button", { name: "Copy title", exact: true })
-    .click();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+  const status = page.getByRole("combobox", { name: /^Status for / });
+  await expect(status).toHaveValue("attended");
+  await expect(page.getByLabel("Abstract", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Talk title", { exact: true })).toHaveValue(
     "A good idea"
   );
-  expect(mutations).toEqual([]);
-  await expect(page.getByRole("combobox")).toHaveValue("attended");
-
-  await page.getByRole("button", { name: "Edit talk", exact: true }).click();
-  await expect(page.getByLabel("Abstract", { exact: true })).toHaveCount(0);
-  await expect(page.getByLabel("Talk title", { exact: true })).toHaveAccessibleDescription(
-    "11 characters · 3 words"
-  );
+  await expect(
+    page.getByLabel("Talk title", { exact: true })
+  ).toHaveAccessibleDescription("11 characters · 3 words");
   await expect(page.getByLabel("Abstract variant 1 label")).toHaveValue(
     "Abstract"
   );
   await expect(
     page.getByLabel("Abstract variant 1 text")
   ).toHaveAccessibleDescription("26 characters · 4 words");
+  await expect(page.getByLabel("Private notes", { exact: true })).toHaveValue(
+    "Previous notes"
+  );
+  expect(mutations).toEqual([]);
   await page.getByLabel("Abstract variant 1 label").fill("Short");
   await page.getByRole("button", { name: "Add abstract variant" }).click();
   await page.getByLabel("Abstract variant 2 label").fill("Deutsch");
@@ -171,16 +146,19 @@ test("talk editor manages details and abstract variants, copies without mutation
   await expect(
     page.getByLabel("Abstract variant 2 text")
   ).toHaveAccessibleDescription("29 characters · 5 words");
-  await page.getByLabel("Duration (minutes)").fill("30");
+  await page.getByLabel("Duration (minutes)").fill("20 – 45");
   await page.getByLabel("Audience level").selectOption("intermediate");
   await page.getByLabel("Language").fill("English");
   await page.getByLabel("Format", { exact: true }).selectOption("talk");
-  await page.getByLabel("Private notes").fill("My new notes");
+  await page.getByLabel("Private notes", { exact: true }).fill("My new notes");
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
-  await expect(page.getByText("My new notes", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Your talk is saved.", { exact: true })
+  ).toBeVisible();
   expect(paperWrites[0]).toEqual({
     title: "A good idea",
-    duration_minutes: 30,
+    duration_minutes: 20,
+    duration_max_minutes: 45,
     audience_level: "intermediate",
     language: "English",
     format: "talk",
@@ -192,30 +170,24 @@ test("talk editor manages details and abstract variants, copies without mutation
   });
   expect(paperWrites.some((write) => "abstract" in write)).toBe(false);
   expect(paper.abstract).toBe("Keep my original abstract.");
-  await expect(details.getByText("30 minutes", { exact: true })).toBeVisible();
-  await expect(details.getByText("Intermediate", { exact: true })).toBeVisible();
-  await expect(details.getByText("English", { exact: true })).toBeVisible();
-  await expect(details.getByText("Talk", { exact: true })).toBeVisible();
-  await expect(
-    variants.getByRole("heading", { name: "Deutsch", exact: true })
-  ).toBeVisible();
-  await expect(page.getByRole("combobox")).toHaveValue("attended");
+  await expect(page.getByLabel("Abstract variant 2 label")).toHaveValue(
+    "Deutsch"
+  );
+  await expect(status).toHaveValue("attended");
 
-  await page.getByRole("button", { name: "Edit talk", exact: true }).click();
   const add = page.getByRole("button", { name: "Add abstract variant" });
   for (let i = 2; i < 20; i++) await add.click();
   await expect(page.getByLabel("Abstract variant 20 label")).toBeVisible();
   await expect(add).toBeDisabled();
+  await expect(page.getByText("Your talk is saved.")).toHaveCount(0);
   await page
     .getByRole("button", { name: "Remove abstract variant 20", exact: true })
     .click();
   await expect(add).toBeEnabled();
-  await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(paperWrites).toHaveLength(1);
 
-  await page.getByRole("combobox").selectOption("confirmed");
-  await expect(page.getByRole("combobox")).toHaveValue("confirmed");
+  await status.selectOption("confirmed");
+  await expect(status).toHaveValue("confirmed");
   await expect(page.locator('option[value="attended"]')).toHaveCount(0);
   await page
     .getByRole("button", { name: "Edit submission details", exact: true })

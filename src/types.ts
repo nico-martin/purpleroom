@@ -173,7 +173,10 @@ export interface Paper {
   /** Legacy column: stored and API-compatible, never sent by the UI. */
   abstract: string | null;
   notes: string | null;
+  /** Exact duration, or the lower bound of a range. */
   duration_minutes: number | null;
+  /** Upper bound when the talk is offered as a range; requires `duration_minutes`. */
+  duration_max_minutes: number | null;
   audience_level: PaperAudienceLevel | null;
   language: string | null;
   format: PaperFormat | null;

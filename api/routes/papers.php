@@ -6,7 +6,7 @@ function paper_with_submissions(array $p): array {
     return $p;
 }
 // Omitted keys keep stored values; null or "" clears a detail, [] or null clears the variants.
-function paper_data(array $input): array {
+function paper_data(array $input, array $existing = []): array {
     $data = fields($input, ['title', 'abstract', 'notes', 'language']);
     if (array_key_exists('title', $data)) required($data, ['title']);
     if (isset($data['language']) && strlen($data['language']) > 100) fail(422, 'validation', 'Keep the language under 100 bytes.', ['language' => 'too_long']);
@@ -14,9 +14,15 @@ function paper_data(array $input): array {
         $data[$key] = $input[$key] === '' ? null : $input[$key];
         if ($data[$key] !== null && !in_array($data[$key], $allowed, true)) fail(422, 'validation', "Choose a valid $key.", [$key => 'invalid']);
     }
-    if (array_key_exists('duration_minutes', $input)) {
-        $data['duration_minutes'] = $input['duration_minutes'] === '' ? null : $input['duration_minutes'];
-        if ($data['duration_minutes'] !== null && (!is_int($data['duration_minutes']) || $data['duration_minutes'] < 1 || $data['duration_minutes'] > 600)) fail(422, 'validation', 'Use whole minutes from 1 to 600.', ['duration_minutes' => 'invalid']);
+    // A duration is exact (duration_minutes) or a range up to duration_max_minutes; an omitted bound keeps its stored value.
+    foreach (['duration_minutes', 'duration_max_minutes'] as $key) if (array_key_exists($key, $input)) {
+        $data[$key] = $input[$key] === '' ? null : $input[$key];
+        if ($data[$key] !== null && (!is_int($data[$key]) || $data[$key] < 1 || $data[$key] > 600)) fail(422, 'validation', 'Use whole minutes from 1 to 600.', [$key => 'invalid']);
+    }
+    if (array_key_exists('duration_minutes', $data) || array_key_exists('duration_max_minutes', $data)) {
+        $min = array_key_exists('duration_minutes', $data) ? $data['duration_minutes'] : ($existing['duration_minutes'] ?? null);
+        $max = array_key_exists('duration_max_minutes', $data) ? $data['duration_max_minutes'] : ($existing['duration_max_minutes'] ?? null);
+        if ($max !== null && ($min === null || $max <= $min)) fail(422, 'validation', 'End a duration range above its start, for example 20-45.', ['duration_max_minutes' => 'invalid']);
     }
     if (array_key_exists('abstract_variants', $input)) {
         $variants = [];
@@ -37,7 +43,7 @@ route('POST', '/papers', function () {
 });
 route('GET', '/papers/{id}', fn($p) => json_response(paper_with_submissions(paper((int) $p['id']))));
 route('PATCH', '/papers/{id}', function ($p) {
-    $paper = paper((int) $p['id']); $data = paper_data(body());
+    $paper = paper((int) $p['id']); $data = paper_data(body(), $paper);
     update('papers', (int) $paper['id'], [...$data, 'updated_at' => now()]); json_response(paper_with_submissions(paper((int) $paper['id'])));
 });
 route('DELETE', '/papers/{id}', function ($p) { $paper = paper((int) $p['id']); query('DELETE FROM papers WHERE id=?', [$paper['id']]); json_response(null, 204); });

@@ -27,6 +27,7 @@ test("talk cards show three per desktop row, current status counts, and editable
     abstract: null,
     notes: null,
     duration_minutes: null,
+    duration_max_minutes: null,
     audience_level: null,
     language: null,
     format: null,
