@@ -507,9 +507,106 @@ try {
     { paper_id: paper.id, edition_id: e.id },
     409
   );
+  // Paper details and abstract variants: validation, omission and clearing.
+  assert.deepEqual(paper.abstract_variants, []);
+  assert.equal(paper.duration_minutes, null);
+  assert.equal(paper.duration_max_minutes, null);
+  const subBefore = (await bob("/submissions")).find((row) => row.id === sub.id);
+  const details = {
+    duration_minutes: 30,
+    audience_level: "intermediate",
+    language: "SECRET LANGUAGE",
+    format: "talk",
+    abstract_variants: [
+      { label: " Short ", text: " SECRET VARIANT short " },
+      { label: "Deutsch", text: "SECRET VARIANT \"quoted\"\nline" },
+    ],
+  };
+  const detailed = await bob(`/papers/${paper.id}`, "PATCH", details);
+  assert.equal(detailed.duration_minutes, 30);
+  assert.equal(detailed.audience_level, "intermediate");
+  assert.equal(detailed.language, "SECRET LANGUAGE");
+  assert.equal(detailed.format, "talk");
+  assert.deepEqual(detailed.abstract_variants, [
+    { label: "Short", text: "SECRET VARIANT short" },
+    { label: "Deutsch", text: "SECRET VARIANT \"quoted\"\nline" },
+  ]);
+  assert.equal(detailed.abstract, "SECRET ABSTRACT", "Omitted legacy abstract is kept");
+  assert.ok(Array.isArray((await bob("/papers")).find((p) => p.id === paper.id).abstract_variants));
+  const subAfter = (await bob("/submissions")).find((row) => row.id === sub.id);
+  for (const key of ["status", "submitted_on", "submitted_timezone", "notes", "abstract_override", "updated_at"])
+    assert.equal(subAfter[key], subBefore[key], `Paper edits must not change submission ${key}`);
+  const kept = await bob(`/papers/${paper.id}`, "PATCH", { notes: "SECRET NOTES" });
+  for (const key of Object.keys(details))
+    assert.deepEqual(kept[key], detailed[key], `Omitted ${key} is kept`);
+  for (const [key, value] of [
+    ["duration_minutes", 0],
+    ["duration_minutes", 601],
+    ["duration_minutes", 30.5],
+    ["duration_minutes", "30"],
+    ["duration_max_minutes", 601],
+    ["duration_max_minutes", "45"],
+    ["duration_max_minutes", 30], // not above the stored start of 30
+    ["duration_max_minutes", 20],
+    ["audience_level", "expert"],
+    ["format", "Talk"],
+    ["language", "x".repeat(101)],
+    ["language", 12],
+    ["abstract_variants", "text"],
+    ["abstract_variants", { label: "a", text: "b" }],
+    ["abstract_variants", ["text"]],
+    ["abstract_variants", Array.from({ length: 21 }, (_, i) => ({ label: `L${i}`, text: "t" }))],
+    ["abstract_variants", [{ label: " ", text: "t" }]],
+    ["abstract_variants", [{ label: "l", text: "" }]],
+    ["abstract_variants", [{ label: "x".repeat(201), text: "t" }]],
+    ["abstract_variants", [{ label: "l", text: "x".repeat(20001) }]],
+    ["abstract_variants", [{ label: 1, text: "t" }]],
+  ]) {
+    const error = await bob(`/papers/${paper.id}`, "PATCH", { [key]: value }, 422);
+    assert.equal(error.error.code, "validation");
+    assert.ok(Object.keys(error.error.fields).length > 0, `${key} failure has a field key`);
+  }
+  await bob("/papers", "POST", { title: "No", format: "poster" }, 422);
+  assert.equal(
+    (await bob(`/papers/${paper.id}`, "PATCH", {
+      abstract_variants: Array.from({ length: 20 }, (_, i) => ({ label: `L${i}`, text: "t" })),
+    })).abstract_variants.length,
+    20
+  );
+  const clearedDetails = await bob(`/papers/${paper.id}`, "PATCH", {
+    duration_minutes: null,
+    audience_level: "",
+    language: "",
+    format: null,
+    abstract_variants: [],
+  });
+  for (const key of ["duration_minutes", "audience_level", "language", "format"])
+    assert.equal(clearedDetails[key], null, `${key} clears`);
+  assert.deepEqual(clearedDetails.abstract_variants, []);
+  assert.equal(clearedDetails.abstract, "SECRET ABSTRACT");
+  const created = await bob("/papers", "POST", { title: "Full", ...details, duration_minutes: 45 }, 201);
+  assert.equal(created.duration_minutes, 45);
+  assert.equal(created.duration_max_minutes, null);
+  // Duration ranges: an upper bound above the start, validated against stored values on partial updates.
+  const ranged = await bob(`/papers/${created.id}`, "PATCH", { duration_minutes: 20, duration_max_minutes: 45 });
+  assert.deepEqual([ranged.duration_minutes, ranged.duration_max_minutes], [20, 45]);
+  const raisedMax = await bob(`/papers/${created.id}`, "PATCH", { duration_max_minutes: 60 });
+  assert.deepEqual([raisedMax.duration_minutes, raisedMax.duration_max_minutes], [20, 60]);
+  await bob(`/papers/${created.id}`, "PATCH", { duration_minutes: 60 }, 422);
+  await bob(`/papers/${created.id}`, "PATCH", { duration_minutes: null }, 422);
+  await bob("/papers", "POST", { title: "No", duration_max_minutes: 45 }, 422);
+  await bob("/papers", "POST", { title: "No", duration_minutes: 45, duration_max_minutes: 45 }, 422);
+  const single = await bob(`/papers/${created.id}`, "PATCH", { duration_minutes: 30, duration_max_minutes: null });
+  assert.deepEqual([single.duration_minutes, single.duration_max_minutes], [30, null]);
+  const noDuration = await bob(`/papers/${created.id}`, "PATCH", { duration_minutes: null, duration_max_minutes: null });
+  assert.deepEqual([noDuration.duration_minutes, noDuration.duration_max_minutes], [null, null]);
+  assert.equal(created.abstract_variants.length, 2);
+  await bob(`/papers/${created.id}`, "DELETE", undefined, 204);
+  await bob(`/papers/${paper.id}`, "PATCH", details);
   for (const request of [admin, alice, stranger]) {
     await request(`/papers/${paper.id}`, "GET", undefined, 404);
     await request(`/papers/${paper.id}`, "PATCH", { title: "No" }, 404);
+    await request(`/papers/${paper.id}`, "PATCH", { abstract_variants: [{ label: "x", text: "y" }] }, 404);
     await request(
       `/submissions/${sub.id}`,
       "PATCH",
@@ -554,6 +651,13 @@ try {
   assert.equal((await bob("/crew")).incoming.length, 0);
   assert.equal((await alice(`/editions/${e.id}`)).submitted_friends.length, 1);
   assert.equal((await alice(`/users/${b.id}`)).plans.length, 1);
+  await alice(`/papers/${paper.id}`, "GET", undefined, 404);
+  await alice(`/papers/${paper.id}`, "PATCH", { abstract_variants: [] }, 404);
+  assert.equal(
+    (await bob(`/papers/${paper.id}`)).abstract_variants.length,
+    2,
+    "A friend's PATCH must not change variants"
+  );
   let detail = await alice(`/conferences/${c.id}`);
   assert.equal(detail.review_count, 1);
   assert.equal(detail.tag_counts.covers_travel, 1);

@@ -26,6 +26,12 @@ test("talk cards show three per desktop row, current status counts, and editable
           : `Talk ${index + 1}`,
     abstract: null,
     notes: null,
+    duration_minutes: null,
+    duration_max_minutes: null,
+    audience_level: null,
+    language: null,
+    format: null,
+    abstract_variants: [],
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-05-01T00:00:00Z",
     submissions: (index === 0

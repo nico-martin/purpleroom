@@ -6,12 +6,12 @@ const SPEAKER_TEXT_FIELDS = ['tagline', 'company', 'job_title', 'contact_email']
 
 function speaker_text(array $input, string $key, int $limit = 200): string {
     $value = $input[$key] ?? '';
-    if (!is_string($value) || strlen($value) > $limit) fail(422, 'validation', "Keep $key as text under $limit bytes.");
+    if (!is_string($value) || strlen($value) > $limit) fail(422, 'validation', "Keep $key as text under $limit bytes.", [$key => 'invalid']);
     return trim($value);
 }
 function speaker_list(array $input, string $key, int $limit): array {
     $value = $input[$key] ?? [];
-    if (!is_array($value) || !array_is_list($value) || count($value) > $limit) fail(422, 'validation', "Invalid $key list (maximum $limit).");
+    if (!is_array($value) || !array_is_list($value) || count($value) > $limit) fail(422, 'validation', "Invalid $key list (maximum $limit).", [$key => 'invalid']);
     return $value;
 }
 function speaker_url(string $url): string {

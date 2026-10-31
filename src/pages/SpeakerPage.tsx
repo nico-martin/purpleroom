@@ -1,5 +1,6 @@
 import SpeakerBios from "../components/SpeakerBios";
 import SpeakerPictureCard from "../components/SpeakerPictureCard";
+import SpeakerTalks from "../components/SpeakerTalks";
 import useApi from "../hooks/useApi";
 import useSession from "../hooks/useSession";
 import { PROFILE_LINKS } from "../lib/profile";
@@ -137,17 +138,7 @@ export default function SpeakerPage() {
       </section>
       <section aria-label="Papers">
         <SectionHeader title="Papers" />
-        <Card padded>
-          <p className="text-sm text-muted">Coming soon.</p>
-          <a
-            href="https://github.com/nico-martin/purpleroom/issues/2"
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 inline-flex min-h-11 items-center text-sm text-green underline underline-offset-4"
-          >
-            Follow this feature on GitHub
-          </a>
-        </Card>
+        <SpeakerTalks />
       </section>
       {draft.appearances.length > 0 && (
         <section aria-label="Saved work">

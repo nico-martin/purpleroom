@@ -1,11 +1,10 @@
-import { ArrowLeft, LockKeyhole, Pencil, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, LockKeyhole, Trash2 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { api } from "../api";
 import SubmissionEditionLink from "../components/SubmissionEditionLink";
 import SubmissionStatusSelect from "../components/SubmissionStatusSelect";
-import TalkEditor from "../components/TalkEditor";
+import TalkForm from "../components/TalkForm";
 import useApi from "../hooks/useApi";
 import useMutation from "../hooks/useMutation";
 import {
@@ -29,40 +28,31 @@ export default function TalkDetailPage({
 }: TalkDetailPageProps) {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { data, loading, error, refresh } = useApi<Paper>(`/papers/${id}`);
-  const [editing, setEditing] = useState(false);
+  const { data, loading, error, refresh, setData } = useApi<Paper>(
+    `/papers/${id}`
+  );
   const mutation = useMutation();
   if (loading && !data) return <LoadingState />;
-  if (error || !data) return <Notice tone="error">{error}</Notice>;
+  if (error || !data)
+    return <Notice tone="error">{error ?? "Could not load this talk."}</Notice>;
   return (
     <div className={className}>
       <ButtonLink to="/talks" variant="ghost" className="-ml-4 mb-5">
         <ArrowLeft size={15} />
         My talks
       </ButtonLink>
-      <PageHeader
-        eyebrow="From your private library"
-        title={data.title}
-        action={
-          <Button variant="primary" onClick={() => setEditing(true)}>
-            <Pencil size={15} />
-            Edit talk
-          </Button>
-        }
-      />
+      <PageHeader eyebrow="From your private library" title={data.title} />
       <div className="mb-6 flex items-center gap-2 text-xs text-muted">
         <LockKeyhole size={14} />
-        Only you can see this page and your notes.
+        Only you can see this page, your talk details, abstracts and notes.
       </div>
       <div className="grid gap-8 xl:grid-cols-3">
-        <div className="space-y-6 xl:col-span-2">
-          <Card padded>
-            <h2 className="mb-4 text-xl">Notes to self</h2>
-            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-muted">
-              {data.notes || "No notes yet."}
-            </p>
-          </Card>
-        </div>
+        <TalkForm
+          key={data.id}
+          paper={data}
+          onSaved={setData}
+          className="xl:col-span-2"
+        />
         <section>
           <SectionHeader
             title="Out in the world"
@@ -113,13 +103,6 @@ export default function TalkDetailPage({
           </Button>
         </section>
       </div>
-      {editing && (
-        <TalkEditor
-          paper={data}
-          onClose={() => setEditing(false)}
-          onSaved={refresh}
-        />
-      )}
     </div>
   );
 }

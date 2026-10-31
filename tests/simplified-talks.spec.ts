@@ -42,7 +42,7 @@ test("Around the room renders only the newest ten supplied entries", async ({
   await expect(page.getByText("Activity 11", { exact: false })).toHaveCount(0);
 });
 
-test("simplified editors preserve legacy abstracts and represent historical attended statuses", async ({
+test("talk page edits details and abstract variants, preserves legacy abstracts and represents historical attended statuses", async ({
   page,
 }) => {
   const submission = {
@@ -64,18 +64,33 @@ test("simplified editors preserve legacy abstracts and represent historical atte
     title: "A good idea",
     abstract: "Keep my original abstract.",
     notes: "Previous notes",
+    duration_minutes: null as number | null,
+    duration_max_minutes: null as number | null,
+    audience_level: null as string | null,
+    language: null as string | null,
+    format: null as string | null,
+    abstract_variants: [
+      { label: "Abstract", text: "Keep my original abstract." },
+    ],
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
     submissions: [submission],
   };
   const paperWrites: Record<string, unknown>[] = [];
   const submissionWrites: Record<string, unknown>[] = [];
+  const mutations: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/api/") && request.method() !== "GET")
+      mutations.push(request.method() + " " + request.url());
+  });
   await page.route("**/api/papers/1", async (route) => {
     if (route.request().method() === "PATCH") {
       const data = route.request().postDataJSON() as Record<string, unknown>;
       paperWrites.push(data);
-      paper.title = String(data.title);
-      paper.notes = String(data.notes);
+      Object.assign(paper, data, {
+        abstract: paper.abstract,
+        language: data.language || null,
+      });
     }
     await route.fulfill({ json: paper });
   });
@@ -95,27 +110,84 @@ test("simplified editors preserve legacy abstracts and represent historical atte
   await expect(
     page.getByRole("heading", { name: "A good idea", exact: true })
   ).toBeVisible();
+  // The talk page is the editor: no modal, no separate Edit step.
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(
-    page.getByRole("heading", { name: "Abstract", exact: true })
+    page.getByRole("button", { name: "Edit talk", exact: true })
   ).toHaveCount(0);
-  await expect(page.getByText(paper.abstract, { exact: true })).toHaveCount(0);
   await expect(
     page.getByRole("option", { name: "Attended (legacy)", exact: true })
   ).toBeDisabled();
-  await expect(page.getByRole("combobox")).toHaveValue("attended");
-  await page.getByRole("button", { name: "Edit talk", exact: true }).click();
+  const status = page.getByRole("combobox", { name: /^Status for / });
+  await expect(status).toHaveValue("attended");
   await expect(page.getByLabel("Abstract", { exact: true })).toHaveCount(0);
-  await page.getByLabel("Private notes").fill("My new notes");
+  await expect(page.getByLabel("Talk title", { exact: true })).toHaveValue(
+    "A good idea"
+  );
+  await expect(
+    page.getByLabel("Talk title", { exact: true })
+  ).toHaveAccessibleDescription("11 characters · 3 words");
+  await expect(page.getByLabel("Abstract variant 1 label")).toHaveValue(
+    "Abstract"
+  );
+  await expect(
+    page.getByLabel("Abstract variant 1 text")
+  ).toHaveAccessibleDescription("26 characters · 4 words");
+  await expect(page.getByLabel("Private notes", { exact: true })).toHaveValue(
+    "Previous notes"
+  );
+  expect(mutations).toEqual([]);
+  await page.getByLabel("Abstract variant 1 label").fill("Short");
+  await page.getByRole("button", { name: "Add abstract variant" }).click();
+  await page.getByLabel("Abstract variant 2 label").fill("Deutsch");
+  await page
+    .getByLabel("Abstract variant 2 text")
+    .fill("Eine gute Idee.\nZweite Zeile.");
+  await expect(
+    page.getByLabel("Abstract variant 2 text")
+  ).toHaveAccessibleDescription("29 characters · 5 words");
+  await page.getByLabel("Duration (minutes)").fill("20 – 45");
+  await page.getByLabel("Audience level").selectOption("intermediate");
+  await page.getByLabel("Language").fill("English");
+  await page.getByLabel("Format", { exact: true }).selectOption("talk");
+  await page.getByLabel("Private notes", { exact: true }).fill("My new notes");
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
-  await expect(page.getByText("My new notes", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Your talk is saved.", { exact: true })
+  ).toBeVisible();
   expect(paperWrites[0]).toEqual({
     title: "A good idea",
+    duration_minutes: 20,
+    duration_max_minutes: 45,
+    audience_level: "intermediate",
+    language: "English",
+    format: "talk",
+    abstract_variants: [
+      { label: "Short", text: "Keep my original abstract." },
+      { label: "Deutsch", text: "Eine gute Idee.\nZweite Zeile." },
+    ],
     notes: "My new notes",
   });
+  expect(paperWrites.some((write) => "abstract" in write)).toBe(false);
   expect(paper.abstract).toBe("Keep my original abstract.");
+  await expect(page.getByLabel("Abstract variant 2 label")).toHaveValue(
+    "Deutsch"
+  );
+  await expect(status).toHaveValue("attended");
 
-  await page.getByRole("combobox").selectOption("confirmed");
-  await expect(page.getByRole("combobox")).toHaveValue("confirmed");
+  const add = page.getByRole("button", { name: "Add abstract variant" });
+  for (let i = 2; i < 20; i++) await add.click();
+  await expect(page.getByLabel("Abstract variant 20 label")).toBeVisible();
+  await expect(add).toBeDisabled();
+  await expect(page.getByText("Your talk is saved.")).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Remove abstract variant 20", exact: true })
+    .click();
+  await expect(add).toBeEnabled();
+  expect(paperWrites).toHaveLength(1);
+
+  await status.selectOption("confirmed");
+  await expect(status).toHaveValue("confirmed");
   await expect(page.locator('option[value="attended"]')).toHaveCount(0);
   await page
     .getByRole("button", { name: "Edit submission details", exact: true })

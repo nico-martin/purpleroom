@@ -70,13 +70,16 @@ try {
     $london = insert('editions', ['conference_id' => $cid, 'year' => (int)substr($argv[4],0,4), 'city' => 'London', 'country' => 'GB', 'starts_on' => $argv[4], 'ends_on' => $argv[4], 'cfp_closes_on' => $argv[3], 'created_by' => $uid]);
     insert('editions', ['conference_id' => $archive, 'year' => 2025, 'created_by' => $uid, 'deleted_at' => now()]);
     $paper = insert('papers', ['owner_id' => $uid, 'title' => 'Keep my talk', 'abstract' => 'Private abstract']);
+    insert('papers', ['owner_id' => $uid, 'title' => 'No abstract yet', 'updated_at' => '2024-01-01T00:00:00Z']);
+    insert('papers', ['owner_id' => $uid, 'title' => 'Blank abstract', 'abstract' => " \\n\\t ", 'updated_at' => '2024-01-02T00:00:00Z']);
+    insert('papers', ['owner_id' => $uid, 'title' => 'Tricky abstract', 'abstract' => "  Say \\"hi\\" to C:\\\\temp\\\\x\\nSecond line\\r\\n\\tIndented  ", 'updated_at' => '2024-01-03T00:00:00Z']);
     insert('submissions', ['paper_id' => $paper, 'edition_id' => $berlin, 'status' => 'confirmed', 'abstract_override'=>'Keep this override', 'hide_title'=>1, 'submitted_on'=>'2025-01-03', 'created_at'=>'2025-01-03T00:00:00Z', 'updated_at'=>'2025-02-04T00:00:00Z']);
     insert('attendance', ['edition_id' => $london, 'user_id' => $uid, 'status' => 'going']);
     insert('reviews', ['conference_id'=>$cid,'user_id'=>$other,'tags'=>'["covers_travel"]','text'=>'Preserve this friends-only review']);
     insert('comments', ['conference_id'=>$cid,'user_id'=>$other,'text'=>'Preserve this retired comment']);
     insert('invites', ['invited_by'=>$uid,'token_hash'=>hash('sha256','legacy-invite'),'expires_at'=>gmdate('Y-m-d\TH:i:s\Z',time()+86400)]);
     insert('login_tokens', ['user_id' => $uid, 'token_hash' => hash('sha256', $argv[1]), 'expires_at' => gmdate('Y-m-d\\TH:i:s\\Z', time()+900)]);
-    echo json_encode(['conference' => $cid, 'berlin' => $berlin, 'london' => $london, 'editions' => all('SELECT * FROM editions ORDER BY id'), 'users'=>all('SELECT * FROM users ORDER BY id'), 'reviews'=>all('SELECT * FROM reviews'), 'comments'=>all('SELECT * FROM comments'), 'invites'=>all('SELECT * FROM invites'), 'submissions'=>all('SELECT * FROM submissions ORDER BY id'), 'conferences'=>all('SELECT * FROM conferences ORDER BY id')]);
+    echo json_encode(['conference' => $cid, 'berlin' => $berlin, 'london' => $london, 'editions' => all('SELECT * FROM editions ORDER BY id'), 'users'=>all('SELECT * FROM users ORDER BY id'), 'reviews'=>all('SELECT * FROM reviews'), 'comments'=>all('SELECT * FROM comments'), 'invites'=>all('SELECT * FROM invites'), 'submissions'=>all('SELECT * FROM submissions ORDER BY id'), 'papers'=>all('SELECT * FROM papers ORDER BY id'), 'conferences'=>all('SELECT * FROM conferences ORDER BY id')]);
   `,
       [token, `${year}-05-20`, future(5), `${year}-06-20`]
     )
@@ -171,6 +174,66 @@ try {
   assert.ok(
     migratedSubmissions.every((row) => row.submitted_timezone === null),
     "Do not infer a timezone for existing private submission dates"
+  );
+  const paperSql =
+    bootstrap + "echo json_encode(all('SELECT * FROM papers ORDER BY id'));";
+  const migratedPapers = JSON.parse(php(paperSql));
+  assert.deepEqual(
+    migratedPapers.map(
+      ({
+        duration_minutes,
+        duration_max_minutes,
+        audience_level,
+        language,
+        format,
+        abstract_variants,
+        ...legacy
+      }) => legacy
+    ),
+    fixture.papers,
+    "Paper details migration must keep IDs, legacy abstracts and updated_at"
+  );
+  assert.ok(
+    migratedPapers.every((paper) =>
+      [
+        "duration_minutes",
+        "duration_max_minutes",
+        "audience_level",
+        "language",
+        "format",
+      ].every(
+        (key) => paper[key] === null
+      )
+    ),
+    "Do not invent talk details for existing papers"
+  );
+  assert.deepEqual(
+    migratedPapers.map((paper) => JSON.parse(paper.abstract_variants)),
+    [
+      [{ label: "Abstract", text: "Private abstract" }],
+      [],
+      [],
+      [
+        {
+          label: "Abstract",
+          text: '  Say "hi" to C:\\temp\\x\nSecond line\r\n\tIndented  ',
+        },
+      ],
+    ],
+    "Non-blank legacy abstracts are copied verbatim into one variant"
+  );
+  assert.equal(
+    migratedSubmissions[0].abstract_override,
+    "Keep this override"
+  );
+  assert.equal(
+    Number(
+      php(
+        bootstrap +
+          "echo one('SELECT COUNT(*) AS n FROM schema_migrations WHERE version=16')['n'];"
+      )
+    ),
+    1
   );
   assert.deepEqual(
     JSON.parse(
@@ -442,6 +505,20 @@ try {
     encoding: "utf8",
   });
   assert.equal(migration.status, 0, migration.stderr);
+  assert.deepEqual(
+    JSON.parse(php(paperSql)),
+    migratedPapers,
+    "Rerunning migrations must not reseed or rewrite paper variants"
+  );
+  assert.equal(
+    Number(
+      php(
+        bootstrap +
+          "echo one('SELECT COUNT(*) AS n FROM schema_migrations WHERE version=16')['n'];"
+      )
+    ),
+    1
+  );
   const foreignKeyRollback = JSON.parse(
     php(
       bootstrap +
