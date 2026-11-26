@@ -11,4 +11,4 @@ const REVIEW_TAGS = [
 ];
 const PAPER_AUDIENCE_LEVELS = ['beginner', 'intermediate', 'advanced', 'all'];
 const PAPER_FORMATS = ['talk', 'lightning', 'workshop', 'keynote', 'panel', 'other'];
-const SUBMISSION_STATUSES = ['interested', 'submitted', 'accepted', 'rejected', 'waitlisted', 'confirmed', 'declined', 'attended'];
+const SUBMISSION_STATUSES = ['interested', 'submitted', 'accepted', 'rejected', 'waitlisted', 'other_talk_chosen', 'attended'];

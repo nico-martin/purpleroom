@@ -28,7 +28,8 @@ route('POST', '/submissions', function () {
     if (isset($data['paper_id'])) paper($data['paper_id']);
     edition($data['edition_id']);
     $data['owner_id'] = require_login()['id'];
-    if (($data['status'] ?? '') === 'submitted' && empty($data['submitted_on'])) $data['submitted_on'] = (new DateTimeImmutable('now',new DateTimeZone($data['submitted_timezone'] ?? 'UTC')))->format('Y-m-d');
+    $data['status'] ??= isset($data['paper_id']) ? 'submitted' : 'interested';
+    if ($data['status'] === 'submitted' && empty($data['submitted_on'])) $data['submitted_on'] = (new DateTimeImmutable('now',new DateTimeZone($data['submitted_timezone'] ?? 'UTC')))->format('Y-m-d');
     $id = insert('submissions', $data); json_response(own_submission($id), 201);
 });
 route('PATCH', '/submissions/{id}', function ($p) {

@@ -62,15 +62,25 @@ test("the crew can take a conference from shortlist to stage", async ({ page }) 
   await expect(page.getByRole("heading", { name: "JSNation", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Add my talk", exact: true }).click();
   await expect(page.getByLabel("Abstract for this edition (optional)")).toHaveCount(0);
-  await expect(page.getByLabel("Submission status").locator('option[value="attended"]')).toHaveCount(0);
+  const submissionStatus = page.getByLabel("Submission status");
+  await expect(submissionStatus.locator("option")).toHaveText([
+    "Interested", "Submitted", "Accepted", "Rejected", "Waitlisted", "Other talk chosen",
+  ]);
+  await expect(submissionStatus).toHaveValue("submitted");
   await page.getByRole("button", { name: "New talk", exact: true }).click();
+  await expect(submissionStatus).toHaveValue("submitted");
   await expect(page.getByLabel("Abstract (private)")).toHaveCount(0);
+  await page.getByRole("button", { name: "Topic to be agreed", exact: true }).click();
+  await expect(submissionStatus).toHaveValue("interested");
   await page.getByRole("button", { name: "From my library", exact: true }).click();
-  await page.getByLabel("Submission status").selectOption("confirmed");
+  await expect(submissionStatus).toHaveValue("submitted");
   await page.getByLabel("Private notes (optional)", { exact: true }).fill("Ask about the speaker dinner.");
   await page.getByRole("button", { name: "Add my talk", exact: true }).last().click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByRole("combobox")).toHaveValue("confirmed");
+  const savedStatus = page.getByRole("combobox");
+  await expect(savedStatus).toHaveValue("submitted");
+  await savedStatus.selectOption({ label: "Other talk chosen" });
+  await expect(savedStatus).toHaveValue("other_talk_chosen");
   await page.getByRole("button", { name: "Edit submission details", exact: true }).click();
   await expect(page.getByLabel("Private notes (optional)", { exact: true })).toHaveValue("Ask about the speaker dinner.");
   await page.getByRole("button", { name: "Save submission", exact: true }).click();

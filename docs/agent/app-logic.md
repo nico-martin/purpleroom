@@ -150,14 +150,14 @@ purpleroom helps conference speakers discover opportunities, privately manage pr
 
 ### Submission statuses
 
-The selectable statuses are `interested`, `submitted`, `accepted`, `rejected`, `waitlisted`, `confirmed`, and `declined`. Historical `attended` values remain readable and are shown as a disabled legacy choice, not offered as a new choice. The API retains compatibility with that stored status.
+The selectable statuses are Interested, Submitted, Accepted, Rejected, Waitlisted, and **Other talk chosen** (`other_talk_chosen`). Use Other talk chosen when a different talk of yours gets the slot instead of this one. Migration 018 maps old Confirmed submissions to Accepted and old Declined submissions to Rejected. Historical `attended` values remain readable and are shown as a disabled legacy choice, not offered as a new choice. The API retains compatibility with that stored status.
 
-Statuses are owner-managed, not a mandatory linear workflow. A newly linked proposal defaults to `interested`. Setting `submitted` fills an absent submission date with today's date in the submission's selected timezone (UTC for legacy/API rows with no timezone). New browser-created submissions send the browser timezone. Owners can edit dates/timezones separately; changing status or attaching a talk retains existing dates/timezones and notes.
+Statuses are owner-managed, not a mandatory linear workflow. A new submission with a talk defaults to Submitted, whether the talk is new or from the library. A new opportunity without a talk defaults to Interested. Setting `submitted`, including by default on creation, fills an absent submission date with today's date in the submission's selected timezone (UTC for legacy/API rows with no timezone). New browser-created submissions send the browser timezone. Owners can edit dates/timezones separately; changing status or attaching a talk retains existing dates/timezones and notes.
 
 ### Friends who submitted
 
 - An edition may reveal **which accepted friends have submitted** and their combined count.
-- A member qualifies if they currently have at least one submission whose status is not `interested`. All other supported statuses qualify, including `declined` and legacy `attended`; no submitted date or history is required.
+- A member qualifies if they currently have at least one submission whose status is not `interested`. All other supported statuses qualify, including Other talk chosen and legacy `attended`; no submitted date or history is required.
 - Topic-to-be-agreed submissions qualify on the same basis, without revealing that their topic is unassigned. A member with an unassigned opportunity and several linked proposals still counts once.
 - Each friend counts once, regardless of proposal count. The viewer never counts as their own friend.
 - Status changes between qualifying statuses do not reveal a changed outcome. Moving the last qualifying submission to `interested`, or deleting it, removes that friend from the list/count.
@@ -168,7 +168,7 @@ Statuses are owner-managed, not a mandatory linear workflow. A newly linked prop
 ## 6. Manual attendance
 
 - Members explicitly select **Going**, **Maybe**, or no marker (“Not going” in the control) on an edition page.
-- A member can choose either attendance state without owning or submitting a talk, or after a rejected/declined submission.
+- A member can choose either attendance state without owning or submitting a talk, or regardless of the outcome of their submission.
 - **Submission status has no influence on attendance.** No outcome, status change, proposal deletion, or submission deletion creates, modifies, or removes an attendance marker.
 - The owner and accepted friends can see Going/Maybe markers. Non-friends cannot see a member's itinerary.
 - Edition and dashboard participant lists include the viewer's own plans and eligible friends' plans. Member profiles show plans only to the owner and accepted friends.

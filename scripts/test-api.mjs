@@ -456,7 +456,6 @@ try {
     {
       paper_id: paper.id,
       edition_id: e.id,
-      status: "submitted",
       abstract_override: "SECRET OVERRIDE",
       notes: "SECRET SUBMISSION NOTES",
     },
@@ -469,7 +468,13 @@ try {
     201
   );
   assert.equal(sub.notes, "SECRET SUBMISSION NOTES");
+  assert.equal(sub.status, "submitted");
+  assert.equal(sub.submitted_on, new Date().toISOString().slice(0, 10));
+  assert.equal(sub2.status, "interested");
+  assert.equal(sub2.submitted_on, null);
   assert.equal(sub2.notes, null);
+  for (const status of ["confirmed", "declined"])
+    await bob(`/submissions/${sub.id}`, "PATCH", { status }, 422);
   await bob(
     `/submissions/${sub.id}`,
     "PATCH",
@@ -610,7 +615,7 @@ try {
     await request(
       `/submissions/${sub.id}`,
       "PATCH",
-      { status: "confirmed", notes: "Cannot overwrite another member's notes" },
+      { status: "other_talk_chosen", notes: "Cannot overwrite another member's notes" },
       403
     );
     const detail = await request(`/editions/${e.id}`);
@@ -668,8 +673,7 @@ try {
     "accepted",
     "rejected",
     "waitlisted",
-    "confirmed",
-    "declined",
+    "other_talk_chosen",
     "attended",
   ]) {
     await bob(`/submissions/${sub.id}`, "PATCH", { status });
@@ -693,7 +697,7 @@ try {
   await bob(`/submissions/${sub.id}`, "PATCH", { status: "interested" });
   await bob(`/submissions/${sub2.id}`, "PATCH", { status: "interested" });
   assert.equal((await alice(`/editions/${e.id}`)).submitted_friends.length, 0);
-  await bob(`/submissions/${sub.id}`, "PATCH", { status: "declined" });
+  await bob(`/submissions/${sub.id}`, "PATCH", { status: "other_talk_chosen" });
   await bob(`/editions/${e.id}/attendance`, "DELETE", undefined, 204);
   detail = await alice(`/editions/${e.id}`);
   assert.equal(detail.going.length, 0);
@@ -776,7 +780,7 @@ try {
     { edition_id: agSubmitted.id, status: "accepted" },
     201
   );
-  await alice(`/submissions/${agendaSub.id}`, "PATCH", { status: "confirmed" });
+  await alice(`/submissions/${agendaSub.id}`, "PATCH", { status: "accepted" });
   const agendaResponse = await fetch(origin + "/api/me/agenda", {
     headers: { Cookie: alice.cookie() },
   });
@@ -993,9 +997,11 @@ try {
   const aliceTopic = await alice(
     "/submissions",
     "POST",
-    { edition_id: topicEdition.id, status: "interested" },
+    { edition_id: topicEdition.id, paper_id: null },
     201
   );
+  assert.equal(aliceTopic.status, "interested");
+  assert.equal(aliceTopic.submitted_on, null);
   assert.equal(
     (await alice(`/editions/${topicEdition.id}`)).submitted_friends.length,
     1,

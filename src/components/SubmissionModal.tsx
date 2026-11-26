@@ -5,7 +5,10 @@ import type { FormEvent } from "react";
 import { api } from "../api";
 import useApi from "../hooks/useApi";
 import useMutation from "../hooks/useMutation";
-import { SUBMISSION_STATUS_OPTIONS } from "../lib/constants";
+import {
+  SUBMISSION_STATUS_LABELS,
+  SUBMISSION_STATUS_OPTIONS,
+} from "../lib/constants";
 import { browserTimezone } from "../lib/timezones";
 import {
   Button,
@@ -40,7 +43,9 @@ export default function SubmissionModal({
   const mode = selectedMode ?? (papers?.length ? "existing" : "new");
   const [paperId, setPaperId] = useState("");
   const [title, setTitle] = useState("");
-  const [status, setStatus] = useState<SubmissionStatus>("interested");
+  const [selectedStatus, setStatus] = useState<SubmissionStatus | null>(null);
+  const status =
+    selectedStatus ?? (mode === "unassigned" ? "interested" : "submitted");
   const [notes, setNotes] = useState("");
   const mutation = useMutation();
   function submit(event: FormEvent) {
@@ -147,7 +152,7 @@ export default function SubmissionModal({
               >
                 {SUBMISSION_STATUS_OPTIONS.map((s) => (
                   <option key={s} value={s}>
-                    {s[0].toUpperCase() + s.slice(1)}
+                    {SUBMISSION_STATUS_LABELS[s]}
                   </option>
                 ))}
               </Select>
