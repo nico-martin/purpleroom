@@ -22,10 +22,19 @@ export const SUBMISSION_STATUSES = [
   "accepted",
   "rejected",
   "waitlisted",
-  "confirmed",
-  "declined",
+  "other_talk_chosen",
   "attended",
 ] as const;
+
+export const SUBMISSION_STATUS_LABELS = {
+  interested: "Interested",
+  submitted: "Submitted",
+  accepted: "Accepted",
+  rejected: "Rejected",
+  waitlisted: "Waitlisted",
+  other_talk_chosen: "Other talk chosen",
+  attended: "Attended (legacy)",
+} satisfies Record<(typeof SUBMISSION_STATUSES)[number], string>;
 
 export const PAPER_AUDIENCE_LEVELS = {
   beginner: "Beginner",

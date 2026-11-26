@@ -74,6 +74,7 @@ try {
     insert('papers', ['owner_id' => $uid, 'title' => 'Blank abstract', 'abstract' => " \\n\\t ", 'updated_at' => '2024-01-02T00:00:00Z']);
     insert('papers', ['owner_id' => $uid, 'title' => 'Tricky abstract', 'abstract' => "  Say \\"hi\\" to C:\\\\temp\\\\x\\nSecond line\\r\\n\\tIndented  ", 'updated_at' => '2024-01-03T00:00:00Z']);
     insert('submissions', ['paper_id' => $paper, 'edition_id' => $berlin, 'status' => 'confirmed', 'abstract_override'=>'Keep this override', 'hide_title'=>1, 'submitted_on'=>'2025-01-03', 'created_at'=>'2025-01-03T00:00:00Z', 'updated_at'=>'2025-02-04T00:00:00Z']);
+    insert('submissions', ['paper_id' => $paper, 'edition_id' => $london, 'status' => 'declined']);
     insert('attendance', ['edition_id' => $london, 'user_id' => $uid, 'status' => 'going']);
     insert('reviews', ['conference_id'=>$cid,'user_id'=>$other,'tags'=>'["covers_travel"]','text'=>'Preserve this friends-only review']);
     insert('comments', ['conference_id'=>$cid,'user_id'=>$other,'text'=>'Preserve this retired comment']);
@@ -159,8 +160,11 @@ try {
     migratedSubmissions.map(
       ({ owner_id, notes, submitted_timezone, ...legacy }) => legacy
     ),
-    fixture.submissions,
-    "Submission migration must preserve every field and ID"
+    fixture.submissions.map((row) => ({
+      ...row,
+      status: { confirmed: "accepted", declined: "rejected" }[row.status],
+    })),
+    "Submission migration must map retired statuses and preserve every other field and ID"
   );
   assert.ok(
     migratedSubmissions.every(
@@ -519,6 +523,36 @@ try {
     ),
     1
   );
+  const submissionUpgrade = JSON.parse(
+    php(
+      bootstrap +
+        `
+    $config['database']=dirname($config['database']).'/submission-v17.sqlite';
+    db()->exec(file_get_contents('api/db/schema.sql'));
+    insert('schema_migrations',['version'=>1,'applied_at'=>now()]);
+    foreach(glob('api/db/migrations/*.sql') as $file) {
+      $version=(int)basename($file);if($version>17)continue;
+      db()->exec(file_get_contents($file));insert('schema_migrations',['version'=>$version,'applied_at'=>now()]);
+    }
+    $uid=insert('users',['name'=>'Speaker','email'=>'speaker@example.com','cal_token'=>bin2hex(random_bytes(32))]);
+    $cid=insert('conferences',['name'=>'DevConf','created_by'=>$uid]);
+    $eid=insert('editions',['conference_id'=>$cid,'title'=>'DevConf','year'=>2026,'created_by'=>$uid]);
+    insert('submissions',['id'=>42,'owner_id'=>$uid,'edition_id'=>$eid,'status'=>'declined','notes'=>'Private opportunity notes','submitted_on'=>'2026-01-01','submitted_timezone'=>'Europe/Amsterdam']);
+    $before=one('SELECT * FROM submissions WHERE id=42');
+    require 'api/lib/migrations.php';
+    $applied=run_database_migrations();
+    $after=one('SELECT * FROM submissions WHERE id=42');
+    $rerun=run_database_migrations();
+    echo json_encode(compact('before','after','applied','rerun'));
+  `
+    )
+  );
+  assert.deepEqual(submissionUpgrade.applied, [18]);
+  assert.deepEqual(submissionUpgrade.rerun, []);
+  assert.deepEqual(submissionUpgrade.after, {
+    ...submissionUpgrade.before,
+    status: "rejected",
+  });
   const foreignKeyRollback = JSON.parse(
     php(
       bootstrap +

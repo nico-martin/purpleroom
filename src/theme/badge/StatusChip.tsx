@@ -1,3 +1,4 @@
+import { SUBMISSION_STATUS_LABELS } from "../../lib/constants";
 import type { SubmissionStatus } from "../../types";
 import { Badge } from "../index";
 
@@ -11,8 +12,7 @@ const tones = {
   accepted: "positive",
   rejected: "declined",
   waitlisted: "soon",
-  confirmed: "solid",
-  declined: "declined",
+  other_talk_chosen: "solid",
   attended: "ink",
 } as const;
 export default function StatusChip({
@@ -21,7 +21,7 @@ export default function StatusChip({
 }: StatusChipProps) {
   return (
     <Badge tone={tones[status]} className={className}>
-      {status[0].toUpperCase() + status.slice(1)}
+      {SUBMISSION_STATUS_LABELS[status]}
     </Badge>
   );
 }

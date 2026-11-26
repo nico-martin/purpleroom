@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
 
-import { SUBMISSION_STATUSES } from "../lib/constants";
+import { SUBMISSION_STATUSES, SUBMISSION_STATUS_LABELS } from "../lib/constants";
 import { formatDate } from "../lib/format";
 import { Button, ButtonLink, DistributionChart, SummaryCard } from "../theme";
 import type { Paper, SubmissionStatus } from "../types";
@@ -14,8 +14,7 @@ const colors: Record<SubmissionStatus, string> = {
   accepted: "bg-avatar-purple",
   rejected: "bg-urgent-ink",
   waitlisted: "bg-soon-ink",
-  confirmed: "bg-purple-deep",
-  declined: "bg-declined-ink",
+  other_talk_chosen: "bg-purple-deep",
   attended: "bg-ink",
 };
 
@@ -28,10 +27,7 @@ export default function TalkCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   const items = SUBMISSION_STATUSES.map((status) => ({
-    label:
-      status === "attended"
-        ? "Attended (legacy)"
-        : status[0].toUpperCase() + status.slice(1),
+    label: SUBMISSION_STATUS_LABELS[status],
     value: paper.submissions.filter(
       (submission) => submission.status === status
     ).length,

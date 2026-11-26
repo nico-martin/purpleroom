@@ -11,8 +11,8 @@ test("talk cards show three per desktop row, current status counts, and editable
     "accepted",
     "rejected",
     "waitlisted",
-    "confirmed",
-    "declined",
+    "other_talk_chosen",
+    "rejected",
     "attended",
   ];
   const papers = Array.from({ length: 7 }, (_, index) => ({
@@ -152,7 +152,7 @@ test("talk cards show three per desktop row, current status counts, and editable
   await expect(first.getByText("10", { exact: true })).toBeVisible();
   await expect(
     first.getByRole("img", {
-      name: "Current submission statuses: Interested 1, Submitted 2, Accepted 2, Rejected 1, Waitlisted 1, Confirmed 1, Declined 1, Attended (legacy) 1",
+      name: "Current submission statuses: Interested 1, Submitted 2, Accepted 2, Rejected 2, Waitlisted 1, Other talk chosen 1, Attended (legacy) 1",
       exact: true,
     })
   ).toBeVisible();
@@ -160,8 +160,7 @@ test("talk cards show three per desktop row, current status counts, and editable
     "1",
     "2",
     "2",
-    "1",
-    "1",
+    "2",
     "1",
     "1",
     "1",
@@ -184,10 +183,10 @@ test("talk cards show three per desktop row, current status counts, and editable
   await expect(first.getByText("Archived", { exact: true })).toBeVisible();
   await first
     .getByRole("combobox", { name: "Status for Conference 2", exact: true })
-    .selectOption("confirmed");
+    .selectOption("other_talk_chosen");
   await expect(
     first.getByRole("img", {
-      name: /Current submission statuses: Interested 1, Submitted 1, Accepted 2, Rejected 1, Waitlisted 1, Confirmed 2/,
+      name: /Current submission statuses: Interested 1, Submitted 1, Accepted 2, Rejected 2, Waitlisted 1, Other talk chosen 2/,
     })
   ).toBeVisible();
   await first

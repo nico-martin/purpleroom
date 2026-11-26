@@ -186,8 +186,8 @@ test("talk page edits details and abstract variants, preserves legacy abstracts 
   await expect(add).toBeEnabled();
   expect(paperWrites).toHaveLength(1);
 
-  await status.selectOption("confirmed");
-  await expect(status).toHaveValue("confirmed");
+  await status.selectOption("accepted");
+  await expect(status).toHaveValue("accepted");
   await expect(page.locator('option[value="attended"]')).toHaveCount(0);
   await page
     .getByRole("button", { name: "Edit submission details", exact: true })
